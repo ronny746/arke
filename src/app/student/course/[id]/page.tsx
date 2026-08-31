@@ -229,7 +229,7 @@ export default function CourseDetailPage() {
     if (isIncomplete) {
       toast.error('Please complete your profile details before purchasing courses.');
       setTimeout(() => {
-        router.push(`/${user.role || 'student'}/profile`);
+        router.push(['admin', 'super_admin', 'institute_admin'].includes(user?.role) ? '/admin/profile' : `/${user?.role || 'student'}/profile`);
       }, 1500);
       return;
     }
@@ -413,7 +413,7 @@ export default function CourseDetailPage() {
                   (user.email && user.email.startsWith('student_') && user.email.endsWith('@skd.com')) ||
                   (user.email && user.email.startsWith('parent_') && user.email.endsWith('@skd.com'))
                 ) ? (
-                  <button onClick={() => router.push(`/${user.role || 'student'}/profile`)}
+                  <button onClick={() => router.push(['admin', 'super_admin', 'institute_admin'].includes(user?.role) ? '/admin/profile' : `/${user?.role || 'student'}/profile`)}
                     className="w-full py-4 rounded-xl text-white font-black text-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xl flex items-center justify-center gap-2 group"
                     style={{ background: `linear-gradient(135deg, #ef4444, #b91c1c)` }}>
                     Complete Profile to Enroll

@@ -103,10 +103,12 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const reactionIdRef = useRef(0);
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
   // Theme
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('cr-theme') === 'dark';
-    return false;
-  });
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('cr-theme') === 'dark') {
+      setIsDark(true);
+    }
+  }, []);
   const toggleTheme = () => setIsDark(prev => { const next = !prev; if (typeof window !== 'undefined') localStorage.setItem('cr-theme', next ? 'dark' : 'light'); return next; });
   // Spotlight: teacher/admin watches a specific peer; students watch teacher by default
   const isHost = user.role === 'teacher' || user.role === 'admin' || user.role === 'super_admin';
