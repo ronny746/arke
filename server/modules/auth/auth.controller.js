@@ -245,20 +245,15 @@ exports.verifyEmailOtp = async (req, res, next) => {
 
         // Generate JWT
         const sessionId = Math.random().toString(36).substring(2, 15);
-        user.activeSessionId = sessionId;
         
         if (!user.instituteId) {
             const Institute = require('../institute/institute.model');
             const defaultInst = await Institute.findOne();
-            if (defaultInst) user.instituteId = defaultInst._id;
+            if (defaultInst) {
+                user.instituteId = defaultInst._id;
+                await User.updateOne({ _id: user._id }, { $set: { instituteId: defaultInst._id } });
+            }
         }
-
-        await User.updateOne({ _id: user._id }, { 
-            $set: { 
-                activeSessionId: sessionId, 
-                ...(user.instituteId ? { instituteId: user.instituteId } : {}) 
-            } 
-        });
 
         const token = jwt.sign(
             { 
