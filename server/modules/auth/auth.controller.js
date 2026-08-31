@@ -170,13 +170,6 @@ exports.verifyOtp = async (req, res, next) => {
 
 exports.verifyDevice = async (req, res, next) => {
     try {
-        const { sessionId } = req.body;
-        const user = req.user; // From verifyToken middleware
-
-        if (process.env.ENFORCE_SINGLE_DEVICE === 'true' && user.activeSessionId && user.activeSessionId !== sessionId) {
-            return errorResponse(res, 'Session expired. Logged in from another device.', null, 401);
-        }
-
         return successResponse(res, 'Session valid');
     } catch (err) {
         next(err);

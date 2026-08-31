@@ -206,7 +206,7 @@ export function Topbar({ title, actions, breadcrumbs, user, onProfileClick }) {
             <button
               onClick={() => {
                 if (onProfileClick) onProfileClick();
-                else window.location.href = `/${user.role === 'admin' ? 'arke-admin' : user.role === 'arke-teacher' ? 'arke-teacher' : user.role}/profile`;
+                else window.location.href = ['admin', 'super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'].includes(user?.role) ? '/admin/profile' : `/${user?.role}/profile`;
               }}
               className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-gray-100 transition-all cursor-pointer"
             >
@@ -229,7 +229,7 @@ export function Topbar({ title, actions, breadcrumbs, user, onProfileClick }) {
             <div className="absolute top-full right-0 mt-1 w-48 bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right scale-95 group-hover:scale-100 z-50 overflow-hidden">
               <div className="p-1">
                 <Link 
-                  href={`/${user.role === 'admin' ? 'arke-admin' : user.role === 'arke-teacher' ? 'arke-teacher' : user.role}/profile`}
+                  href={['admin', 'super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'].includes(user?.role) ? '/admin/profile' : `/${user?.role}/profile`}
                   className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors"
                 >
                   <User size={16} className="text-primary-500" /> My Profile
