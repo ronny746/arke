@@ -1,0 +1,16 @@
+diff --git a/node_modules/word-math/dist/cjs/codecs/DOCX/index.js b/node_modules/word-math/dist/cjs/codecs/DOCX/index.js
+index e24f19e..70bc824 100644
+--- a/node_modules/word-math/dist/cjs/codecs/DOCX/index.js
++++ b/node_modules/word-math/dist/cjs/codecs/DOCX/index.js
+@@ -195,7 +195,10 @@ function parse_cfb(file) {
+     var dom = new jsdom_1.JSDOM(buf.toString(), { contentType: "text/xml" });
+     var docx = { p: [], html: '', maths: [] };
+     var rootelt = dom.window.document.children[0];
+-    var bodyelt = rootelt.querySelector("w\\:document > w\\:body");
++    var bodyelt = rootelt.querySelector("w\\:document > w\\:body") || rootelt.querySelector("w\\:body") || dom.window.document.getElementsByTagName("w:body")[0];
++    if (!bodyelt && rootelt.tagName === 'w:document') {
++        bodyelt = dom.window.document.getElementsByTagName("w:body")[0];
++    }
+     var htmlData = [];
+     var mathData = [];
+     bodyelt.childNodes.forEach(function (child) {
