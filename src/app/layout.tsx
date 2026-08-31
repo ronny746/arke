@@ -14,8 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SKD Xpress — #1 Online NEET Preparation Platform | Live Classes, Mock Tests & DPPs",
-  description: "Join 15,000+ NEET aspirants on SKD Xpress. Expert faculty, live HD classes, NTA-pattern mock tests, DPPs, and AI analytics. Crack NEET with India's best online coaching from Lucknow.",
+  title: "ARKE Scholars | Inspiring Excellence in JEE & NEET Preparation",
+  description: "Crack JEE Main, JEE Advanced, NEET UG & Foundation with ARKE Scholars. Live interactive classes from expert educators, AI doubt solving & mock test series.",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
