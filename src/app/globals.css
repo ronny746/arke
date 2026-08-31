@@ -69,7 +69,7 @@
     @apply fixed left-0 top-0 h-full z-40 flex flex-col transition-transform duration-300;
     background: #ffffff;
     border-right: 1px solid #eef0f4;
-    box-shadow: 4px 0 24px rgba(0, 51, 160, 0.04);
+    box-shadow: 4px 0 24px rgba(11, 19, 43, 0.05);
   }
   .sidebar-brand {
     @apply flex items-center gap-2.5 px-4 flex-shrink-0;
@@ -77,13 +77,13 @@
     border-bottom: 1px solid #eef0f4;
   }
   .sidebar-logo-box {
-    @apply w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0;
-    border: 1.5px solid #e8ecf4;
-    box-shadow: 0 2px 8px rgba(0, 51, 160, 0.10);
+    @apply w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 bg-navy p-1;
+    border: 1.5px solid #C99A2E;
+    box-shadow: 0 2px 8px rgba(11, 19, 43, 0.15);
   }
   .sidebar-section-label {
     @apply text-[9px] font-bold uppercase tracking-widest px-3 mb-2 mt-1;
-    color: #a0aab4;
+    color: #94a3b8;
     letter-spacing: 0.12em;
   }
   .sidebar-footer {
@@ -102,12 +102,12 @@
     background: rgba(255,255,255,0.92);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid #eef0f4;
-    box-shadow: 0 2px 12px rgba(0,51,160,0.03);
+    box-shadow: 0 2px 12px rgba(11, 19, 43, 0.04);
   }
   .topbar-avatar {
     @apply w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0;
-    background: linear-gradient(135deg, #0033a0, #7b3fa0);
-    box-shadow: 0 2px 8px rgba(0,51,160,0.25);
+    background: linear-gradient(135deg, #0B132B, #C99A2E);
+    box-shadow: 0 2px 8px rgba(11, 19, 43, 0.25);
   }
 
   /* ─── Cards ─── */
@@ -168,35 +168,35 @@
   /* ─── Nav Items ─── */
   .nav-item {
     @apply relative flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer transition-all duration-150 mb-0.5;
-    color: #64748b;
+    color: #475569;
   }
   .nav-item:hover {
-    background: rgba(0, 51, 160, 0.06);
-    color: #0033a0;
+    background: rgba(201, 154, 46, 0.08);
+    color: #0B132B;
   }
   .nav-item.active {
-    background: linear-gradient(135deg, rgba(0, 51, 160, 0.10), rgba(123, 63, 160, 0.08));
-    color: #0033a0;
-    font-weight: 600;
+    background: linear-gradient(135deg, rgba(11, 19, 43, 0.06), rgba(201, 154, 46, 0.12));
+    color: #0B132B;
+    font-weight: 700;
   }
   .nav-icon {
     @apply w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-150;
-    color: #94a3b8;
+    color: #64748b;
     background: transparent;
   }
   .nav-item:hover .nav-icon {
-    background: rgba(0, 51, 160, 0.10);
-    color: #0033a0;
+    background: rgba(201, 154, 46, 0.15);
+    color: #0B132B;
   }
   .nav-item.active .nav-icon,
   .active-icon {
-    background: linear-gradient(135deg, #0033a0, #7b3fa0) !important;
+    background: linear-gradient(135deg, #0B132B, #C99A2E) !important;
     color: white !important;
-    box-shadow: 0 3px 8px rgba(0, 51, 160, 0.30);
+    box-shadow: 0 3px 8px rgba(11, 19, 43, 0.25);
   }
   .nav-active-bar {
     @apply absolute right-2.5 w-1.5 h-1.5 rounded-full flex-shrink-0;
-    background: #0033a0;
+    background: #C99A2E;
   }
 
   /* ─── Misc ─── */

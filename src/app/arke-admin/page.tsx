@@ -187,10 +187,27 @@ export default function AdminLogin() {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="admin@arke.pro"
+                    placeholder="rkrana6631@gmail.com"
                     className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-100 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium"
                     required
                   />
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-[11px] text-gray-400">Quick fill:</span>
+                  <button
+                    type="button"
+                    onClick={() => setEmail('rkrana6631@gmail.com')}
+                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-md transition-colors font-medium"
+                  >
+                    rkrana6631@gmail.com
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmail('maan.satyacars@gmail.com')}
+                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-md transition-colors font-medium"
+                  >
+                    maan.satyacars@gmail.com
+                  </button>
                 </div>
               </div>
             )}

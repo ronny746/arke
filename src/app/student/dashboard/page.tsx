@@ -141,7 +141,7 @@ export default function StudentDashboard() {
   return (
     <div className="animate-fade-in max-w-7xl mx-auto space-y-8">
       {/* Hero Section */}
-      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-accent-600 to-indigo-700 p-6 md:p-8 text-white shadow-xl shadow-accent-500/20">
+      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-navy via-[#1C2541] to-navy p-6 md:p-8 text-white shadow-xl border border-white/10">
         <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
           <BookOpen size={200} />
         </div>
@@ -149,7 +149,7 @@ export default function StudentDashboard() {
           <h1 className="text-3xl md:text-4xl font-display font-bold mb-3">
             Welcome back{user?.firstName ? `, ${user.firstName}` : ''}! 👋
           </h1>
-          <p className="text-accent-100 text-lg max-w-2xl">
+          <p className="text-amber-200/90 text-lg max-w-2xl">
             Ready to continue your learning journey? Jump right into your enrolled courses and pick up where you left off.
           </p>
         </div>
