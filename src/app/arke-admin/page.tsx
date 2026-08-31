@@ -26,12 +26,23 @@ export default function AdminLogin() {
     if (!email) { toast.error('Please enter your email'); return; }
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/auth/email/request-otp', {
+      let res = await fetch('/api/v1/auth/email/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role: 'admin' }) // Admin portals can be used by any admin role, but backend will check
+        body: JSON.stringify({ email, role: 'super_admin' })
       });
-      const data = await res.json();
+      let data = await res.json();
+
+      if (!res.ok) {
+        // Fallback to role: 'admin'
+        res = await fetch('/api/v1/auth/email/request-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, role: 'admin' })
+        });
+        data = await res.json();
+      }
+
       if (!res.ok) throw new Error(data.message || 'Failed to send OTP');
       
       toast.success('OTP sent to your email!');
@@ -55,12 +66,22 @@ export default function AdminLogin() {
       // I'll send 'super_admin' for now, or maybe the portal supports 'admin' too.
       // Let's change backend to accept array of roles or check permissions. For now, I'll send role: 'super_admin' as fallback. Let's send role: 'super_admin'.
       
-      const res = await fetch('/api/v1/auth/email/verify-otp', {
+      let res = await fetch('/api/v1/auth/email/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp, role: 'super_admin' }) 
       });
-      const data = await res.json();
+      let data = await res.json();
+
+      if (!res.ok) {
+        res = await fetch('/api/v1/auth/email/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, otp, role: 'admin' })
+        });
+        data = await res.json();
+      }
+
       if (!res.ok) throw new Error(data.message || 'Login failed');
       
       const payload = data.data || data;
