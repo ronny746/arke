@@ -33,7 +33,7 @@ export default function FreeTrialPage() {
       {/* Navbar */}
       <header className="bg-white shadow-sm border-b border-gray-200 py-4 px-6 flex items-center justify-between z-10">
         <Link href="/">
-          <Image src="/SKD-logo.png" alt="SKD Xpress" width={140} height={50} className="h-9 w-auto object-contain" />
+          <Image src="/arke_logo.png" alt="ARKE Scholars" width={140} height={50} className="h-9 w-auto object-contain" />
         </Link>
         <Link href="/" className="text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors">
           Back to Home

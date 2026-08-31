@@ -52,14 +52,14 @@ export default function AdminLayout({ children }) {
   return (
     <DashboardLayout sidebar={
       <Sidebar
-        title="SKD Xpress"
+        title="ARKE Scholars"
         subtitle="Admin Portal"
         portalInitial="A"
         navGroups={navGroups}
         user={user}
       />
     }>
-      <Topbar title="SKD Xpress | Admin" user={user} />
+      <Topbar title="ARKE Scholars | Admin" user={user} />
       <DeveloperModeListener />
       <main className="p-4 md:p-6">
         {children}

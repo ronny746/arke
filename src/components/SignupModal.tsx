@@ -154,7 +154,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                     <GraduationCap className="w-7 h-7 text-white" />
                   </div>
                   <h3 className="text-3xl font-black mb-3 leading-tight">Start Your<br/>Journey Today</h3>
-                  <p className="text-white/80 text-sm mb-8 leading-relaxed">Join 5,000+ top NEET aspirants and unlock a world-class learning experience with SKD Xpress.</p>
+                  <p className="text-white/80 text-sm mb-8 leading-relaxed">Join top rankers and unlock a world-class learning experience with ARKE Scholars.</p>
                   
                   <div className="space-y-4">
                     {[

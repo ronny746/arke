@@ -27,11 +27,11 @@ export default function RefundCancellation() {
       <div className="max-w-4xl mx-auto px-4 md:px-8 py-16 text-gray-700 text-lg leading-relaxed">
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mt-8 mb-6">1. Scope & Applicability</h2>
         <p className="mb-6">
-          This Refund & Cancellation Policy applies to all fee payments made by students, parents, or guardians of SKD New Standard Coaching Institute (hereinafter "the Institute") for courses, programs, test series, study materials, or any other services offered through online payment modes including UPI, credit/debit card, net banking, and digital wallets processed via Easebuzz, our RBI-authorised Payment Aggregator partner.
+          This Refund & Cancellation Policy applies to all fee payments made by students, parents, or guardians of ARKE Scholars (hereinafter "the Institute") for courses, programs, test series, study materials, or any other services offered through online payment modes including UPI, credit/debit card, net banking, and digital wallets processed via Easebuzz, our RBI-authorised Payment Aggregator partner.
         </p>
         <div className="bg-blue-50 border-l-4 border-blue-500 p-6 my-8 rounded-r-lg">
           <p className="text-blue-900 m-0">
-            <strong className="font-bold">RBI Compliance Notice:</strong> As mandated under the RBI Master Direction on Regulation of Payment Aggregators, 2025, refund policies must be disclosed upfront to payers before the transaction is initiated. By proceeding with payment on www.skdxpress.com, the payer confirms they have read and accepted this policy in full.
+            <strong className="font-bold">RBI Compliance Notice:</strong> As mandated under the RBI Master Direction on Regulation of Payment Aggregators, 2025, refund policies must be disclosed upfront to payers before the transaction is initiated. By proceeding with payment on https://arke.pro, the payer confirms they have read and accepted this policy in full.
           </p>
         </div>
 
@@ -138,8 +138,8 @@ export default function RefundCancellation() {
             <p className="text-gray-600 mt-2">Contact the Institute's Grievance Officer within 30 days of the transaction date.</p>
             <ul className="mt-4 space-y-2">
               <li><strong className="text-gray-900">Grievance Officer:</strong> Sushant Kumar</li>
-              <li><strong className="text-gray-900">Email:</strong> <a href="mailto:skdnsci01@gmail.com" className="text-primary-600 hover:underline">skdnsci01@gmail.com</a></li>
-              <li><strong className="text-gray-900">Phone:</strong> 7080111582</li>
+              <li><strong className="text-gray-900">Email:</strong> <a href="mailto:contact@arke.pro" className="text-primary-600 hover:underline">contact@arke.pro</a></li>
+              <li><strong className="text-gray-900">Phone:</strong> +91 8764 809 537</li>
               <li><strong className="text-gray-900">Hours:</strong> Monday to Saturday, 9:00 AM to 6:00 PM IST</li>
             </ul>
           </div>
@@ -170,7 +170,7 @@ export default function RefundCancellation() {
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mt-12 mb-6">Declaration & Acceptance</h2>
         <div className="bg-gray-100 p-8 rounded-xl border border-gray-200 text-gray-800">
           <p className="mb-0 leading-relaxed">
-            By completing payment on www.skdxpress.com, the student and/or guardian acknowledges having read, understood, and accepted this Refund Policy in its entirety. This policy is subject to revision; the latest version is always available on our official website. All disputes are subject to the jurisdiction of courts in Lucknow, Uttar Pradesh, India.
+            By completing payment on https://arke.pro, the student and/or guardian acknowledges having read, understood, and accepted this Refund Policy in its entirety. This policy is subject to revision; the latest version is always available on our official website. All disputes are subject to the jurisdiction of courts in India & UAE.
           </p>
         </div>
       </div>

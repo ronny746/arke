@@ -39,14 +39,14 @@ export default function TeacherLayout({ children }) {
   return (
     <DashboardLayout sidebar={
       <Sidebar
-        title="SKD Xpress"
+        title="ARKE Scholars"
         subtitle="Teacher Portal"
         portalInitial="T"
         navGroups={navGroups}
         user={user}
       />
     }>
-      <Topbar title="SKD Xpress | Teacher" user={user} />
+      <Topbar title="ARKE Scholars | Teacher" user={user} />
       <main className="p-4 md:p-6">
         {children}
       </main>

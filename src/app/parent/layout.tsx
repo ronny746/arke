@@ -32,14 +32,14 @@ export default function ParentLayout({ children }) {
   return (
     <DashboardLayout sidebar={
       <Sidebar
-        title="SKD Xpress"
+        title="ARKE Scholars"
         subtitle="Parent Portal"
         portalInitial="P"
         navGroups={navGroups}
         user={user}
       />
     }>
-      <Topbar title="SKD Xpress | Parent" user={user} />
+      <Topbar title="ARKE Scholars | Parent" user={user} />
       <main className="p-4 md:p-6">
         {children}
       </main>

@@ -108,7 +108,7 @@ function PaymentStatusContent() {
       <header className="bg-white border-b border-gray-200 py-4 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link href="/">
-            <Image src="/SKD-logo.png" alt="SKD Institute" width={130} height={45} className="h-9 w-auto object-contain" priority />
+            <Image src="/arke_logo.png" alt="ARKE Scholars" width={130} height={45} className="h-9 w-auto object-contain" priority />
           </Link>
           <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
             <ShieldCheck size={16} className="text-emerald-600" />
@@ -260,7 +260,7 @@ function PaymentStatusContent() {
 
       {/* Footer */}
       <footer className="py-4 text-center text-xs text-gray-400">
-        SKD New Standard Coaching Institute • Secured by Easebuzz Payment Gateway
+        ARKE Scholars • Secured by Easebuzz Payment Gateway
       </footer>
     </div>
   );

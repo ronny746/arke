@@ -61,7 +61,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-black text-gray-800 mt-0.5">
             {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Admin Dashboard'}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Here's what's happening at SKD Institute today.</p>
+          <p className="text-sm text-gray-500 mt-1">Here's what's happening at ARKE Scholars today.</p>
         </div>
         <div className="flex items-center gap-3">
         </div>

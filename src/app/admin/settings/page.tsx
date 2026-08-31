@@ -62,7 +62,7 @@ export default function AdminSettingsPage() {
           latestVersion: appUp.latestVersion || '1.0.0',
           minRequiredVersion: appUp.minRequiredVersion || '1.0.0',
           isMandatory: appUp.isMandatory ?? false,
-          updateUrl: appUp.updateUrl || 'https://skdinstitute.com/download',
+          updateUrl: appUp.updateUrl || 'https://arke.pro/download',
           updateNotes: appUp.updateNotes || 'New version available with enhanced performance and features!'
         });
       }
@@ -623,7 +623,7 @@ export default function AdminSettingsPage() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">App Download / Update URL</label>
             <input 
               type="text"
-              placeholder="e.g. https://skdinstitute.com/download or Play Store link"
+              placeholder="e.g. https://arke.pro/download or Play Store link"
               value={settings.updateUrl}
               onChange={(e) => setSettings({ ...settings, updateUrl: e.target.value })}
               className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"

@@ -429,7 +429,7 @@ export default function CourseDetailPage() {
                 )}
                 
                 <p className="text-xs text-center text-gray-400 font-medium mt-5 flex items-center justify-center gap-1.5">
-                  <Shield size={14} /> Secure checkout powered by SKD Pay
+                  <Shield size={14} /> Secure checkout powered by ARKE Pay
                 </p>
 
               </div>

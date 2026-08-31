@@ -23,7 +23,7 @@ export default function TermsAndConditions() {
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 md:px-8 py-16 text-gray-700 text-lg leading-relaxed">
         <p className="mb-8">
-          Welcome to <strong className="text-gray-900">SKD New Standard Coaching Institute</strong> ("Institute," "we," "us," or "our"). By accessing our website, enrolling in our courses, or utilizing our educational services, you agree to comply with and be bound by the following Terms and Conditions. Please read them carefully.
+          Welcome to <strong className="text-gray-900">ARKE Scholars</strong> ("Institute," "we," "us," or "our"). By accessing our website, enrolling in our courses, or utilizing our educational services, you agree to comply with and be bound by the following Terms and Conditions. Please read them carefully.
         </p>
         
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mt-12 mb-6">1.1 Eligibility & Enrollment</h2>
@@ -35,7 +35,7 @@ export default function TermsAndConditions() {
 
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mt-12 mb-6">1.2 Intellectual Property Rights</h2>
         <ul className="list-disc pl-8 mb-8 space-y-3">
-          <li><strong className="text-gray-900">Proprietary Materials:</strong> All study materials, videos, lectures, quizzes, notes, graphics, and software provided by the Institute are the exclusive intellectual property of SKD New Standard Coaching Institute.</li>
+          <li><strong className="text-gray-900">Proprietary Materials:</strong> All study materials, videos, lectures, quizzes, notes, graphics, and software provided by the Institute are the exclusive intellectual property of ARKE Scholars.</li>
           <li><strong className="text-gray-900">Limited License:</strong> Enrolled students are granted a single, non-transferable, revocable license to access materials for personal, educational use only.</li>
           <li><strong className="text-gray-900">Prohibited Actions:</strong> You may not record, download (unless explicitly permitted), modify, replicate, distribute, or commercially exploit any course content. Sharing account access with non-enrolled individuals will result in immediate termination of access without a refund.</li>
         </ul>

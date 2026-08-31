@@ -233,7 +233,7 @@ export default function CourseDetailPage() {
       <nav className="sticky top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md shadow-sm border-b border-gray-200 py-3 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           <Link href="/" className="flex items-center">
-            <Image src="/SKD-logo.png" alt="SKD Xpress" width={140} height={50} className="h-10 w-auto object-contain" priority />
+            <Image src="/arke_logo.png" alt="ARKE Scholars" width={140} height={50} className="h-10 w-auto object-contain" priority />
           </Link>
           <div className="flex items-center gap-4">
             <button onClick={() => router.push('/')} className="text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors hidden sm:block">
@@ -438,7 +438,7 @@ export default function CourseDetailPage() {
                 )}
                 
                 <p className="text-xs text-center text-gray-400 font-medium mt-5 flex items-center justify-center gap-1.5">
-                  <Shield size={14} /> Secure checkout powered by SKD Pay
+                  <Shield size={14} /> Secure checkout powered by ARKE Pay
                 </p>
 
               </div>

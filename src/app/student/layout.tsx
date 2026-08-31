@@ -149,14 +149,14 @@ export default function StudentLayout({ children }) {
   return (
     <DashboardLayout sidebar={
       <Sidebar
-        title="SKD Xpress"
+        title="ARKE Scholars"
         subtitle="Student Portal"
         portalInitial="S"
         navGroups={navGroups}
         user={user}
       />
     }>
-      <Topbar title="SKD Xpress | Student" user={user} />
+      <Topbar title="ARKE Scholars | Student" user={user} />
       <main className="p-4 md:p-6 h-full">
         {isRestricted ? (
           <div className="flex flex-col items-center justify-center h-[70vh] text-center max-w-lg mx-auto animate-fade-in">

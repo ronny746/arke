@@ -60,7 +60,7 @@ export default function PrivacyPolicy() {
 
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mt-12 mb-6">3.5 Your Rights</h2>
         <p className="mb-8">
-          Depending on your location, you have the right to access the personal data we hold about you, request corrections to inaccurate information, or request the deletion of your account and data, subject to legal or administrative bookkeeping overrides. For data requests, contact <a href="mailto:skdnsci02@gmail.com" className="text-primary-600 font-semibold hover:underline">skdnsci02@gmail.com</a>.
+          Depending on your location, you have the right to access the personal data we hold about you, request corrections to inaccurate information, or request the deletion of your account and data, subject to legal or administrative bookkeeping overrides. For data requests, contact <a href="mailto:contact@arke.pro" className="text-primary-600 font-semibold hover:underline">contact@arke.pro</a>.
         </p>
       </div>
     </div>

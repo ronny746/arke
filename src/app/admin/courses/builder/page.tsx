@@ -268,7 +268,7 @@ function CourseBuilderContent() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2">Course Name *</label>
-                  <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g., SKD Prime"
+                  <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g., ARKE Prime"
                     className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-sm font-semibold" />
                 </div>
                 <div>

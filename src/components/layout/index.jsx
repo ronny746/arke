@@ -54,8 +54,8 @@ export function Sidebar({ title, subtitle, navGroups, user, portalInitial = 'S' 
         <div className="sidebar-brand">
           <div className="sidebar-logo-box">
             <Image
-              src="/SKD-logo.png"
-              alt="SKD Logo"
+              src="/arke_logo_light.png"
+              alt="ARKE Logo"
               width={36}
               height={36}
               className="object-contain w-full h-full"
@@ -74,7 +74,7 @@ export function Sidebar({ title, subtitle, navGroups, user, portalInitial = 'S' 
           </div>
           <div className="overflow-hidden min-w-0">
             <p className="font-bold text-sm leading-tight truncate tracking-tight" style={{ color: '#0033a0' }}>
-              {title || 'SKD Xpress'}
+              {title || 'ARKE Scholars'}
             </p>
             {subtitle && <p className="text-[10px] text-slate-400 font-medium truncate">{subtitle}</p>}
           </div>
@@ -206,7 +206,7 @@ export function Topbar({ title, actions, breadcrumbs, user, onProfileClick }) {
             <button
               onClick={() => {
                 if (onProfileClick) onProfileClick();
-                else window.location.href = `/${user.role === 'admin' ? 'skd-admin' : user.role === 'skd-teacher' ? 'skd-teacher' : user.role}/profile`;
+                else window.location.href = `/${user.role === 'admin' ? 'arke-admin' : user.role === 'arke-teacher' ? 'arke-teacher' : user.role}/profile`;
               }}
               className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-gray-100 transition-all cursor-pointer"
             >
@@ -229,7 +229,7 @@ export function Topbar({ title, actions, breadcrumbs, user, onProfileClick }) {
             <div className="absolute top-full right-0 mt-1 w-48 bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right scale-95 group-hover:scale-100 z-50 overflow-hidden">
               <div className="p-1">
                 <Link 
-                  href={`/${user.role === 'admin' ? 'skd-admin' : user.role === 'skd-teacher' ? 'skd-teacher' : user.role}/profile`}
+                  href={`/${user.role === 'admin' ? 'arke-admin' : user.role === 'arke-teacher' ? 'arke-teacher' : user.role}/profile`}
                   className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors"
                 >
                   <User size={16} className="text-primary-500" /> My Profile
