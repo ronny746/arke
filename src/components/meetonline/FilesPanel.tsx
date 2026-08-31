@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
-import { FileUp, Download, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { Download, FileText, CheckCircle, AlertCircle, Paperclip, File, Image, Film } from 'lucide-react';
 
 interface SharedFile {
   _id: string;
@@ -16,151 +16,164 @@ interface FilesPanelProps {
   token: string;
 }
 
+const getFileIcon = (filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  if (['jpg','jpeg','png','gif','webp','svg'].includes(ext || '')) return <Image className="w-4 h-4" />;
+  if (['mp4','mov','avi','mkv'].includes(ext || '')) return <Film className="w-4 h-4" />;
+  return <FileText className="w-4 h-4" />;
+};
+
+const getFileColor = (filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  if (['jpg','jpeg','png','gif','webp','svg'].includes(ext || '')) return 'from-pink-500 to-rose-600';
+  if (['mp4','mov','avi','mkv'].includes(ext || '')) return 'from-blue-500 to-indigo-600';
+  if (['pdf'].includes(ext || '')) return 'from-red-500 to-red-700';
+  if (['doc','docx'].includes(ext || '')) return 'from-sky-500 to-blue-600';
+  if (['xls','xlsx'].includes(ext || '')) return 'from-green-500 to-emerald-600';
+  if (['ppt','pptx'].includes(ext || '')) return 'from-orange-500 to-amber-600';
+  return 'from-violet-500 to-purple-600';
+};
+
 export default function FilesPanel({ roomCode, socket, token }: FilesPanelProps) {
   const [files, setFiles] = useState<SharedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    // 1. Fetch file history
     const fetchFiles = async () => {
       try {
         const res = await fetch(`/api/rooms/${roomCode}/files`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
-        if (res.ok) {
-          setFiles(data);
-        }
+        if (res.ok) setFiles(data);
       } catch (err) {
         console.error('Error fetching file list:', err);
       }
     };
-
     fetchFiles();
 
-    // 2. Socket listener for real-time files shared
     const handleFileShared = (newFile: SharedFile) => {
       setFiles(prev => [...prev, newFile]);
     };
-
     socket.on('file-shared', handleFileShared);
-
-    return () => {
-      socket.off('file-shared', handleFileShared);
-    };
+    return () => { socket.off('file-shared', handleFileShared); };
   }, [roomCode, socket, token]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
-
+  const uploadFile = async (file: File) => {
     setUploading(true);
     setUploadStatus(null);
-
     const formData = new FormData();
-    formData.append('file', selectedFile);
+    formData.append('file', file);
     formData.append('roomCode', roomCode);
-
     try {
       const res = await fetch('/api/files/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Upload failed');
-      }
-
-      setUploadStatus({ type: 'success', message: `Successfully shared ${selectedFile.name}` });
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      setUploadStatus({ type: 'success', message: `✓ ${file.name} shared!` });
       if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => setUploadStatus(null), 3000);
     } catch (err: any) {
-      setUploadStatus({ type: 'error', message: err.message || 'Error uploading file' });
+      setUploadStatus({ type: 'error', message: err.message || 'Upload failed' });
     } finally {
       setUploading(false);
     }
   };
 
-  const triggerUpload = () => {
-    fileInputRef.current?.click();
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) uploadFile(file);
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white/40 backdrop-blur-md">
-      <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-        <h3 className="font-bold text-slate-800 text-sm tracking-wide uppercase">Classroom Files</h3>
-      </div>
-
-      {/* Upload trigger */}
-      <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-        />
-        <button
-          onClick={triggerUpload}
-          disabled={uploading}
-          className="w-full flex items-center justify-center space-x-2 py-3 bg-brand-600 hover:bg-brand-500 text-white rounded-xl font-semibold text-sm transition shadow-md shadow-brand-500/10 disabled:opacity-50"
+    <div className="flex flex-col h-full text-inherit" style={{ background: 'transparent' }}>
+      {/* Drop Zone / Upload */}
+      <div className="p-3 border-b" style={{ borderColor: 'var(--cr-border)' }}>
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+        <div
+          onClick={() => !uploading && fileInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all duration-200 ${
+            dragOver
+              ? 'border-violet-500 bg-violet-500/10'
+              : 'hover:border-violet-400/50'
+          } ${uploading ? 'opacity-50 cursor-wait' : ''}`}
+          style={{
+            borderColor: dragOver ? undefined : 'var(--cr-border)',
+            background: 'var(--cr-subtle)'
+          }}
         >
-          <FileUp className="w-4 h-4" />
-          <span>{uploading ? 'Uploading...' : 'Upload File'}</span>
-        </button>
+          {uploading ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs" style={{ color: 'var(--cr-muted)' }}>Uploading file...</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-10 h-10 rounded-2xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
+                <Paperclip className="w-5 h-5 text-violet-500" />
+              </div>
+              <p className="text-xs" style={{ color: 'var(--cr-muted)' }}>
+                <span className="text-violet-600 dark:text-violet-400 font-bold">Click to upload</span> or drag & drop
+              </p>
+            </div>
+          )}
+        </div>
 
         {uploadStatus && (
-          <div className={`mt-3 p-3 rounded-xl flex items-start space-x-2 text-xs border ${
+          <div className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-xl text-xs border ${
             uploadStatus.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-700'
-              : 'bg-red-50 border-red-200 text-red-700'
+              ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400'
+              : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
           }`}>
-            {uploadStatus.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            )}
-            <span className="break-words">{uploadStatus.message}</span>
+            {uploadStatus.type === 'success'
+              ? <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              : <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+            <span className="break-words font-medium">{uploadStatus.message}</span>
           </div>
         )}
       </div>
 
       {/* Files List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
         {files.length === 0 ? (
-          <div className="text-center text-slate-400 py-8 text-xs italic">
-            No files shared yet in this class.
+          <div className="flex flex-col items-center justify-center h-full gap-2 py-8 text-center" style={{ color: 'var(--cr-muted)' }}>
+            <File className="w-8 h-8 opacity-40" />
+            <p className="text-xs">No files shared yet in this class</p>
           </div>
         ) : (
           files.map((file) => (
-            <div key={file._id} className="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200/60 shadow-sm hover:border-brand-200 transition">
-              <div className="flex items-center space-x-3 min-w-0 pr-2">
-                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-xs text-slate-800 truncate" title={file.filename}>
-                    {file.filename}
-                  </h4>
-                  <p className="text-[10px] text-slate-400">
-                    By {file.senderName} • {new Date(file.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
+            <div key={file._id}
+              className="flex items-center gap-3 p-3 rounded-2xl border transition-all group shadow-sm hover:border-violet-500/40"
+              style={{ background: 'var(--cr-subtle)', borderColor: 'var(--cr-border)' }}>
+              <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getFileColor(file.filename)} flex items-center justify-center text-white flex-shrink-0 shadow-sm`}>
+                {getFileIcon(file.filename)}
               </div>
-
-              <a
-                href={file.downloadUrl}
-                download
-                className="p-2 rounded-lg bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-slate-500 transition shrink-0"
-                title="Download File"
-              >
-                <Download className="w-4 h-4" />
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xs font-bold truncate">{file.filename}</h4>
+                <p className="text-[10px] mt-0.5" style={{ color: 'var(--cr-muted)' }}>
+                  {file.senderName} · {new Date(file.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <a href={file.downloadUrl} download
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-violet-600/10 hover:bg-violet-600 hover:text-white text-violet-600 dark:text-violet-300 transition flex-shrink-0"
+                title="Download">
+                <Download className="w-3.5 h-3.5" />
               </a>
             </div>
           ))

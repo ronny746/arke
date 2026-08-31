@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
-import { ArrowLeft, CheckCircle, XCircle, AlertCircle, Award } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, AlertCircle, Award, PlayCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card } from '@/components/ui/index.jsx';
 import { Button } from '@/components/ui/Button.jsx';
@@ -16,6 +16,57 @@ export default function ExamAnalysis() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [activeSubject, setActiveSubject] = useState('');
+  const [generatingDPP, setGeneratingDPP] = useState(false);
+  const [remedialDpps, setRemedialDpps] = useState([]);
+  const [expandedSubject, setExpandedSubject] = useState(null);
+
+  const handleGenerateDPP = async (parentSessionId = null, customWeakTopics = null) => {
+    try {
+      setGeneratingDPP(true);
+      
+      let weakTopics = [];
+      if (customWeakTopics && customWeakTopics.length > 0) {
+        weakTopics = customWeakTopics;
+      } else if (data?.nestedStats) {
+        Object.keys(data.nestedStats).forEach(subject => {
+          Object.keys(data.nestedStats[subject]).forEach(topic => {
+            const topicAcc = data.topicStats[topic]?.accuracy || 0;
+            const isWeak = topicAcc < 50 || data.topicStats[topic]?.status === 'Weak';
+            if (isWeak) {
+              weakTopics.push({ subject, topic });
+            }
+          });
+        });
+      }
+
+      if (weakTopics.length === 0) {
+        toast.error("No weak topics found to generate DPP. Great job!");
+        setGeneratingDPP(false);
+        return;
+      }
+
+      // Ensure parentSessionId is only a string/ObjectId, not an event object
+      const safeParentSessionId = typeof parentSessionId === 'string' ? parentSessionId : null;
+
+      const targetQuestions = weakTopics.length === 1 ? 5 : Math.max(30, weakTopics.length * 2);
+
+      const res = await studentAPI.generatePracticeSession({
+        sessionType: 'DPP',
+        subjectTopicPairs: weakTopics,
+        numberOfQuestions: targetQuestions,
+        linkedExamId: id,
+        parentSessionId: safeParentSessionId
+      });
+      
+      if (res.data?.success) {
+        toast.success("DPP Generated Successfully!");
+        router.push(`/student/practice/${res.data.data._id}/play`);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to generate DPP");
+      setGeneratingDPP(false);
+    }
+  };
 
   useEffect(() => {
     fetchAnalysis();
@@ -24,10 +75,19 @@ export default function ExamAnalysis() {
   const fetchAnalysis = async () => {
     try {
       setLoading(true);
-      const res = await studentAPI.getExamAnalysis(id);
-      setData(res.data.data);
-      if (Object.keys(res.data.data.subjectStats).length > 0) {
-        setActiveSubject(Object.keys(res.data.data.subjectStats)[0]);
+      const [analysisRes, dppsRes] = await Promise.all([
+        studentAPI.getExamAnalysis(id),
+        studentAPI.getRemedialDpps(id).catch(() => ({ data: { data: [] } }))
+      ]);
+      
+      setData(analysisRes.data.data);
+      setRemedialDpps(dppsRes.data.data || []);
+      
+      if (Object.keys(analysisRes.data.data.subjectStats).length > 0) {
+        setActiveSubject(Object.keys(analysisRes.data.data.subjectStats)[0]);
+      }
+      if (analysisRes.data.data.nestedStats && Object.keys(analysisRes.data.data.nestedStats).length > 0) {
+        setExpandedSubject(Object.keys(analysisRes.data.data.nestedStats)[0]);
       }
     } catch (error) {
       toast.error('Failed to load exam analysis');
@@ -43,7 +103,7 @@ export default function ExamAnalysis() {
 
   if (!data) return null;
 
-  const { submission, subjectStats, detailedQuestions, totalMarks, score } = data;
+  const { submission, subjectStats, detailedQuestions, totalMarks, score, nestedStats } = data;
   const subjects = Object.keys(subjectStats);
 
   return (
@@ -57,100 +117,252 @@ export default function ExamAnalysis() {
         subtitle="Detailed breakdown of your performance"
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 bg-gradient-to-br from-primary-600 to-primary-800 text-white col-span-1 md:col-span-3 lg:col-span-1 flex flex-col justify-center items-center text-center">
-          <Award className="w-16 h-16 opacity-80 mb-2" />
-          <h2 className="text-xl font-medium opacity-90">Total Score</h2>
-          <div className="text-5xl font-bold mt-2">{score} <span className="text-2xl opacity-75">/ {totalMarks}</span></div>
-          <p className="mt-4 opacity-80 text-sm">
-            Status: {submission.status.replace('_', ' ')}
-          </p>
+      <div className="space-y-6">
+        <Card className="p-6 md:p-8 bg-gradient-to-r from-primary-600 to-primary-800 text-white flex flex-col md:flex-row items-center justify-between shadow-lg">
+          <div className="flex items-center gap-6">
+            <div className="p-4 bg-white/10 rounded-full shadow-inner">
+              <Award className="w-12 h-12 opacity-100 text-white" />
+            </div>
+            <div className="text-left">
+              <h2 className="text-2xl font-bold text-white mb-1">Total Score</h2>
+              <p className="opacity-90 text-sm bg-white/20 px-3 py-1 rounded-full inline-block">
+                Status: <span className="font-semibold">{submission.status.replace('_', ' ')}</span>
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 md:mt-0 flex items-baseline gap-2 bg-black/20 px-8 py-4 rounded-2xl shadow-inner backdrop-blur-sm">
+            <span className="text-6xl font-bold">{score}</span>
+            <span className="text-2xl font-medium opacity-75">/ {totalMarks}</span>
+          </div>
         </Card>
 
-        <Card className="p-6 col-span-1 md:col-span-3 lg:col-span-2">
-          <h3 className="text-lg font-bold mb-4">Subject-wise Breakdown</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {subjects.map(sub => (
-              <div key={sub} className="p-4 border rounded-xl bg-gray-50">
-                <div className="font-bold text-gray-900">{sub}</div>
-                <div className="text-sm text-gray-500 mt-1">Score: <span className="font-semibold text-primary-600">{subjectStats[sub].score}</span> / {subjectStats[sub].totalMarks}</div>
-                <div className="flex items-center gap-3 mt-3 text-xs">
-                  <span className="text-success-600 flex items-center gap-1"><CheckCircle className="w-3 h-3"/> {subjectStats[sub].correct}</span>
-                  <span className="text-error-600 flex items-center gap-1"><XCircle className="w-3 h-3"/> {subjectStats[sub].wrong}</span>
-                  <span className="text-gray-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {subjectStats[sub].totalQuestions - subjectStats[sub].attempted}</span>
+        <Card className="p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 border-b pb-4 gap-4">
+            <div>
+              <h3 className="text-xl font-bold text-gray-800">Comprehensive Performance Breakdown</h3>
+              <p className="text-sm text-gray-500 mt-1">Detailed analysis by Subject, Topic, and Difficulty Level. Note: 'Weak' means accuracy &lt; 50%.</p>
+            </div>
+            {remedialDpps.length === 0 && (
+              <Button 
+                size="sm" 
+                onClick={() => handleGenerateDPP()} 
+                disabled={generatingDPP}
+                className="bg-primary-600 hover:bg-primary-700 text-white shadow-md whitespace-nowrap"
+              >
+                {generatingDPP ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <PlayCircle className="w-4 h-4 mr-2" />}
+                Generate DPP for Weak Topics
+              </Button>
+            )}
+          </div>
+          
+          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 pb-4">
+            {nestedStats && Object.keys(nestedStats).length > 0 ? (
+              Object.keys(nestedStats).map(subject => {
+                const isExpanded = expandedSubject === subject;
+                return (
+                <div key={subject} className={`bg-white rounded-xl border transition-all duration-300 shadow-sm ${isExpanded ? 'border-primary-200 ring-1 ring-primary-100' : 'border-gray-200 hover:border-primary-300'}`}>
+                  <div 
+                    className={`flex justify-between items-center p-5 cursor-pointer transition-colors ${isExpanded ? 'bg-primary-50/50 rounded-t-xl' : 'rounded-xl'}`}
+                    onClick={() => setExpandedSubject(isExpanded ? null : subject)}
+                  >
+                    <h4 className="text-xl font-bold text-gray-800 flex items-center gap-3">
+                      <div className={`w-1.5 h-6 rounded-full transition-colors ${isExpanded ? 'bg-primary-600' : 'bg-gray-300'}`}></div>
+                      {subject}
+                    </h4>
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm font-semibold text-gray-600 bg-white border border-gray-200 px-4 py-1.5 rounded-full shadow-sm">
+                        Overall Score: <span className={subjectStats[subject]?.score < 0 ? 'text-rose-600' : 'text-primary-600'}>{subjectStats[subject]?.score}</span> / {subjectStats[subject]?.totalMarks}
+                      </div>
+                      <div className="text-gray-400 bg-gray-50 p-1.5 rounded-full hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </div>
+                    </div>
+                  </div>
+                  {isExpanded && (
+                    <div className="p-5 border-t border-gray-100 bg-white rounded-b-xl space-y-4">
+                    {Object.keys(nestedStats[subject]).map(topic => {
+                      const topicAcc = data.topicStats[topic]?.accuracy || 0;
+                      const isWeak = topicAcc < 50 || data.topicStats[topic]?.status === 'Weak';
+                      
+                      return (
+                        <div key={topic} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
+                            <h5 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                              {topic}
+                              {isWeak && <span className="text-[10px] uppercase font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded border border-rose-200">Weak</span>}
+                            </h5>
+                            <span className="text-sm font-bold text-gray-600">Accuracy: <span className={isWeak ? 'text-rose-600' : 'text-success-600'}>{topicAcc}%</span></span>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {['Easy', 'Medium', 'Hard'].map(diff => {
+                              const stats = nestedStats[subject][topic][diff] || {
+                                accuracy: 0,
+                                totalQuestions: 0
+                              };
+                              
+                              // Calculate exact stats from detailedQuestions
+                              const qs = detailedQuestions.filter(q => {
+                                const qSubj = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
+                                const qTopic = (q.topic && typeof q.topic === 'object') ? q.topic.name : (q.topic || 'General');
+                                const qDiff = q.difficulty || 'Medium';
+                                return qSubj === subject && qTopic === topic && qDiff === diff;
+                              });
+
+                              let correct = 0;
+                              let wrong = 0;
+                              let skipped = 0; // visited but not answered
+                              let unvisited = 0; // not visited
+
+                              qs.forEach(q => {
+                                const ans = q.userAnswer;
+                                if (!ans) {
+                                  unvisited++;
+                                } else if (ans.status === 'NOT_ANSWERED') {
+                                  skipped++;
+                                } else {
+                                  if (q.isCorrect) correct++;
+                                  else wrong++;
+                                }
+                              });
+                              
+                              const totalQs = qs.length;
+                              const colorClass = diff === 'Easy' ? 'bg-success-500 text-success-600' : diff === 'Medium' ? 'bg-amber-500 text-amber-600' : 'bg-rose-500 text-rose-600';
+                              
+                              return (
+                                <div key={diff} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col justify-between">
+                                  <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                                    <span className={`font-bold ${colorClass.split(' ')[1]}`}>{diff} Level</span>
+                                    <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{totalQs} Questions</span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-2 text-xs font-medium mb-3">
+                                    <div className="flex justify-between p-2 rounded bg-success-50 text-success-700">
+                                      <span>Correct:</span> <span>{correct}</span>
+                                    </div>
+                                    <div className="flex justify-between p-2 rounded bg-rose-50 text-rose-700">
+                                      <span>Wrong:</span> <span>{wrong}</span>
+                                    </div>
+                                    <div className="flex justify-between p-2 rounded bg-amber-50 text-amber-700">
+                                      <span title="Visited but not answered">Skipped:</span> <span>{skipped}</span>
+                                    </div>
+                                    <div className="flex justify-between p-2 rounded bg-gray-100 text-gray-600">
+                                      <span title="Not visited">Unvisited:</span> <span>{unvisited}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })
+            ) : (
+              <p className="text-gray-500">No detailed analysis available</p>
+            )}
           </div>
         </Card>
       </div>
 
-      {/* Difficulty & Topic Analysis Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        {/* Difficulty Analysis Card */}
-        <Card className="p-6">
-          <h3 className="text-lg font-bold mb-4">Difficulty-wise Performance</h3>
+      {remedialDpps.length > 0 && (
+        <Card className="p-6 mt-6 border-primary-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div className="flex items-center gap-3 mb-6">
+            <PlayCircle className="w-6 h-6 text-primary-600" />
+            <h3 className="text-xl font-bold text-gray-800">Adaptive Remedial Track</h3>
+          </div>
           <div className="space-y-4">
-            {['Easy', 'Medium', 'Hard'].map((diff) => {
-              const stats = data.difficultyStats?.[diff] || { totalQuestions: 0, correct: 0, wrong: 0, attempted: 0, accuracy: 0 };
-              const colorClass = diff === 'Easy' ? 'bg-success-500' : diff === 'Medium' ? 'bg-amber-500' : 'bg-rose-500';
-              const textClass = diff === 'Easy' ? 'text-success-600' : diff === 'Medium' ? 'text-amber-600' : 'text-rose-600';
-              const bgLight = diff === 'Easy' ? 'bg-success-50' : diff === 'Medium' ? 'bg-amber-50' : 'bg-rose-50';
+            {remedialDpps.map((dpp, index) => {
+              // Calculate weak topics for this specific DPP if completed
+              let dppWeakTopics = [];
+              if (dpp.status === 'COMPLETED') {
+                const topicStats = {};
+                // Look at all questions in the DPP. If not answered correctly, it counts as wrong.
+                dpp.questions?.forEach(q => {
+                  const ans = dpp.answers?.find(a => a.questionId === q.questionId || a.questionId === (q.question && q.question._id) || a.questionId === q._id);
+                  const isCorrect = ans ? ans.isCorrect : false;
+                  
+                  const qObj = q.question || q;
+                  const subject = qObj.subject?.name || qObj.subjectName || (typeof qObj.subject === 'string' ? qObj.subject : 'Unknown');
+                  const topic = qObj.topic?.name || qObj.topicName || (typeof qObj.topic === 'string' ? qObj.topic : 'Unknown');
+                  
+                  if (subject === 'Unknown' || topic === 'Unknown') return; // Skip if we can't identify
+
+                  const key = `${subject}||${topic}`;
+                  
+                  if (!topicStats[key]) topicStats[key] = { subject, topic, correct: 0, total: 0 };
+                  topicStats[key].total++;
+                  if (isCorrect) topicStats[key].correct++;
+                });
+                
+                Object.keys(topicStats).forEach(key => {
+                  const acc = (topicStats[key].correct / topicStats[key].total) * 100;
+                  if (acc < 50) dppWeakTopics.push({ subject: topicStats[key].subject, topic: topicStats[key].topic });
+                });
+              }
+
+              const isLatestLevel = index === remedialDpps.length - 1;
 
               return (
-                <div key={diff} className={`p-4 border rounded-xl ${bgLight} border-opacity-40`}>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-bold text-gray-900">{diff} Level</span>
-                    <span className={`text-sm font-bold ${textClass}`}>{stats.accuracy}% Accuracy</span>
+                <div key={dpp._id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span className="bg-primary-100 text-primary-700 font-bold px-2 py-1 rounded text-xs">Level {index + 1}</span>
+                      <h4 className="font-bold text-gray-800">{dpp.title}</h4>
+                    </div>
+                    <div className="mt-2 text-sm text-gray-500">
+                      Status: <span className={`font-semibold ${dpp.status === 'COMPLETED' ? 'text-success-600' : 'text-amber-600'}`}>{dpp.status.replace('_', ' ')}</span>
+                      {dpp.status === 'COMPLETED' && ` • Score: ${dpp.score} / ${dpp.totalMarks}`}
+                    </div>
+                    {dpp.status === 'COMPLETED' && dppWeakTopics.length > 0 && (
+                      <div className="mt-2 text-sm text-danger-600 font-medium">
+                        <AlertCircle className="w-4 h-4 inline mr-1" />
+                        Still weak in: {dppWeakTopics.map(t => t.topic).join(', ')}
+                      </div>
+                    )}
+                    {dpp.status === 'COMPLETED' && dppWeakTopics.length === 0 && dpp.score > 0 && (
+                      <div className="mt-2 text-sm text-success-600 font-medium">
+                        <CheckCircle className="w-4 h-4 inline mr-1" />
+                        Mastered all topics in this session!
+                      </div>
+                    )}
+                    {dpp.status === 'COMPLETED' && dppWeakTopics.length === 0 && dpp.score === 0 && (
+                      <div className="mt-2 text-sm text-amber-600 font-medium">
+                        <AlertCircle className="w-4 h-4 inline mr-1" />
+                        Score is 0. Attempt more questions to improve.
+                      </div>
+                    )}
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3">
-                    <div className={`h-2.5 rounded-full ${colorClass}`} style={{ width: `${stats.accuracy}%` }}></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Questions: {stats.totalQuestions}</span>
-                    <span>Correct: {stats.correct}</span>
-                    <span>Wrong: {stats.wrong}</span>
-                    <span>Skipped: {stats.totalQuestions - stats.attempted}</span>
+                  
+                  <div className="flex gap-3">
+                    {dpp.status === 'COMPLETED' ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => router.push(`/student/practice/${dpp._id}/play`)}>Review</Button>
+                        {dppWeakTopics.length > 0 && isLatestLevel && (
+                          <Button 
+                            variant="primary" 
+                            size="sm" 
+                            disabled={generatingDPP}
+                            onClick={() => handleGenerateDPP(dpp._id, dppWeakTopics)}
+                          >
+                            Generate Level {index + 2} DPP
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <Button variant="primary" size="sm" onClick={() => router.push(`/student/practice/${dpp._id}/play`)}>Resume</Button>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
         </Card>
-
-        {/* Topic Analysis Card */}
-        <Card className="p-6">
-          <h3 className="text-lg font-bold mb-4">Topic-wise Performance</h3>
-          <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2">
-            {Object.keys(data.topicStats || {}).length === 0 ? (
-              <p className="text-sm text-gray-500">No topic data available</p>
-            ) : (
-              Object.keys(data.topicStats || {}).map((topic) => {
-                const stats = data.topicStats[topic];
-                const status = stats.status; // 'Strong' | 'Medium' | 'Weak'
-                const badgeColor = 
-                  status === 'Strong' ? 'bg-success-100 text-success-800 border-success-200' :
-                  status === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                  'bg-rose-100 text-rose-800 border-rose-200';
-
-                return (
-                  <div key={topic} className="flex items-center justify-between p-3 border rounded-xl bg-white shadow-sm">
-                    <div>
-                      <div className="font-semibold text-gray-900 text-sm">{topic}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        Score: <span className="font-semibold text-primary-600">{stats.score}</span> / {stats.totalMarks} M &middot; Accuracy: {stats.accuracy}%
-                      </div>
-                    </div>
-                    <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${badgeColor}`}>
-                      {status}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </Card>
-      </div>
+      )}
 
       <Card className="overflow-hidden mt-6">
         <div className="flex border-b overflow-x-auto">

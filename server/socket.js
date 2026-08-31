@@ -52,7 +52,9 @@ module.exports = function setupSocketIO(server) {
                 peerId: pId,
                 username: info?.username || 'Unknown',
                 role: info?.role || 'student',
-                mobile: info?.mobile || ''
+                mobile: info?.mobile || '',
+                isMuted: p.isMuted || false,
+                isCamOff: p.isCamOff || false
               });
             }
           });
@@ -130,9 +132,15 @@ module.exports = function setupSocketIO(server) {
     socket.on('close-producer', ({ roomCode, producerId }) => {
       try {
         mediaService.closeProducer(roomCode, producerId);
+        socket.to(roomCode).emit('producer-closed', { producerId, peerId: socket.id });
       } catch (error) {
         console.error('Close producer error:', error);
       }
+    });
+
+    // Screen share stopped notification
+    socket.on('screen-share-stopped', ({ roomCode }) => {
+      socket.to(roomCode).emit('screen-share-stopped', { peerId: socket.id });
     });
 
     // Active speaker detection
@@ -181,6 +189,14 @@ module.exports = function setupSocketIO(server) {
 
     // Client toggle mic/cam mute notifications to others
     socket.on('mute-toggle', ({ roomCode, kind, muted }) => {
+      const room = mediaService.rooms.get(roomCode);
+      if (room) {
+        const peer = room.peers.get(socket.id);
+        if (peer) {
+          if (kind === 'audio') peer.isMuted = muted;
+          if (kind === 'video') peer.isCamOff = muted;
+        }
+      }
       socket.to(roomCode).emit('peer-mute-toggled', { peerId: socket.id, kind, muted });
     });
 
@@ -240,6 +256,18 @@ module.exports = function setupSocketIO(server) {
       if (info && info.role === 'teacher') {
         io.to(peerId).emit('host-instruct-remove');
       }
+    });
+
+    // Hand Raise
+    socket.on('hand-raise', ({ roomCode, raised }) => {
+      // Broadcast to everyone in the room
+      socket.to(roomCode).emit('hand-raised', { peerId: socket.id, raised });
+    });
+
+    // Emoji Reactions
+    socket.on('reaction', ({ roomCode, emoji }) => {
+      // Broadcast to everyone in the room except sender
+      socket.to(roomCode).emit('reaction', { emoji });
     });
 
     // Server-side Recording starting

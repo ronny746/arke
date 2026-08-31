@@ -16,15 +16,25 @@ router.post(
   ResourcesController.createResource
 );
 
+const { checkAccess } = require('../../middlewares/contentAccess.middleware');
+const requireDeveloperToken = require('../../middlewares/developer.middleware');
+
 router.get(
   '/',
+  checkAccess('studyMaterials'),
   ResourcesController.getResources
 );
 
 router.delete(
-  '/:id',
+  '/:id', requireDeveloperToken,
   rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.TEACHER]),
   ResourcesController.deleteResource
+);
+
+router.put(
+  '/:id',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.TEACHER]),
+  ResourcesController.updateResource
 );
 
 module.exports = router;

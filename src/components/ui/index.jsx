@@ -1,6 +1,8 @@
 import { cn, getInitials } from '../../utils/helpers';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
+export { ActionMenu } from './ActionMenu';
+
 // ─── Badge ────────────────────────────────────────────────────────────────────
 export function Badge({ children, variant = 'primary', dot = false, className }) {
   const variants = {

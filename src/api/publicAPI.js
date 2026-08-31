@@ -20,5 +20,6 @@ export const publicAPI = {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'multipart/form-data'
     }
-  })
+  }),
+  getPublicSettings: () => publicAxios.get('/public-settings')
 };

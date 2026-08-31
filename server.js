@@ -1,4 +1,5 @@
-require('dotenv').config();
+const envFile = process.env.DOTENV_CONFIG_PATH || (process.env.NODE_ENV === 'staging' ? '.env.staging' : '.env');
+require('dotenv').config({ path: envFile });
 const express = require('express');
 const next = require('next');
 const http = require('http');
@@ -9,7 +10,7 @@ const connectDB = require('./server/config/db');
 const mediaService = require('./server/services/mediaService');
 const setupSocketIO = require('./server/socket');
 
-const dev = process.env.NODE_ENV !== 'production';
+const dev = process.env.NODE_ENV === 'development';
 const nextApp = next({ dev });
 const handle = nextApp.getRequestHandler();
 

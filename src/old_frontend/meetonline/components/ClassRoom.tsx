@@ -36,7 +36,8 @@ interface RemoteStream {
   isScreen?: boolean;
 }
 
-export default function ClassRoom({ user, token, roomCode, roomType, mobile, onLeave }: ClassRoomProps) {
+export default function ClassRoom({ user, token, roomCode: propRoomCode, roomType, mobile, onLeave }: ClassRoomProps) {
+  const roomCode = propRoomCode?.toUpperCase();
   const [micEnabled, setMicEnabled] = useState(false);
   const [videoEnabled, setVideoEnabled] = useState(false);
   const [screenShareEnabled, setScreenShareEnabled] = useState(false);

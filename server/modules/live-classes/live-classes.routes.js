@@ -16,8 +16,11 @@ router.post(
   LiveClassesController.startLiveClass
 );
 
+const { checkAccess } = require('../../middlewares/contentAccess.middleware');
+
 router.get(
   '/',
+  checkAccess('liveClasses'),
   LiveClassesController.getActiveClasses
 );
 

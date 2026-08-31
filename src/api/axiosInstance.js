@@ -21,6 +21,20 @@ axiosInstance.interceptors.request.use(
     if (impersonateId) {
       config.headers['x-institute-id'] = impersonateId;
     }
+    
+    // Inject Developer Token if available
+    try {
+      const devState = localStorage.getItem('lms-developer-mode');
+      if (devState) {
+        const parsed = JSON.parse(devState);
+        if (parsed?.state?.developerToken && parsed?.state?.isDeveloperMode) {
+          config.headers['x-developer-token'] = parsed.state.developerToken;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse developer state", e);
+    }
+
     return config;
   },
   (error) => {

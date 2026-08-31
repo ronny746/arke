@@ -11,6 +11,9 @@ export const studentAPI = {
   getHomework: (params) => axiosInstance.get('/homework', { params }),
   submitHomework: (id, data) => axiosInstance.post(`/homework/${id}/submit`, data),
   getResults: (params) => axiosInstance.get('/results', { params }),
+  getMyPerformance: () => axiosInstance.get('/analytics-reports/student/me/performance'),
+  getTransactions: (params) => axiosInstance.get('/fees-payments/transactions', { params }),
+  getMyBatches: () => axiosInstance.get('/batches/my-batches'),
   getLiveClasses: (params) => axiosInstance.get('/live-classes', { params }),
   setupParent: (data) => axiosInstance.post('/users/setup-parent', data),
   getAttendance: (params) => axiosInstance.get('/attendance/my-attendance', { params }),
@@ -19,6 +22,7 @@ export const studentAPI = {
   getChatMessages: (roomId) => axiosInstance.get(`/chat/rooms/${roomId}/messages`),
   sendMessage: (roomId, data) => axiosInstance.post(`/chat/rooms/${roomId}/messages`, data),
   getUsers: (params) => axiosInstance.get('/users', { params }),
+  updateMe: (data) => axiosInstance.put('/users/me', data),
   getResources: (params) => axiosInstance.get('/resources', { params }),
   
   // Exams
@@ -34,8 +38,9 @@ export const studentAPI = {
   // Practice & DPP
   getPracticeFilters: () => axiosInstance.get('/student/practice/filters'),
   getPracticeHistory: (params) => axiosInstance.get('/student/practice/history', { params }), // params: { sessionType: 'DPP' | 'PRACTICE' }
+  getRemedialDpps: (examId) => axiosInstance.get(`/student/practice/exam/${examId}`),
   generatePracticeSession: (data) => axiosInstance.post('/student/practice/generate', data),
   getPracticeSession: (id) => axiosInstance.get(`/student/practice/${id}`),
   savePracticeProgress: (id, data) => axiosInstance.put(`/student/practice/${id}/progress`, data),
-  submitPracticeSession: (id) => axiosInstance.post(`/student/practice/${id}/submit`),
+  submitPracticeSession: (id, data) => axiosInstance.post(`/student/practice/${id}/submit`, data),
 };

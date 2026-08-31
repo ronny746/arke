@@ -34,12 +34,12 @@ exports.getChildAssignments = async (req, res, next) => {
       }
     }
 
-    const AcademicClassModel = require('../academic-classes/academic-classes.model');
-    const childClasses = await AcademicClassModel.find({ students: filters.studentId });
+    const BatchModel = require('../batches/batches.model');
+    const childClasses = await BatchModel.find({ students: filters.studentId });
     if (childClasses.length === 0) {
       return successResponse(res, 'Child assignments retrieved successfully', []);
     }
-    filters.classId = { $in: childClasses.map(c => c._id) };
+    filters.batchId = { $in: childClasses.map(c => c._id) };
 
     const data = await AssignmentService.getAssignments(req.user, filters);
     return successResponse(res, 'Child assignments retrieved successfully', data);

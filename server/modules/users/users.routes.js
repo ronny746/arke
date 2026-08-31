@@ -7,12 +7,25 @@ const validate = require('../../middlewares/validate.middleware');
 const { createUserSchema, updateUserSchema, linkParentStudentSchema, setupParentSchema } = require('./users.validation');
 const { ROLES } = require('../../config/constants');
 const uploadMemory = require('../../middlewares/uploadMemory.middleware');
+const requireDeveloperToken = require('../../middlewares/developer.middleware');
 
 // Public route for downloading sample CSV template
 router.get('/sample-csv/students', UserController.downloadStudentSampleCSV);
 
 // Apply auth to all other routes
 router.use(authMiddleware);
+
+router.get(
+  '/classes',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS]),
+  UserController.getDistinctClasses
+);
+
+router.get(
+  '/classes/sections',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS]),
+  UserController.getDistinctSections
+);
 
 router.post(
   '/link-parent-student',
@@ -60,6 +73,11 @@ router.get(
   UserController.getMe
 );
 
+router.put(
+  '/me',
+  UserController.updateMe
+);
+
 router.get(
   '/:id',
   UserController.getById
@@ -73,7 +91,7 @@ router.put(
 );
 
 router.delete(
-  '/:id',
+  '/:id', requireDeveloperToken,
   rbacMiddleware.requireRole([ROLES.SUPER_SUPER_ADMIN, ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS]),
   UserController.delete
 );

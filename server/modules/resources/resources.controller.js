@@ -27,3 +27,12 @@ exports.deleteResource = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.updateResource = async (req, res, next) => {
+  try {
+    const data = await ResourcesService.updateResource(req.user, req.params.id, req.body);
+    return successResponse(res, 'Resource updated successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};

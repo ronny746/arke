@@ -4,6 +4,7 @@ import { X, Trash2, AlertTriangle } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
+export * from './VisualMathModal';
 export function Modal({ isOpen, onClose, children, size = 'md' }) {
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : '';
@@ -108,7 +109,7 @@ export function ConfirmModal({
 export function DeleteModal({ isOpen, onClose, onConfirm, itemName, loading = false }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
-      <ModalHeader title="Delete Confirmation" onClose={onClose} />
+      <ModalHeader title="Move to Recycle Bin" onClose={onClose} />
       <ModalBody>
         <div className="flex gap-3">
           <div className="w-10 h-10 rounded-xl bg-danger-50 dark:bg-danger-900/30 flex items-center justify-center flex-shrink-0">
@@ -117,7 +118,7 @@ export function DeleteModal({ isOpen, onClose, onConfirm, itemName, loading = fa
           <div className="min-w-0">
             <p className="text-sm font-medium text-surface-800 dark:text-white">Are you sure?</p>
             <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-              This will permanently delete <strong className="text-surface-700 dark:text-surface-200">{itemName}</strong>. This action cannot be undone.
+              This will move <strong className="text-surface-700 dark:text-surface-200">{itemName}</strong> to the Recycle Bin. You can restore it later.
             </p>
           </div>
         </div>
@@ -126,7 +127,7 @@ export function DeleteModal({ isOpen, onClose, onConfirm, itemName, loading = fa
         <button className="btn-outline btn-sm" onClick={onClose}>Cancel</button>
         <button className="btn-danger btn-sm" onClick={onConfirm} disabled={loading}>
           {loading && <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />}
-          Delete
+          Move to Bin
         </button>
       </ModalFooter>
     </Modal>

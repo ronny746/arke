@@ -35,6 +35,7 @@ const questionBankSchema = new mongoose.Schema({
     topic: { type: mongoose.Schema.Types.ObjectId, ref: 'QuestionTopic' },
     difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium' },
     type: { type: String, enum: ['MCQ', 'TRUE_FALSE', 'SUBJECTIVE'], default: 'MCQ' },
+    isUnpublished: { type: Boolean, default: false },
     questionImageUrl: String,
     options: [{
       text: String, // Can store HTML with mathml/images

@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Download, Upload, Trash2, MoreHorizontal } from 'lucide-react';
-import { cn } from '../../utils/helpers';
+import { Search, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Download, Upload, Trash2, MoreHorizontal, FileX } from 'lucide-react';
+import { cn } from '@/utils/helpers';
+import { ActionMenu } from '@/components/ui/index.jsx';
 import { EmptyState } from '../ui/index.jsx';
 
 export function DataTable({
@@ -29,14 +30,38 @@ export function DataTable({
 
   // Filter
   const filtered = useMemo(() => {
-    if (!search) return data;
-    const q = search.toLowerCase();
-    return data.filter(row =>
-      columns.some(col => {
-        const val = col.accessorKey ? row[col.accessorKey] : '';
+    if (!search || !search.trim()) return data;
+    const q = search.trim().toLowerCase();
+
+    return data.filter(row => {
+      const matchesColumn = columns.some(col => {
+        if (!col) return false;
+        let val = '';
+        if (col.accessorKey) {
+          const keys = col.accessorKey.split('.');
+          let curr = row;
+          for (const k of keys) {
+            curr = curr?.[k];
+          }
+          val = curr ?? '';
+        }
         return String(val).toLowerCase().includes(q);
-      })
-    );
+      });
+      if (matchesColumn) return true;
+
+      const deepCheck = (obj) => {
+        if (obj === null || obj === undefined) return false;
+        if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
+          return String(obj).toLowerCase().includes(q);
+        }
+        if (typeof obj === 'object') {
+          return Object.values(obj).some(v => deepCheck(v));
+        }
+        return false;
+      };
+
+      return deepCheck(row);
+    });
   }, [data, search, columns]);
 
   // Sort
@@ -106,11 +131,15 @@ export function DataTable({
           {someSelected && bulkActions && (
             <div className="flex items-center gap-2 px-2.5 py-1 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-700">
               <span className="text-xs font-medium text-primary-700 dark:text-primary-300">{selected.size} selected</span>
-              {bulkActions.map((action, i) => (
-                <button key={i} onClick={() => action.onClick([...selected])} className={cn('btn-sm', `btn-${action.variant || 'ghost'}`)}>
-                  {action.label}
-                </button>
-              ))}
+              <ActionMenu 
+                actions={bulkActions.map(action => ({
+                  label: action.label,
+                  icon: action.icon,
+                  danger: action.variant === 'danger',
+                  onClick: () => action.onClick([...selected])
+                }))} 
+                vertical={false} 
+              />
             </div>
           )}
         </div>

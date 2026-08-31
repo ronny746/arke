@@ -18,15 +18,38 @@ export default function ClassRoomPage() {
   const [mounted, setMounted] = useState(false);
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestForm, setGuestForm] = useState({ name: '', phone: '', className: '' });
+  const [batchName, setBatchName] = useState<string>('');
 
   useEffect(() => {
     const t = localStorage.getItem('token');
+    const u = localStorage.getItem('user');
     
-    if (t) {
+    if (t && u) {
       try {
         const payload = JSON.parse(atob(t.split('.')[1]));
-        setUser({ username: payload.username || payload.name || 'Student', role: payload.role || 'student' });
+        const userObj = JSON.parse(u);
+        const name = userObj.firstName ? `${userObj.firstName} ${userObj.lastName || ''}`.trim() : (payload.username || payload.name || 'Student');
+        setUser({ username: name, role: payload.role || userObj.role || 'student' });
         setToken(t);
+        // Fetch class details to get batch name
+        fetch(`/api/v1/live-classes?roomCode=${roomCode}`, { headers: { Authorization: `Bearer ${t}` } })
+          .then(r => r.json())
+          .then(data => {
+            const cls = (data.data || []).find((c: any) => {
+              const codeFromField = typeof c.roomCode === 'string' ? c.roomCode.toUpperCase() : '';
+              const codeFromMeetingId = typeof c.meetingId === 'string' ? c.meetingId.toUpperCase() : '';
+              const codeFromLink = typeof c.meetingLink === 'string' && c.meetingLink.includes('/class/')
+                ? c.meetingLink.split('/class/')[1]?.split(/[?#]/)[0]?.toUpperCase()
+                : '';
+              return [codeFromField, codeFromMeetingId, codeFromLink].includes(roomCode?.toUpperCase());
+            });
+            if (cls) {
+              const batch = cls.classScheduleId?.batchId?.name || cls.batchName || '';
+              const subject = cls.classScheduleId?.subjectId?.name || '';
+              setBatchName(subject ? `${subject} — ${batch}` : (batch || 'Live Class'));
+            }
+          })
+          .catch(() => {});
       } catch (e) {
         setShowGuestForm(true);
       }
@@ -158,6 +181,7 @@ export default function ClassRoomPage() {
         roomCode={roomCode}
         roomType="live_class"
         mobile={mobile}
+        className={batchName}
         onLeave={() => {
           // Attempt to close the tab (will work if opened via window.open)
           window.close();

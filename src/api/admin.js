@@ -1,6 +1,9 @@
 import axiosInstance from './axiosInstance';
 
 export const adminAPI = {
+  // Dashboard
+  getDashboardData: () => axiosInstance.get('/dashboard'),
+  
   // --- AcadOps ---
   // Subjects
   createSubject: (data) => axiosInstance.post('/subjects', data),
@@ -8,12 +11,18 @@ export const adminAPI = {
   updateSubject: (id, data) => axiosInstance.put(`/subjects/${id}`, data),
   deleteSubject: (id) => axiosInstance.delete(`/subjects/${id}`),
 
-  // Academic Classes
-  createAcademicClass: (data) => axiosInstance.post('/academic-classes', data),
-  getAcademicClasses: (params) => axiosInstance.get('/academic-classes', { params }),
-  updateAcademicClass: (id, data) => axiosInstance.put(`/academic-classes/${id}`, data),
-  deleteAcademicClass: (id) => axiosInstance.delete(`/academic-classes/${id}`),
-  assignUserToClass: (classId, data) => axiosInstance.post(`/academic-classes/${classId}/assign`, data),
+  // Recycle Bin
+  getRecycleBinItems: () => axiosInstance.get('/recycle-bin'),
+  restoreRecycleBinItem: (data) => axiosInstance.post('/recycle-bin/restore', data),
+  permanentlyDeleteRecycleBinItem: (data) => axiosInstance.post('/recycle-bin/permanent-delete', data),
+
+  // Batches
+  createBatch: (data) => axiosInstance.post('/batches', data),
+  getBatches: (params) => axiosInstance.get('/batches', { params }),
+  updateBatch: (id, data) => axiosInstance.put(`/batches/${id}`, data),
+  deleteBatch: (id) => axiosInstance.delete(`/batches/${id}`),
+  assignUserToBatch: (batchId, data) => axiosInstance.post(`/batches/${batchId}/assign`, data),
+  syncUserBatches: (data) => axiosInstance.post(`/batches/sync-student`, data),
 
   // Timetable / Schedule
   createClassSchedule: (data) => axiosInstance.post('/classes-schedule', data),
@@ -51,7 +60,13 @@ export const adminAPI = {
   // Question Banks
   getQuestionCategories: () => axiosInstance.get('/question-categories'),
   createQuestionCategory: (data) => axiosInstance.post('/question-categories', data),
+  renameQuestionCategory: (id, data) => axiosInstance.put(`/question-categories/${id}`, data),
+  renameQuestionChapter: (id, data) => axiosInstance.put(`/question-categories/chapter/${id}`, data),
+  renameQuestionTopic: (id, data) => axiosInstance.put(`/question-categories/topic/${id}`, data),
   deleteQuestionCategory: (id) => axiosInstance.delete(`/question-categories/${id}`),
+  deleteQuestionChapter: (id) => axiosInstance.delete(`/question-categories/chapter/${id}`),
+  deleteQuestionTopic: (id) => axiosInstance.delete(`/question-categories/topic/${id}`),
+  togglePublishCategory: (type, id, isUnpublished) => axiosInstance.put(`/question-categories/toggle/${type}/${id}`, { isUnpublished }),
 
   getQuestionBanks: (params) => axiosInstance.get('/question-banks', { params }),
   getQuestionBankHierarchy: () => axiosInstance.get('/question-banks/hierarchy'),
@@ -59,7 +74,10 @@ export const adminAPI = {
   createQuestionBank: (data) => axiosInstance.post('/question-banks', data),
   getQuestionBankById: (id) => axiosInstance.get(`/question-banks/${id}`),
   updateQuestionBank: (id, data) => axiosInstance.put(`/question-banks/${id}`, data),
+  renameQuestionBank: (id, data) => axiosInstance.patch(`/question-banks/${id}/rename`, data),
   deleteQuestionBank: (id) => axiosInstance.delete(`/question-banks/${id}`),
+  updateSingleQuestion: (bankId, questionId, data) => axiosInstance.put(`/question-banks/${bankId}/questions/${questionId}`, data),
+  deleteSingleQuestion: (bankId, questionId) => axiosInstance.delete(`/question-banks/${bankId}/questions/${questionId}`),
   parseWordFile: (formData) => axiosInstance.post('/question-banks/parse-word', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
@@ -78,6 +96,8 @@ export const adminAPI = {
   // Resources
   getResources: (params) => axiosInstance.get('/resources', { params }),
   createResource: (data) => axiosInstance.post('/resources', data),
+  updateResource: (id, data) => axiosInstance.put(`/resources/${id}`, data),
+  deleteResource: (id) => axiosInstance.delete(`/resources/${id}`),
 
   // Assignments
   createAssignment: (data) => axiosInstance.post('/assignments', data),
@@ -98,8 +118,9 @@ export const adminAPI = {
   updateUser: (id, data) => axiosInstance.put(`/users/${id}`, data),
   deleteUser: (id) => axiosInstance.delete(`/users/${id}`),
   linkParentStudent: (data) => axiosInstance.post('/users/link-parent-student', data),
-  importStudents: (formData) => axiosInstance.post('/users/import-students', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+  importStudents: (formData, config = {}) => axiosInstance.post('/users/import-students', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    ...config
   }),
   downloadStudentSampleCSV: () => {
     // This is handled via window.open usually, but we can return the URL
@@ -140,6 +161,7 @@ export const adminAPI = {
 
   // Exams Results & Snapshots
   getExamSubmissions: (examId) => axiosInstance.get(`/exams/${examId}/submissions`),
+  exportExamSubmissions: (examId) => axiosInstance.get(`/exams/${examId}/submissions/export`),
   getSubmissionSnapshots: (submissionId) => axiosInstance.get(`/exams/submissions/${submissionId}/snapshots`),
   getAdminExamAnalysis: (submissionId) => axiosInstance.get(`/exams/submissions/${submissionId}/analysis`),
 
@@ -152,4 +174,12 @@ export const adminAPI = {
   getResources: (params) => axiosInstance.get('/resources', { params }),
   createResource: (data) => axiosInstance.post('/resources', data),
   deleteResource: (id) => axiosInstance.delete(`/resources/${id}`),
+
+  // System Configuration (including NEET Countdown)
+  getSystemConfig: () => axiosInstance.get('/system-config'),
+  updateSystemConfig: (data) => axiosInstance.put('/system-config', data),
+
+  // Fees & Transactions
+  getTransactions: (params) => axiosInstance.get('/fees-payments/transactions', { params }),
+  getFeeRecords: (params) => axiosInstance.get('/fees-payments/records', { params }),
 };

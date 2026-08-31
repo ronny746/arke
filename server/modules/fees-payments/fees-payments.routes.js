@@ -22,6 +22,11 @@ router.get(
 );
 
 router.get(
+  '/transactions',
+  FeesPaymentsController.getTransactions
+);
+
+router.get(
   '/my-dues',
   rbacMiddleware.requireRole([ROLES.STUDENT]),
   FeesPaymentsController.getMyDues

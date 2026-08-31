@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 exports.markAttendanceSchema = Joi.object({
-  classId: Joi.string().required(),
+  batchId: Joi.string().required(),
   subjectId: Joi.string().optional(),
   date: Joi.date().iso().required(),
   records: Joi.array().items(
@@ -19,7 +19,7 @@ exports.markAttendanceSchema = Joi.object({
 });
 
 exports.getAttendanceSchema = Joi.object({
-  classId: Joi.string().optional(),
+  batchId: Joi.string().optional(),
   subjectId: Joi.string().optional(),
   studentId: Joi.string().optional(),
   startDate: Joi.date().iso().optional(),
@@ -27,7 +27,7 @@ exports.getAttendanceSchema = Joi.object({
 });
 
 exports.geoCheckinSchema = Joi.object({
-  classId: Joi.string().required(),
+  batchId: Joi.string().required(),
   latitude: Joi.number().required(),
   longitude: Joi.number().required()
 });

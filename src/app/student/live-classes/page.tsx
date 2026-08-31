@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Calendar, Video, PlayCircle, Grid } from 'lucide-react';
+import { Calendar, Video, PlayCircle, Grid, ArrowLeft, Users } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card } from '@/components/ui/index.jsx';
 import { Button } from '@/components/ui/Button.jsx';
@@ -14,6 +14,8 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 export default function StudentLiveClassesPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [batches, setBatches] = useState([]);
+  const [selectedBatchId, setSelectedBatchId] = useState('');
   const [gridSchedules, setGridSchedules] = useState([]);
   const [activeClasses, setActiveClasses] = useState([]);
   const [timeColumns, setTimeColumns] = useState([]); // [{startTime, endTime}]
@@ -31,28 +33,18 @@ export default function StudentLiveClassesPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [scheduleRes, liveRes] = await Promise.all([
+      const [batchRes, scheduleRes, liveRes] = await Promise.all([
+        studentAPI.getMyBatches(),
         studentAPI.getMySchedule(), // Get all recurring schedules for the student's class
         studentAPI.getLiveClasses()
       ]);
+      setBatches(batchRes.data?.data || []);
       const scheds = scheduleRes.data?.data || [];
       setGridSchedules(scheds);
       setActiveClasses(liveRes.data?.data || []);
 
-      // Extract unique time columns
-      const cols = [];
-      const colMap = new Set();
-      scheds.forEach(s => {
-        const key = `${s.startTime}-${s.endTime}`;
-        if (!colMap.has(key)) {
-          colMap.add(key);
-          cols.push({ startTime: s.startTime, endTime: s.endTime });
-        }
-      });
-      // Sort columns by start time
-      cols.sort((a, b) => a.startTime.localeCompare(b.startTime));
-      setTimeColumns(cols);
-
+      // Extract unique time columns for all schedules initially
+      updateTimeColumns(scheds, '');
     } catch (error) {
       toast.error('Failed to load classes');
     } finally {
@@ -60,6 +52,31 @@ export default function StudentLiveClassesPage() {
     }
   };
 
+  const updateTimeColumns = (scheds, batchId) => {
+    const filteredScheds = batchId ? scheds.filter(s => {
+      const bId = s.batchId?._id || s.batchId;
+      return bId === batchId;
+    }) : scheds;
+    
+    const cols = [];
+    const colMap = new Set();
+    filteredScheds.forEach(s => {
+      const key = `${s.startTime}-${s.endTime}`;
+      if (!colMap.has(key)) {
+        colMap.add(key);
+        cols.push({ startTime: s.startTime, endTime: s.endTime });
+      }
+    });
+    // Sort columns by start time
+    cols.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    setTimeColumns(cols);
+  };
+
+  useEffect(() => {
+    if (gridSchedules.length > 0) {
+      updateTimeColumns(gridSchedules, selectedBatchId);
+    }
+  }, [selectedBatchId, gridSchedules]);
   useEffect(() => {
     fetchData();
   }, []);
@@ -98,14 +115,84 @@ export default function StudentLiveClassesPage() {
         breadcrumbs={['Home', 'Academics', 'Live Classes']}
       />
 
-      <Card className="p-5 overflow-x-auto">
-        <div className="flex items-center mb-6">
+      {!selectedBatchId ? (
+        <div className="space-y-4">
           <h2 className="text-xl font-bold flex items-center gap-2">
-            <Grid className="text-primary-500" /> Weekly Timetable
+            <Users className="text-primary-500" /> Select Your Batch
           </h2>
-        </div>
+          {batches.length === 0 ? (
+            <div className="p-8 text-center text-surface-500">No batches assigned to you yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {batches.map(batch => {
+                // Find if this batch has any ongoing class
+                const active = activeClasses.find(c => {
+                  const bId = c.classScheduleId?.batchId?._id || c.classScheduleId?.batchId;
+                  return bId === batch._id && c.status === 'ONGOING';
+                });
 
-        <div className="min-w-[800px]">
+                return (
+                  <Card key={batch._id} className="p-6 hover:shadow-lg transition-shadow cursor-pointer flex flex-col justify-between" onClick={() => setSelectedBatchId(batch._id)}>
+                    <div>
+                      <h3 className="text-lg font-bold text-surface-800 dark:text-white mb-2">{batch.name}</h3>
+                      {batch.section && <p className="text-sm text-surface-500 mb-4">Section: {batch.section}</p>}
+                    </div>
+                    {active ? (
+                      <Button 
+                        variant="success" 
+                        className="w-full mt-4"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleJoinClass(active);
+                        }}
+                      >
+                        <PlayCircle size={18} className="mr-2" /> Join Live Class Now
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="w-full mt-4">
+                        <Calendar size={18} className="mr-2" /> View Timetable
+                      </Button>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <Card className="p-5 overflow-x-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-surface-100 dark:border-surface-800">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedBatchId("")} className="hover:bg-surface-100 dark:hover:bg-surface-800">
+                <ArrowLeft size={18} className="mr-2" /> Back
+              </Button>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Grid className="text-primary-500" /> 
+                {batches.find(b => b._id === selectedBatchId)?.name}
+                <span className="text-sm font-normal text-surface-500 ml-2">Weekly Timetable</span>
+              </h2>
+            </div>
+            {(() => {
+              const activeBatchClass = activeClasses.find(c => {
+                const bId = c.classScheduleId?.batchId?._id || c.classScheduleId?.batchId;
+                return bId === selectedBatchId && c.status === 'ONGOING';
+              });
+              if (activeBatchClass) {
+                return (
+                  <Button 
+                    variant="success" 
+                    onClick={() => handleJoinClass(activeBatchClass)}
+                    className="shadow-lg shadow-success-500/20"
+                  >
+                    <PlayCircle size={18} className="mr-2" /> Join Live Class Now
+                  </Button>
+                );
+              }
+              return null;
+            })()}
+          </div>
+
+          <div className="min-w-[800px]">
           <table className="w-full border-collapse">
             <thead>
               <tr>
@@ -129,8 +216,14 @@ export default function StudentLiveClassesPage() {
                     {day}
                   </td>
                   {timeColumns.map((col, colIndex) => {
-                    const cellSchedule = gridSchedules.find(s => s.dayOfWeek === dayIndex && s.startTime === col.startTime && s.endTime === col.endTime);
-                    const active = cellSchedule && activeClasses.find(c => c.classScheduleId?._id === cellSchedule._id && c.status === 'ONGOING');
+                    const cellSchedule = gridSchedules.find(s => {
+                      const bId = s.batchId?._id || s.batchId;
+                      return bId === selectedBatchId && s.dayOfWeek === dayIndex && s.startTime === col.startTime && s.endTime === col.endTime;
+                    });
+                    const active = cellSchedule && activeClasses.find(c => {
+                      const cId = c.classScheduleId?._id || c.classScheduleId;
+                      return cId === cellSchedule._id && c.status === 'ONGOING';
+                    });
                     return (
                       <td 
                         key={colIndex} 
@@ -170,6 +263,7 @@ export default function StudentLiveClassesPage() {
           </table>
         </div>
       </Card>
+      )}
 
       {/* Class Details Modal */}
       {showCellModal && (
@@ -191,8 +285,11 @@ export default function StudentLiveClassesPage() {
              </div>
 
              {(() => {
-               const active = activeClasses.find(c => c.classScheduleId?._id === cellData.scheduleId && c.status === 'ONGOING');
-               if (cellData.dayOfWeek === new Date().getDay() && active) {
+               const active = activeClasses.find(c => {
+                 const cId = c.classScheduleId?._id || c.classScheduleId;
+                 return cId === cellData.scheduleId && c.status === 'ONGOING';
+               });
+               if (active) {
                  return (
                    <Button variant="success" className="w-full" icon={PlayCircle} onClick={() => {
                      setShowCellModal(false);
@@ -214,7 +311,6 @@ export default function StudentLiveClassesPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

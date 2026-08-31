@@ -15,6 +15,10 @@ export default function TeacherStudentPerformancePage({ params }) {
     router.push(`/teacher/exams/${examId}/results/${submissionId}/analysis`);
   };
 
+  const handleDppClick = (sessionId) => {
+    router.push(`/teacher/dpp/${sessionId}/analysis`);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -27,6 +31,7 @@ export default function TeacherStudentPerformancePage({ params }) {
       <StudentPerformanceDashboard 
         studentId={studentId} 
         onExamClick={handleExamClick} 
+        onDppClick={handleDppClick}
       />
     </div>
   );

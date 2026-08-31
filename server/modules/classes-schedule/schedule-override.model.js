@@ -4,7 +4,7 @@ const scheduleOverrideSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
   recurringScheduleId: { type: mongoose.Schema.Types.ObjectId, ref: 'ClassSchedule' }, // null if EXTRA_CLASS
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  classId: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicClass', required: true },
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
   subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
   overrideDate: { type: Date, required: true }, // The specific date for this override
   overrideType: { type: String, enum: ['CANCELLED', 'RESCHEDULED', 'EXTRA_CLASS'], required: true },

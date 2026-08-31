@@ -15,7 +15,7 @@ export default function TeacherStudentsPage() {
   const router = useRouter();
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
-  const [selectedClassId, setSelectedClassId] = useState('all');
+  const [selectedBatchId, setSelectedBatchId] = useState('all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export default function TeacherStudentsPage() {
       try {
         const [studentsRes, classesRes] = await Promise.all([
           teacherAPI.getStudents(),
-          teacherAPI.getViewAcademicClasses()
+          teacherAPI.getViewBatches()
         ]);
         
         const studentsData = studentsRes.data?.data || studentsRes.data?.users || studentsRes.data || [];
@@ -40,10 +40,10 @@ export default function TeacherStudentsPage() {
     fetchData();
   }, []);
 
-  const filteredStudents = selectedClassId === 'all' 
+  const filteredStudents = selectedBatchId === 'all' 
     ? students 
     : students.filter(student => {
-        const cls = classes.find(c => c._id === selectedClassId || c.id === selectedClassId);
+        const cls = classes.find(c => c._id === selectedBatchId || c.id === selectedBatchId);
         if (!cls || !cls.students) return false;
         return cls.students.some(s => String(s._id || s.id || s) === String(student._id || student.id));
       });
@@ -65,7 +65,7 @@ export default function TeacherStudentsPage() {
     {
       header: 'Roll No',
       accessorKey: 'rollNo',
-      cell: (r) => <span className="text-sm font-medium text-surface-700">{r.rollNo || '—'}</span>,
+      cell: (r) => <span className="text-sm font-medium text-surface-700">{r.metadata?.rollNo || r.rollNo || '—'}</span>,
     },
     {
       header: 'Phone',
@@ -106,13 +106,13 @@ export default function TeacherStudentsPage() {
         breadcrumbs={['Home', 'Students']}
       />
 
-      {/* Class Tabs */}
+      {/* Batch Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
         <button
-          onClick={() => setSelectedClassId('all')}
+          onClick={() => setSelectedBatchId('all')}
           className={cn(
             "px-4 py-2 text-sm font-medium rounded-full transition-colors whitespace-nowrap",
-            selectedClassId === 'all'
+            selectedBatchId === 'all'
               ? "bg-primary text-white shadow-sm"
               : "bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-700"
           )}
@@ -122,10 +122,10 @@ export default function TeacherStudentsPage() {
         {classes.map(cls => (
           <button
             key={cls._id || cls.id}
-            onClick={() => setSelectedClassId(cls._id || cls.id)}
+            onClick={() => setSelectedBatchId(cls._id || cls.id)}
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-full transition-colors whitespace-nowrap",
-              selectedClassId === (cls._id || cls.id)
+              selectedBatchId === (cls._id || cls.id)
                 ? "bg-primary text-white shadow-sm"
                 : "bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-700"
             )}
@@ -143,8 +143,8 @@ export default function TeacherStudentsPage() {
           searchable
           searchPlaceholder="Search students..."
           emptyIcon={Users}
-          emptyTitle={selectedClassId === 'all' ? "No students found" : "No students in this class"}
-          emptyDescription={selectedClassId === 'all' ? "No students are enrolled yet." : "There are no students assigned to the selected class."}
+          emptyTitle={selectedBatchId === 'all' ? "No students found" : "No students in this batch"}
+          emptyDescription={selectedBatchId === 'all' ? "No students are enrolled yet." : "There are no students assigned to the selected batch."}
         />
       </Card>
     </div>

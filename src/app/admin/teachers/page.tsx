@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Users, Plus, Upload, Trash, Briefcase } from 'lucide-react';
+import { useDeveloperStore } from '@/store';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card } from '@/components/ui/index.jsx';
 import { DataTable, RowActions } from '@/components/tables/DataTable.jsx';
@@ -12,6 +13,9 @@ import toast from 'react-hot-toast';
 export default function TeachersPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
+  const [showDelete, setShowDelete] = useState(null);
+  const { isDeveloperMode } = useDeveloperStore();
+  const [formLoading, setFormLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // New Teacher Form State
@@ -20,6 +24,7 @@ export default function TeachersPage() {
     lastName: '',
     email: '',
     password: '',
+    phone: '',
     role: 'teacher'
   });
 
@@ -40,10 +45,10 @@ export default function TeachersPage() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this teacher?")) return;
+    if (!window.confirm("Are you sure you want to move this teacher to the Recycle Bin?")) return;
     try {
       await adminAPI.deleteUser(id);
-      toast.success("Teacher deleted successfully");
+      toast.success("Teacher moved to Recycle Bin");
       fetchTeachers();
     } catch (err) {
       toast.error("Failed to delete teacher");
@@ -53,30 +58,36 @@ export default function TeachersPage() {
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     try {
+      setFormLoading(true);
       await adminAPI.createUser(formData);
       toast.success("Teacher created successfully!");
       setShowCreateModal(false);
-      setFormData({ firstName: '', lastName: '', email: '', password: '', role: 'teacher' });
+      setFormData({ firstName: '', lastName: '', email: '', password: '', phone: '', role: 'teacher' });
       fetchTeachers();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to create teacher");
+    } finally {
+      setFormLoading(false);
     }
   };
 
   const columns = [
     { header: 'Name', cell: (row) => `${row.firstName} ${row.lastName}` },
     { header: 'Email', accessorKey: 'email' },
+    { header: 'Phone', accessorKey: 'phone' },
     {
       header: 'Actions',
       cell: (row) => {
-        const actions = [
-          {
-            icon: Trash,
-            label: 'Delete',
-            onClick: () => handleDelete(row._id)
-          }
-        ];
-        return <RowActions actions={actions} />;
+        const baseActions = [];
+          
+        baseActions.push({ 
+          label: 'Move to Recycle Bin', 
+          icon: Trash, 
+          danger: true, 
+          onClick: () => handleDelete(row._id) 
+        });
+          
+        return <RowActions actions={baseActions} />;
       }
     }
   ];
@@ -126,6 +137,10 @@ export default function TeachersPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Email</label>
                 <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone Number</label>
+                <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Password</label>

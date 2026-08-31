@@ -6,6 +6,13 @@ exports.startLiveClass = async (req, res, next) => {
     const data = await LiveClassesService.startLiveClass(req, req.body);
     return successResponse(res, 'Live class started successfully', data, null, 201);
   } catch (error) {
+    if (error.statusCode === 409 && error.liveClass) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        data: error.liveClass
+      });
+    }
     next(error);
   }
 };

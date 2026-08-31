@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const resourceSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
-  classId: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicClass', required: function() { return this.type !== 'FOLDER'; } }, // Using generic string/ObjectId for class definition
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }, // Legacy, for backward compatibility
+  batchIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }], // Empty array means Global/All Batches
   subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
   uploaderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String, required: true },

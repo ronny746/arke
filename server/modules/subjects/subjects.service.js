@@ -3,6 +3,7 @@ const SubjectModel = require('./subjects.model');
 exports.createSubject = async (reqUser, payload) => {
   const subject = new SubjectModel({
     ...payload,
+    classId: payload.batchId,
     instituteId: reqUser.instituteId
   });
   return await subject.save();
@@ -15,19 +16,24 @@ exports.getSubjects = async (reqUser, filters = {}) => {
   } else if (filters.instituteId) {
     query.instituteId = filters.instituteId;
   }
-  return await SubjectModel.find(query).populate('classId', 'name section').populate('teacherId', 'firstName lastName email');
+  return await SubjectModel.find(query).populate('batchId', 'name section').populate('teacherId', 'firstName lastName email');
 };
 
 exports.getSubjectById = async (id, reqUser) => {
   return await SubjectModel.findOne({ _id: id, instituteId: reqUser.instituteId })
-    .populate('classId', 'name section')
+    .populate('batchId', 'name section')
     .populate('teacherId', 'firstName lastName email');
 };
 
 exports.updateSubject = async (id, payload, reqUser) => {
+  const updatePayload = { ...payload };
+  if (payload.batchId) {
+    updatePayload.classId = payload.batchId;
+  }
+
   return await SubjectModel.findOneAndUpdate(
     { _id: id, instituteId: reqUser.instituteId },
-    payload,
+    updatePayload,
     { new: true }
   );
 };

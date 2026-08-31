@@ -20,6 +20,14 @@ const practiceSessionSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  linkedExamId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Exam',
+  },
+  parentSessionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PracticeSession',
+  },
   filters: {
     subject: String,
     topic: String,
@@ -74,7 +82,11 @@ const practiceSessionSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  completedAt: Date
+  completedAt: Date,
+  totalTimeSpentSeconds: {
+    type: Number,
+    default: 0
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.models.PracticeSession || mongoose.model('PracticeSession', practiceSessionSchema);

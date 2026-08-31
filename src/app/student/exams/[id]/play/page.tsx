@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-
-import { Clock, AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, ShieldAlert } from 'lucide-react';
+import { Clock, AlertTriangle, ShieldAlert, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button.jsx';
 import { studentAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
@@ -14,7 +13,7 @@ export default function ExamPlayer() {
   
   const getSubjectName = (q) => q?.subject?.name || q?.subjectName || (typeof q?.subject === 'string' ? q.subject : 'General');
 
-  const [examState, setExamState] = useState(null); // Contains exam settings and questions
+  const [examState, setExamState] = useState(null);
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
   
@@ -27,6 +26,19 @@ export default function ExamPlayer() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [activeSubject, setActiveSubject] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefreshQuestion = () => {
+    setIsRefreshing(true);
+    // Add a slight delay so the user sees the refresh happening visually
+    setTimeout(() => {
+      // Incrementing the key will remount the component.
+      // To ensure broken images are re-fetched, we append a timestamp to image sources in the question HTML.
+      setRefreshKey(prev => prev + 1);
+      setIsRefreshing(false);
+    }, 500);
+  };
 
   // Webcam Refs
   const videoRef = useRef(null);
@@ -55,7 +67,7 @@ export default function ExamPlayer() {
       } catch (e) {
         console.error('Failed to upload snapshot', e);
       }
-    }, 'image/jpeg', 0.5); // 50% quality to save bandwidth
+    }, 'image/jpeg', 0.5);
   };
 
   const handleAutoSubmit = useCallback(async () => {
@@ -76,7 +88,6 @@ export default function ExamPlayer() {
     }
   }, [id, violations, submitting, router]);
 
-  // Setup Exam Datart
   useEffect(() => {
     const initializeExam = async () => {
       try {
@@ -96,7 +107,6 @@ export default function ExamPlayer() {
           setActiveSubject('General');
         }
         
-        // Calculate remaining time
         const start = new Date(sub.startTime).getTime();
         const durationMs = settings.durationMinutes * 60 * 1000;
         const now = Date.now();
@@ -111,7 +121,6 @@ export default function ExamPlayer() {
           });
         }
 
-        // Start Timer
         timerRef.current = setInterval(() => {
           setTimeLeft((prev) => {
             if (prev <= 1) {
@@ -123,7 +132,6 @@ export default function ExamPlayer() {
           });
         }, 1000);
 
-        // Security Setup
         if (security.enableProctoring) startWebcam(security.proctoringIntervalSeconds);
         if (security.disableCopyPaste) setupAntiCopy();
         
@@ -144,7 +152,6 @@ export default function ExamPlayer() {
     };
   }, [id]);
 
-  // Handle Mobile Device Detection
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -152,7 +159,6 @@ export default function ExamPlayer() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Handle Tab Switch (Visibility API)
   useEffect(() => {
     if (!examState || submitting) return;
 
@@ -162,7 +168,6 @@ export default function ExamPlayer() {
         setViolations(newViolations);
         toast.error('Warning: Tab switch detected! This incident has been recorded.', { duration: 5000, icon: '🚨' });
         
-        // Save violation to DB immediately
         studentAPI.saveAnswer(id, { violations: newViolations }).catch(()=>console.error('Failed to log violation'));
 
         if (examState.security.maxTabSwitchesAllowed && newViolations.tabSwitches >= examState.security.maxTabSwitchesAllowed) {
@@ -176,7 +181,6 @@ export default function ExamPlayer() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [examState, violations, submitting]);
 
-  // Handle Fullscreen Enforcement
   useEffect(() => {
     if (!examState || submitting || !examState.security.requireFullScreen) return;
 
@@ -196,114 +200,150 @@ export default function ExamPlayer() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, [examState, violations, submitting]);
 
-  // Re-attach camera stream if component re-renders (e.g. after fullscreen)
   useEffect(() => {
-    if (isFullscreen && videoRef.current && streamRef.current && !videoRef.current.srcObject) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.onloadedmetadata = () => {
-         videoRef.current.play().catch(e => console.error("Play error:", e));
-      };
+    if (!loading && isFullscreen && examState?.security?.enableProctoring) {
+      if (!streamRef.current) {
+        startWebcam(examState.security.proctoringIntervalSeconds);
+      }
     }
-  }, [isFullscreen]);
+  }, [isFullscreen, loading, examState]);
+
+  // Ensure stream stays attached if video element re-renders
+  useEffect(() => {
+    if (videoRef.current && streamRef.current && videoRef.current.srcObject !== streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  });
 
   const requestFullscreen = async () => {
     try {
       if (document.documentElement.requestFullscreen) {
         await document.documentElement.requestFullscreen();
       }
+      setIsFullscreen(true);
     } catch (e) {
-      console.error('Fullscreen request failed:', e);
+      toast.error('Could not enter full screen mode. Please try again.');
     }
   };
 
-  const setupAntiCopy = () => {
-    document.addEventListener('contextmenu', (e) => e.preventDefault());
-    document.addEventListener('copy', (e) => e.preventDefault());
-    document.addEventListener('cut', (e) => e.preventDefault());
-    document.addEventListener('paste', (e) => e.preventDefault());
-  };
-
-  const cleanupSecurity = () => {
-    document.removeEventListener('contextmenu', (e) => e.preventDefault());
-    document.removeEventListener('copy', (e) => e.preventDefault());
-    document.removeEventListener('cut', (e) => e.preventDefault());
-    document.removeEventListener('paste', (e) => e.preventDefault());
-    if (document.fullscreenElement) document.exitFullscreen().catch(e => console.error(e));
-  };
-
-  // Webcam Setup
-  const startWebcam = async (intervalSeconds) => {
+  const startWebcam = async (intervalSecs) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play().catch(e => console.error("Play error:", e));
-        };
+        videoRef.current.play().catch(() => {});
       }
-      
-      // Start taking snapshots
-      snapshotIntervalRef.current = setInterval(() => {
-        takeAndUploadSnapshot();
-      }, intervalSeconds * 1000);
-      
+      if (intervalSecs && intervalSecs > 0) {
+        snapshotIntervalRef.current = setInterval(takeAndUploadSnapshot, intervalSecs * 1000);
+      }
     } catch (err) {
-      toast.error('Webcam permission is required for this exam!');
-      console.error(err);
+      toast.error('Webcam access required for this exam.');
     }
   };
 
   const stopWebcam = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
   };
 
-  // Handle Answers
-  const handleOptionSelect = async (questionId, optionId) => {
-    // Optimistic UI update
-    const newAnswers = [...(submission.answers || [])];
+  const setupAntiCopy = () => {
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('selectstart', e => e.preventDefault());
+    document.addEventListener('copy', e => e.preventDefault());
+  };
+
+  const cleanupSecurity = () => {
+    document.removeEventListener('contextmenu', e => e.preventDefault());
+    document.removeEventListener('selectstart', e => e.preventDefault());
+    document.removeEventListener('copy', e => e.preventDefault());
+  };
+
+  // Auto set to NOT_ANSWERED if not visited
+  useEffect(() => {
+    if (!examState || submitting) return;
+    const qId = examState.questions[currentQIdx]?._id;
+    if (!qId) return;
+    
+    const newAnswers = [...(submission?.answers || [])];
+    const existingIdx = newAnswers.findIndex(a => a.questionId === qId);
+    if (existingIdx === -1) {
+      newAnswers.push({ questionId: qId, selectedOptionId: null, status: 'NOT_ANSWERED' });
+      setSubmission({ ...submission, answers: newAnswers });
+      studentAPI.saveAnswer(id, { questionId: qId, selectedOptionId: null, status: 'NOT_ANSWERED' }).catch(()=>{});
+    }
+  }, [currentQIdx, examState, submitting]);
+
+  const handleOptionSelect = (questionId, optionId) => {
+    const newAnswers = [...(submission?.answers || [])];
     const existingIdx = newAnswers.findIndex(a => a.questionId === questionId);
     
-    if (existingIdx !== -1) {
+    if (existingIdx > -1) {
       newAnswers[existingIdx].selectedOptionId = optionId;
-      newAnswers[existingIdx].status = newAnswers[existingIdx].status === 'MARKED_FOR_REVIEW' ? 'ANSWERED_AND_MARKED_FOR_REVIEW' : 'ANSWERED';
     } else {
-      newAnswers.push({ questionId, selectedOptionId: optionId, status: 'ANSWERED' });
+      newAnswers.push({ questionId, selectedOptionId: optionId, status: 'NOT_ANSWERED' });
     }
     setSubmission({ ...submission, answers: newAnswers });
+    studentAPI.saveAnswer(id, { questionId, selectedOptionId: optionId, status: newAnswers[existingIdx]?.status || 'NOT_ANSWERED' }).catch(()=>{});
+  };
 
-    // Sync with backend
-    try {
-      await studentAPI.saveAnswer(id, { questionId, selectedOptionId: optionId });
-    } catch (error) {
-      toast.error('Failed to save answer. Connection issue.');
+  const goToNext = () => {
+    if (currentQIdx < examState.questions.length - 1) {
+      const nextIdx = currentQIdx + 1;
+      setCurrentQIdx(nextIdx);
+      setActiveSubject(getSubjectName(examState.questions[nextIdx]));
     }
   };
 
-  const handleMarkReview = async (questionId) => {
-    const newAnswers = [...(submission.answers || [])];
-    const existingIdx = newAnswers.findIndex(a => a.questionId === questionId);
-    
-    let newStatus = 'MARKED_FOR_REVIEW';
-    if (existingIdx !== -1) {
-      if (newAnswers[existingIdx].selectedOptionId) {
-        newStatus = newAnswers[existingIdx].status === 'ANSWERED_AND_MARKED_FOR_REVIEW' ? 'ANSWERED' : 'ANSWERED_AND_MARKED_FOR_REVIEW';
-      } else {
-        newStatus = newAnswers[existingIdx].status === 'MARKED_FOR_REVIEW' ? 'NOT_ANSWERED' : 'MARKED_FOR_REVIEW';
-      }
-      newAnswers[existingIdx].status = newStatus;
-    } else {
-      newAnswers.push({ questionId, status: newStatus });
+  const goToPrev = () => {
+    if (currentQIdx > 0) {
+      const nextIdx = currentQIdx - 1;
+      setCurrentQIdx(nextIdx);
+      setActiveSubject(getSubjectName(examState.questions[nextIdx]));
     }
-    
+  };
+
+  const updateStatusAndNext = async (qId, status) => {
+    const newAnswers = [...(submission?.answers || [])];
+    let ans = newAnswers.find(a => a.questionId === qId);
+    if (!ans) {
+      ans = { questionId: qId, selectedOptionId: null, status };
+      newAnswers.push(ans);
+    } else {
+      ans.status = status;
+    }
     setSubmission({ ...submission, answers: newAnswers });
-    await studentAPI.saveAnswer(id, { questionId, status: newStatus });
+    await studentAPI.saveAnswer(id, { questionId: qId, selectedOptionId: ans.selectedOptionId, status }).catch(()=>{});
+    goToNext();
+  };
+
+  const handleSaveAndNext = (qId) => {
+    const ans = submission?.answers?.find(a => a.questionId === qId);
+    if (ans?.selectedOptionId) {
+      updateStatusAndNext(qId, 'ANSWERED');
+    } else {
+      updateStatusAndNext(qId, 'NOT_ANSWERED');
+    }
+  };
+
+  const handleSaveAndMarkReview = (qId) => {
+    const ans = submission?.answers?.find(a => a.questionId === qId);
+    if (ans?.selectedOptionId) {
+      updateStatusAndNext(qId, 'ANSWERED_AND_MARKED_FOR_REVIEW');
+    } else {
+      toast.error('Please select an option first to Save & Mark for Review');
+    }
+  };
+
+  const handleMarkReviewAndNext = (qId) => {
+    updateStatusAndNext(qId, 'MARKED_FOR_REVIEW');
   };
 
   const handleClearResponse = async (questionId) => {
-    const newAnswers = [...(submission.answers || [])];
+    const newAnswers = [...(submission?.answers || [])];
     const existingIdx = newAnswers.findIndex(a => a.questionId === questionId);
     
     if (existingIdx !== -1) {
@@ -318,8 +358,9 @@ export default function ExamPlayer() {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    if (h > 0) return `${h}h ${m}m ${s}s`;
-    return `${m}m ${s}s`;
+    const pad = (num) => String(num).padStart(2, '0');
+    if (h > 0) return `${pad(h)}:${pad(m)}:${pad(s)}`;
+    return `${pad(m)}:${pad(s)}`;
   };
 
   useEffect(() => {
@@ -347,7 +388,9 @@ export default function ExamPlayer() {
 
   const confirmSubmit = async () => {
     setShowSubmitModal(false);
+    if (submitting) return;
     setSubmitting(true);
+    if (document.fullscreenElement) document.exitFullscreen().catch(e => {});
     clearInterval(timerRef.current);
     clearInterval(snapshotIntervalRef.current);
     
@@ -361,15 +404,6 @@ export default function ExamPlayer() {
       toast.error('Failed to submit exam');
       setSubmitting(false);
     }
-  };
-
-  const getQuestionStatusColor = (qId) => {
-    const ans = submission?.answers?.find(a => a.questionId === qId);
-    if (!ans) return 'bg-gray-100 text-gray-700 border-gray-300';
-    if (ans.status === 'ANSWERED') return 'bg-success-500 text-white border-success-600';
-    if (ans.status === 'MARKED_FOR_REVIEW') return 'bg-warning-500 text-white border-warning-600';
-    if (ans.status === 'ANSWERED_AND_MARKED_FOR_REVIEW') return 'bg-primary-500 text-white border-primary-600'; // purple-ish
-    return 'bg-gray-100 text-gray-700 border-gray-300';
   };
 
   if (loading) {
@@ -402,7 +436,30 @@ export default function ExamPlayer() {
   const currentAnswer = currentQuestion && submission?.answers?.find(a => a.questionId === currentQuestion._id);
   
   const subjects = examState?.questions ? [...new Set(examState.questions.map(q => getSubjectName(q)))] : [];
-  const questionsInSubject = examState?.questions ? examState.questions.filter(q => getSubjectName(q) === activeSubject) : [];
+
+  const counts = {
+    notVisited: examState?.questions?.length || 0,
+    notAnswered: 0,
+    answered: 0,
+    markedForReview: 0,
+    answeredAndMarked: 0
+  };
+  
+  submission?.answers?.forEach(ans => {
+    if (ans.status === 'NOT_ANSWERED') {
+       counts.notAnswered++;
+       counts.notVisited--;
+    } else if (ans.status === 'ANSWERED') {
+       counts.answered++;
+       counts.notVisited--;
+    } else if (ans.status === 'MARKED_FOR_REVIEW') {
+       counts.markedForReview++;
+       counts.notVisited--;
+    } else if (ans.status === 'ANSWERED_AND_MARKED_FOR_REVIEW') {
+       counts.answeredAndMarked++;
+       counts.notVisited--;
+    }
+  });
 
   if (!currentQuestion) {
     return (
@@ -416,34 +473,181 @@ export default function ExamPlayer() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden select-none">
+    <div className="flex h-screen bg-white overflow-hidden select-none font-sans">
       {/* Hidden Canvas for Proctoring Screenshots */}
       {examState.security.enableProctoring && (
         <canvas ref={canvasRef} className="hidden" />
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* Top Bar */}
-        <header className="bg-white border-b h-16 flex items-center justify-between px-6 shadow-sm z-10 flex-shrink-0">
-          <div className="font-bold text-xl text-gray-900 truncate pr-4">{examState.settings.title || 'Online Exam'}</div>
-          
-          <div className="flex items-center gap-6">
-             <div className="flex items-center gap-2 px-4 py-2 bg-error-50 rounded-lg border border-error-100">
-                <Clock className={`w-5 h-5 ${timeLeft < 300 ? 'text-error-600 animate-pulse' : 'text-gray-600'}`} />
-                <span className={`font-mono text-xl font-bold ${timeLeft < 300 ? 'text-error-600' : 'text-gray-800'}`}>
-                  {formatTime(timeLeft)}
-                </span>
-             </div>
-             <Button variant="gradient" onClick={handleManualSubmit} disabled={submitting}>
-                Submit Exam
-             </Button>
+      <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-gray-300">
+        {/* Top Header */}
+        <header className="bg-[#1c75b8] text-white h-[60px] flex items-center px-6 z-10 flex-shrink-0">
+          <div className="font-bold text-xl truncate w-full tracking-wide">
+             {examState.settings.title || 'Online Assessment'}
           </div>
         </header>
 
-        {/* Subject Tabs */}
-        {subjects.length > 1 && (
-          <div className="bg-white border-b flex overflow-x-auto">
+        {/* Question Area */}
+        <main className="flex-1 overflow-y-auto relative bg-white">
+           {/* Watermark to deter photo capture */}
+           <div className="absolute inset-0 pointer-events-none opacity-5 flex items-center justify-center flex-wrap gap-10 overflow-hidden z-0">
+              {Array.from({length: 30}).map((_, i) => (
+                <span key={i} className="text-2xl font-bold rotate-45">{submission.student || 'CANDIDATE'}</span>
+              ))}
+           </div>
+
+           <div key={refreshKey} className={`p-6 relative z-10 flex flex-col h-full transition-opacity duration-300 ${isRefreshing ? 'opacity-20' : 'opacity-100'}`}>
+              <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-5">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-bold text-gray-800">Q.{currentQIdx + 1}</h2>
+                  <button 
+                    onClick={handleRefreshQuestion}
+                    disabled={isRefreshing}
+                    className="flex items-center gap-1.5 text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
+                    title="Refresh Question (if images failed to load)"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                  </button>
+                </div>
+                <div className="flex gap-4 text-sm font-bold bg-gray-100 px-3 py-1 rounded">
+                  <span className="text-green-700">+{currentQuestion.marks || 4} Marks</span>
+                  <span className="text-red-700">-{currentQuestion.negativeMarks || 1} Marks</span>
+                </div>
+              </div>
+
+              {/* Question Text */}
+              <div 
+                className="prose max-w-none text-gray-900 text-base mb-8 font-medium leading-relaxed" 
+                dangerouslySetInnerHTML={{ 
+                  __html: currentQuestion.questionText.replace(/src="([^"]+)"/g, (match, url) => `src="${url}${url.includes('?') ? '&' : '?'}retry=${refreshKey}"`) 
+                }} 
+              />
+
+              {/* Options */}
+              <div className="space-y-3 flex-1 ml-4">
+                {currentQuestion.options?.map((opt, idx) => {
+                  const isSelected = currentAnswer?.selectedOptionId === opt._id;
+                  return (
+                    <label 
+                      key={opt._id}
+                      className="flex items-start gap-4 p-2 rounded hover:bg-gray-50 cursor-pointer group"
+                    >
+                      <input 
+                        type="radio" 
+                        name="question_option" 
+                        className="w-4 h-4 mt-1 text-[#1c75b8] border-gray-400 focus:ring-[#1c75b8] cursor-pointer"
+                        checked={isSelected}
+                        onChange={() => handleOptionSelect(currentQuestion._id, opt._id)}
+                      />
+                      <div 
+                        className="text-gray-800 text-sm leading-relaxed" 
+                        dangerouslySetInnerHTML={{ 
+                          __html: opt.text.replace(/src="([^"]+)"/g, (match, url) => `src="${url}${url.includes('?') ? '&' : '?'}retry=${refreshKey}"`) 
+                        }} 
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+           </div>
+        </main>
+        
+        {/* NTA Action Footer */}
+        <div className="bg-[#f5f5f5] p-3 flex justify-between items-center border-t border-gray-300 flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)]">
+           <div className="flex flex-wrap gap-2">
+             <button className="bg-[#5cb85c] hover:bg-[#4cae4c] text-white rounded-[3px] text-[13px] px-4 py-2 font-bold shadow-sm transition-colors uppercase tracking-tight" onClick={() => handleSaveAndNext(currentQuestion._id)}>
+               Save & Next
+             </button>
+             <button className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-[3px] text-[13px] px-4 py-2 font-bold shadow-sm transition-colors uppercase tracking-tight" onClick={() => handleClearResponse(currentQuestion._id)}>
+               Clear Response
+             </button>
+             <button className="bg-[#f0ad4e] hover:bg-[#eea236] text-white rounded-[3px] text-[13px] px-4 py-2 font-bold shadow-sm transition-colors uppercase tracking-tight" onClick={() => handleSaveAndMarkReview(currentQuestion._id)}>
+               Save & Mark For Review
+             </button>
+             <button className="bg-[#337ab7] hover:bg-[#286090] text-white rounded-[3px] text-[13px] px-4 py-2 font-bold shadow-sm transition-colors uppercase tracking-tight" onClick={() => handleMarkReviewAndNext(currentQuestion._id)}>
+               Mark For Review & Next
+             </button>
+           </div>
+           <div className="flex gap-2">
+              <button className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-[3px] text-[13px] px-4 py-2 font-bold shadow-sm disabled:opacity-50 transition-colors uppercase tracking-tight" disabled={currentQIdx === 0} onClick={() => goToPrev()}>
+                &lt;&lt; Back
+              </button>
+              <button className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-[3px] text-[13px] px-4 py-2 font-bold shadow-sm disabled:opacity-50 transition-colors uppercase tracking-tight" disabled={currentQIdx === examState.questions.length - 1} onClick={() => goToNext()}>
+                Next &gt;&gt;
+              </button>
+           </div>
+        </div>
+      </div>
+
+      {/* Right Sidebar */}
+      <aside className="w-[320px] bg-[#eef1f8] flex flex-col flex-shrink-0 z-20">
+         
+         {/* Live Proctoring & Candidate Info */}
+         <div className="bg-white flex flex-col border-b border-gray-300 p-3 pb-2 shadow-sm">
+           {examState.security.enableProctoring && (
+             <div className="w-full bg-black rounded overflow-hidden relative mb-3 flex-shrink-0 border border-gray-200" style={{ height: '140px' }}>
+                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+                <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/60 px-2 py-0.5 rounded-full border border-white/20">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                  <span className="text-white text-[10px] font-bold tracking-wider uppercase">Live</span>
+                </div>
+             </div>
+           )}
+           <div className="flex items-start justify-between">
+              <div className="flex-1">
+                 <div className="text-[11px] text-gray-500 uppercase font-bold tracking-wide">Candidate</div>
+                 <div className="text-[15px] font-bold text-gray-800 leading-tight">
+                   {submission?.student?.firstName ? `${submission.student.firstName} ${submission.student.lastName}` : submission?.student?.name || submission?.publicUser?.name || 'Candidate'}
+                 </div>
+              </div>
+              <div className="text-right ml-2">
+                <div className="text-[11px] text-gray-500 font-bold uppercase tracking-wide mb-1">Time Left</div>
+                <div className="bg-[#e4f3f9] border border-[#bce8f1] text-[#31708f] font-bold px-2 py-1 rounded text-[15px] inline-block tracking-widest shadow-inner">
+                  {formatTime(timeLeft)}
+                </div>
+              </div>
+           </div>
+         </div>
+
+         {/* Legend */}
+         <div className="p-3 bg-[#e8f1f8] grid grid-cols-2 gap-x-1 gap-y-2 text-[11px] font-bold text-gray-700 border-b border-white border-t border-t-gray-200/50">
+            <div className="flex items-center gap-2">
+               <div className="w-[30px] h-[26px] bg-[#f0f0f0] border border-[#cccccc] shadow-[inset_0_-2px_0_rgba(0,0,0,0.05)] flex items-center justify-center font-bold text-gray-700 rounded-[3px]">
+                 {counts.notVisited}
+               </div> 
+               <span className="leading-none mt-1">Not Visited</span>
+            </div>
+            <div className="flex items-center gap-2">
+               <div className="w-[30px] h-[26px] bg-[#d9534f] border border-[#d43f3a] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] flex items-center justify-center font-bold rounded-t-[3px] rounded-bl-[3px] rounded-br-[10px]">
+                 {counts.notAnswered}
+               </div>
+               <span className="leading-none mt-1">Not Answered</span>
+            </div>
+            <div className="flex items-center gap-2">
+               <div className="w-[30px] h-[26px] bg-[#5cb85c] border border-[#4cae4c] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] flex items-center justify-center font-bold rounded-t-[3px] rounded-bl-[3px] rounded-br-[10px]">
+                 {counts.answered}
+               </div>
+               <span className="leading-none mt-1">Answered</span>
+            </div>
+            <div className="flex items-center gap-2">
+               <div className="w-[28px] h-[28px] bg-[#9b59b6] border border-[#8e44ad] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] flex items-center justify-center font-bold rounded-full">
+                 {counts.markedForReview}
+               </div>
+               <span className="leading-none mt-1">Marked for Review</span>
+            </div>
+            <div className="flex items-center gap-2 col-span-2 mt-1">
+               <div className="w-[28px] h-[28px] bg-[#9b59b6] border border-[#8e44ad] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] flex items-center justify-center font-bold rounded-full relative">
+                 {counts.answeredAndMarked}
+                 <div className="absolute bottom-[2px] right-[2px] w-[8px] h-[8px] bg-[#5cb85c] rounded-full border border-white"></div>
+               </div>
+               <span className="leading-tight mt-1 text-[10px]">Answered & Marked for Review<br/>(will be considered for evaluation)</span>
+            </div>
+         </div>
+
+         {/* Subject Tabs */}
+         <div className="bg-[#428bca] text-white flex overflow-x-auto shadow-inner h-[38px] flex-shrink-0">
             {subjects.map(sub => (
               <button
                 key={sub}
@@ -452,171 +656,77 @@ export default function ExamPlayer() {
                   const firstIdx = examState.questions.findIndex(q => getSubjectName(q) === sub);
                   if (firstIdx !== -1) setCurrentQIdx(firstIdx);
                 }}
-                className={`px-6 py-3 font-semibold whitespace-nowrap transition-colors ${activeSubject === sub ? 'border-b-2 border-primary-600 text-primary-600 bg-primary-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                className={`px-3 py-0 text-[12px] font-bold whitespace-nowrap transition-colors uppercase tracking-tight flex-1 ${activeSubject === sub ? 'bg-white text-gray-800' : 'hover:bg-[#3276b1]'}`}
               >
                 {sub}
               </button>
             ))}
-          </div>
-        )}
-
-        {/* Question Area */}
-        <main className="flex-1 overflow-y-auto p-8 relative">
-           {/* Watermark to deter photo capture */}
-           <div className="absolute inset-0 pointer-events-none opacity-5 flex items-center justify-center flex-wrap gap-10 overflow-hidden z-0">
-              {Array.from({length: 20}).map((_, i) => (
-                <span key={i} className="text-2xl font-bold rotate-45">{submission.student}</span>
-              ))}
-           </div>
-
-           <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border p-8 relative z-10">
-              <div className="flex justify-between items-center border-b pb-4 mb-6">
-                <h2 className="text-xl font-bold text-gray-800">Question {currentQIdx + 1}</h2>
-                <div className="flex gap-4 text-sm font-semibold">
-                  <span className="text-success-600">+{currentQuestion.marks || 4} Marks</span>
-                  <span className="text-error-600">-{currentQuestion.negativeMarks || 1} Marks</span>
-                </div>
-              </div>
-
-              {/* Question Text */}
-              <div className="prose max-w-none text-gray-900 text-lg mb-8" dangerouslySetInnerHTML={{ __html: currentQuestion.questionText }} />
-
-              {/* Options */}
-              <div className="space-y-4">
-                {currentQuestion.options?.map((opt, idx) => {
-                  const isSelected = currentAnswer?.selectedOptionId === opt._id;
-                  return (
-                    <div 
-                      key={opt._id}
-                      onClick={() => handleOptionSelect(currentQuestion._id, opt._id)}
-                      className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-primary-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full border-2 mr-4 mt-0.5 ${
-                        isSelected ? 'border-primary-500 bg-primary-500 text-white' : 'border-gray-300'
-                      }`}>
-                        {isSelected && <div className="w-2 h-2 bg-white rounded-full"/>}
-                      </div>
-                      <div className="flex-1 text-gray-800" dangerouslySetInnerHTML={{ __html: opt.text }} />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Bottom Actions */}
-              <div className="mt-10 pt-6 border-t flex justify-between items-center">
-                 <div className="flex gap-3">
-                   <Button variant="outline" onClick={() => handleMarkReview(currentQuestion._id)}>
-                     {currentAnswer?.status?.includes('MARKED') ? 'Unmark Review' : 'Mark for Review'}
-                   </Button>
-                   <Button variant="outline" className="text-gray-500" onClick={() => handleClearResponse(currentQuestion._id)}>
-                     Clear Response
-                   </Button>
-                 </div>
-                 <div className="flex gap-3">
-                   <Button 
-                    variant="outline" 
-                    icon={ChevronLeft} 
-                    disabled={currentQIdx === 0}
-                    onClick={() => {
-                      const nextIdx = currentQIdx - 1;
-                      setCurrentQIdx(nextIdx);
-                      setActiveSubject(getSubjectName(examState.questions[nextIdx]));
-                    }}
-                   >
-                     Previous
-                   </Button>
-                   <Button 
-                    variant="primary" 
-                    icon={ChevronRight} 
-                    disabled={currentQIdx === examState.questions.length - 1}
-                    onClick={() => {
-                      const nextIdx = currentQIdx + 1;
-                      setCurrentQIdx(nextIdx);
-                      setActiveSubject(getSubjectName(examState.questions[nextIdx]));
-                    }}
-                    className="flex-row-reverse"
-                   >
-                     Save & Next
-                   </Button>
-                 </div>
-              </div>
-           </div>
-        </main>
-      </div>
-
-      {/* Right Sidebar (Palette & Camera) */}
-      
-      <aside className="w-80 bg-white border-l h-full flex flex-col flex-shrink-0 z-20">
-         {/* Camera View */}
-         <div className="p-4 border-b bg-gray-50 flex flex-col items-center">
-            <h3 className="font-bold text-gray-800 mb-2 self-start text-sm">Live Proctoring</h3>
-            <div className="w-full bg-black rounded-lg overflow-hidden relative" style={{ aspectRatio: '4/3' }}>
-               <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
-               <div className="absolute bottom-2 left-2 flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-error-500 animate-pulse"></div>
-                 <span className="text-white text-xs font-semibold drop-shadow-md">Recording</span>
-               </div>
-            </div>
          </div>
 
-          {/* Palette Scroll Area */}
-          <div className="p-4 flex-1 overflow-y-auto space-y-6">
-            {subjects.map(subject => {
-              const subjectQuestions = examState.questions.map((q, i) => ({ q, i })).filter(({ q }) => getSubjectName(q) === subject);
-              if (subjectQuestions.length === 0) return null;
-              
-              return (
-                <div key={subject}>
-                  <h3 className="text-sm font-bold text-gray-700 mb-3 border-b pb-1">{subject}</h3>
-                  <div className="grid grid-cols-4 gap-3">
-                    {subjectQuestions.map(({ q, i }) => {
-                      const ans = submission?.answers?.find(a => a.questionId === q._id);
-                      let statusClass = 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'; // Not Visited
-                      
-                      if (currentQIdx === i) {
-                        statusClass = 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50';
-                      } else if (ans) {
-                        if (ans.status === 'ANSWERED') statusClass = 'bg-success-500 border-success-600 text-white';
-                        else if (ans.status === 'MARKED_FOR_REVIEW') statusClass = 'bg-warning-500 border-warning-600 text-white';
-                        else if (ans.status === 'ANSWERED_AND_MARKED_FOR_REVIEW') statusClass = 'bg-primary-500 border-primary-600 text-white';
-                      }
+         {/* Question Palette */}
+         <div className="bg-[#eef1f8] p-3 flex-1 overflow-y-auto">
+           <div className="text-[12px] font-bold text-gray-700 mb-2 uppercase tracking-wide px-1">Choose a Question</div>
+           <div className="grid grid-cols-5 gap-2 px-1">
+             {examState.questions.map((q, i) => {
+               if (getSubjectName(q) !== activeSubject) return null;
+               
+               const ans = submission?.answers?.find(a => a.questionId === q._id);
+               
+               // NTA Styles
+               let styleClass = "bg-[#f0f0f0] border-[#cccccc] text-gray-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.05)] rounded-[3px]"; // NOT VISITED
+               let innerContent = i + 1;
+               
+               if (ans) {
+                 if (ans.status === 'NOT_ANSWERED') {
+                   styleClass = "bg-[#d9534f] border-[#d43f3a] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] rounded-t-[3px] rounded-bl-[3px] rounded-br-[12px]";
+                 } else if (ans.status === 'ANSWERED') {
+                   styleClass = "bg-[#5cb85c] border-[#4cae4c] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] rounded-t-[3px] rounded-bl-[3px] rounded-br-[12px]";
+                 } else if (ans.status === 'MARKED_FOR_REVIEW') {
+                   styleClass = "bg-[#9b59b6] border-[#8e44ad] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] rounded-full";
+                 } else if (ans.status === 'ANSWERED_AND_MARKED_FOR_REVIEW') {
+                   styleClass = "bg-[#9b59b6] border-[#8e44ad] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] rounded-full relative";
+                   innerContent = (
+                     <>
+                       {i + 1}
+                       <div className="absolute bottom-[2px] right-[2px] w-[8px] h-[8px] bg-[#5cb85c] rounded-full border border-white"></div>
+                     </>
+                   );
+                 }
+               }
+               
+               // Highlight current question slightly if needed, but usually NTA doesn't heavily highlight the palette, just relies on the statuses. We'll add a subtle ring if active.
+               const isActive = currentQIdx === i;
 
-                      return (
-                        <button
-                          key={q._id}
-                          onClick={() => setCurrentQIdx(i)}
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-medium border transition-all shadow-sm ${statusClass}`}
-                        >
-                          {i + 1}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-         <div className="p-4 border-t bg-gray-50 space-y-2 text-xs text-gray-600">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-success-500"></div> Answered</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-error-500"></div> Not Answered</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-warning-500"></div> Marked</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-primary-500"></div> Ans & Marked</div>
+               return (
+                 <button
+                   key={q._id}
+                   onClick={() => setCurrentQIdx(i)}
+                   className={`w-full aspect-square flex items-center justify-center text-[13px] font-bold border transition-all ${styleClass} ${isActive ? 'ring-[3px] ring-blue-300 scale-105' : 'hover:opacity-90'}`}
+                 >
+                   {innerContent}
+                 </button>
+               );
+             })}
+           </div>
+         </div>
+         
+         {/* Submit Area */}
+         <div className="p-3 bg-[#e8f1f8] border-t border-gray-300 flex justify-center shadow-[0_-2px_5px_rgba(0,0,0,0.05)]">
+            <button className="bg-[#5cb85c] hover:bg-[#4cae4c] border border-[#4cae4c] text-white w-full rounded-[3px] py-2.5 text-[15px] font-bold shadow-md transition-colors uppercase tracking-widest" onClick={handleManualSubmit} disabled={submitting}>
+              Submit Exam
+            </button>
          </div>
       </aside>
     
-    
       {/* Submit Confirmation Modal */}
       {showSubmitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-           <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+           <div className="bg-white p-6 rounded-lg shadow-2xl max-w-sm w-full mx-4 border-t-4 border-[#1c75b8]">
               <h3 className="text-xl font-bold text-gray-900 mb-2">Submit Exam?</h3>
-              <p className="text-gray-600 mb-6">Are you sure you want to submit? You cannot change your answers after submission.</p>
+              <p className="text-gray-600 mb-6 text-sm">Are you sure you want to submit? You cannot change your answers after submission.</p>
               <div className="flex gap-3 justify-end">
                 <Button variant="outline" onClick={() => setShowSubmitModal(false)}>Cancel</Button>
-                <Button variant="primary" onClick={confirmSubmit}>Yes, Submit</Button>
+                <Button variant="primary" className="bg-[#1c75b8] hover:bg-[#155a8f]" onClick={confirmSubmit}>Yes, Submit</Button>
               </div>
            </div>
         </div>

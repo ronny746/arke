@@ -6,6 +6,7 @@ const rbacMiddleware = require('../../middlewares/rbac.middleware');
 const validate = require('../../middlewares/validate.middleware');
 const { createSubjectSchema, updateSubjectSchema, getSubjectsSchema } = require('./subjects.validation');
 const { ROLES } = require('../../config/constants');
+const requireDeveloperToken = require('../../middlewares/developer.middleware');
 
 router.use(authMiddleware);
 
@@ -35,7 +36,7 @@ router.put(
 );
 
 router.delete(
-  '/:id',
+  '/:id', requireDeveloperToken,
   rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS]),
   SubjectController.deleteSubject
 );

@@ -4,7 +4,7 @@ const assignmentSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
   branchId: { type: mongoose.Schema.Types.ObjectId },
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  classId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  batchId: { type: mongoose.Schema.Types.ObjectId, required: true },
   subjectId: { type: mongoose.Schema.Types.ObjectId },
   title: { type: String, required: true },
   description: { type: String }, // Rich text

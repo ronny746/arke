@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 exports.createSubjectSchema = Joi.object({
-  classId: Joi.string().required(),
+  batchId: Joi.string().required(),
   name: Joi.string().required(),
   code: Joi.string().optional().allow(''),
   teacherId: Joi.string().optional(),

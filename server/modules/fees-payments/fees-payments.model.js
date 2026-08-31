@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const feeRecordSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
   feeType: { type: String, enum: ['TUITION', 'TRANSPORT', 'EXAM', 'OTHER'], default: 'TUITION' },
   amountDue: { type: Number, required: true },
   amountPaid: { type: Number, default: 0 },
@@ -11,13 +13,19 @@ const feeRecordSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const paymentTransactionSchema = new mongoose.Schema({
-  instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
-  feeRecordId: { type: mongoose.Schema.Types.ObjectId, ref: 'FeeRecord', required: true },
+  instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute' },
+  feeRecordId: { type: mongoose.Schema.Types.ObjectId, ref: 'FeeRecord' },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
   amountPaid: { type: Number, required: true },
-  paymentMethod: { type: String, enum: ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER'], required: true },
+  paymentMethod: { type: String, default: 'EASEBUZZ' },
   transactionId: { type: String, required: true, unique: true },
-  status: { type: String, enum: ['SUCCESS', 'FAILED', 'PENDING'], default: 'SUCCESS' }
+  easepayid: { type: String },
+  bankRefNum: { type: String },
+  gatewayStatus: { type: String },
+  rawResponse: { type: mongoose.Schema.Types.Mixed },
+  status: { type: String, enum: ['SUCCESS', 'FAILED', 'PENDING'], default: 'PENDING' }
 }, { timestamps: true });
 
 const FeeRecord = mongoose.model('FeeRecord', feeRecordSchema);

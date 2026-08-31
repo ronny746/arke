@@ -20,9 +20,9 @@ const examSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
-  assignedClasses: [{
+  assignedBatches: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'AcademicClass',
+    ref: 'Batch',
   }],
   examType: {
     type: String,

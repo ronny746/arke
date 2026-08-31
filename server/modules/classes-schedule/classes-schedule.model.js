@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const classScheduleSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
   branchId: { type: mongoose.Schema.Types.ObjectId },
-  classId: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicClass', required: true },
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
   subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   roomId: { type: String }, // e.g. "Room 101"

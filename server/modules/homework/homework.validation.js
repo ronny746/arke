@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 exports.createHomeworkSchema = Joi.object({
-  classId: Joi.string().required(),
+  batchId: Joi.string().required(),
   subjectId: Joi.string().required(),
   title: Joi.string().required(),
   description: Joi.string().optional(),

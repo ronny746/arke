@@ -149,20 +149,40 @@ export default function LiveMonitor() {
                   )}
                 </div>
 
-                <div className="space-y-1 mt-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Tab Switches:</span>
-                    <span className={`font-semibold ${data.violations?.tabSwitches > 0 ? 'text-error-600' : 'text-gray-900'}`}>
-                      {data.violations?.tabSwitches || 0}
-                    </span>
+                  {data.progress && data.status === 'IN_PROGRESS' && (
+                    <>
+                      <div className="flex justify-between text-sm mt-3 pt-3 border-t">
+                        <span className="text-gray-600 font-medium">Attempted:</span>
+                        <span className="font-semibold text-primary-600">
+                          {data.progress.attempted} / {data.progress.totalQuestions}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Skipped:</span>
+                        <span className="font-semibold text-gray-900">{data.progress.skipped}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Time Left:</span>
+                        <span className="font-semibold text-error-600">
+                          {Math.floor(data.progress.timeLeft / 60)}:{(data.progress.timeLeft % 60).toString().padStart(2, '0')}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="space-y-1 mt-4 pt-3 border-t">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Tab Switches:</span>
+                      <span className={`font-semibold ${data.violations?.tabSwitches > 0 ? 'text-error-600' : 'text-gray-900'}`}>
+                        {data.violations?.tabSwitches || 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Fullscreen Exits:</span>
+                      <span className={`font-semibold ${data.violations?.fullScreenExits > 0 ? 'text-error-600' : 'text-gray-900'}`}>
+                        {data.violations?.fullScreenExits || 0}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Fullscreen Exits:</span>
-                    <span className={`font-semibold ${data.violations?.fullScreenExits > 0 ? 'text-error-600' : 'text-gray-900'}`}>
-                      {data.violations?.fullScreenExits || 0}
-                    </span>
-                  </div>
-                </div>
              </div>
           </Card>
         ))}

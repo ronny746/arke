@@ -6,7 +6,8 @@ exports.login = async (email, password, expectedRole) => {
   const query = { 
     $or: [
       { email },
-      { 'metadata.rollNo': email } // "email" parameter can also hold roll no
+      { 'metadata.rollNo': email }, // "email" parameter can also hold roll no
+      { phone: email } // "email" parameter can also hold phone number
     ],
     isActive: true 
   };
@@ -25,13 +26,19 @@ exports.login = async (email, password, expectedRole) => {
     throw new Error('Invalid email or password');
   }
 
+  const crypto = require('crypto');
+  const sessionId = crypto.randomUUID();
+  user.activeSessionId = sessionId;
+  await UserModel.updateOne({ _id: user._id }, { $set: { activeSessionId: sessionId } });
+
   const payload = {
     userId: user._id,
     role: user.role,
     instituteId: user.instituteId ? (user.instituteId._id || user.instituteId) : null,
     branchId: user.branchId,
     permissions: user.permissions,
-    instituteName: user.instituteId ? user.instituteId.name : null
+    instituteName: user.instituteId ? user.instituteId.name : null,
+    sessionId: sessionId
   };
 
   if (user.role === 'parent' && user.childrenIds) {

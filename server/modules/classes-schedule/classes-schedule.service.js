@@ -30,15 +30,15 @@ exports.getSchedule = async (reqUser, filters) => {
   }
   
   if (reqUser.role === 'student') {
-    const AcademicClassModel = require('../academic-classes/academic-classes.model');
-    const studentClass = await AcademicClassModel.findOne({ students: reqUser.userId });
-    if (studentClass) {
-      query.classId = studentClass._id;
+    const BatchModel = require('../batches/batches.model');
+    const studentClasses = await BatchModel.find({ students: reqUser.userId });
+    if (studentClasses && studentClasses.length > 0) {
+      query.batchId = { $in: studentClasses.map(c => c._id) };
     } else {
       return [];
     }
-  } else if (filters.classId) {
-    query.classId = filters.classId;
+  } else if (filters.batchId) {
+    query.batchId = filters.batchId;
   }
   if (filters.teacherId) query.teacherId = filters.teacherId;
   
@@ -50,7 +50,7 @@ exports.getSchedule = async (reqUser, filters) => {
 
   return await ClassSchedule.find(query)
     .populate('teacherId', 'firstName lastName email')
-    .populate('classId', 'name section')
+    .populate('batchId', 'name section')
     .populate('subjectId', 'name')
     .sort({ dayOfWeek: 1, startTime: 1 });
 };
@@ -64,15 +64,15 @@ exports.getCalculatedSchedule = async (reqUser, dateString, filters = {}) => {
   // 1. Build base query for recurring and overrides
   const query = { instituteId: reqUser.instituteId };
   if (reqUser.role === 'student') {
-    const AcademicClassModel = require('../academic-classes/academic-classes.model');
-    const studentClass = await AcademicClassModel.findOne({ students: reqUser.userId });
-    if (studentClass) {
-      query.classId = studentClass._id;
+    const BatchModel = require('../batches/batches.model');
+    const studentClasses = await BatchModel.find({ students: reqUser.userId });
+    if (studentClasses && studentClasses.length > 0) {
+      query.batchId = { $in: studentClasses.map(c => c._id) };
     } else {
       return [];
     }
-  } else if (filters.classId) {
-    query.classId = filters.classId;
+  } else if (filters.batchId) {
+    query.batchId = filters.batchId;
   }
   if (reqUser.role === 'teacher') {
     query.teacherId = reqUser.userId;
@@ -91,7 +91,7 @@ exports.getCalculatedSchedule = async (reqUser, dateString, filters = {}) => {
   
   const recurring = await ClassSchedule.find(recurringQuery)
     .populate('teacherId', 'firstName lastName email')
-    .populate('classId', 'name section')
+    .populate('batchId', 'name section')
     .populate('subjectId', 'name')
     .lean();
 
@@ -102,7 +102,7 @@ exports.getCalculatedSchedule = async (reqUser, dateString, filters = {}) => {
   };
   const overrides = await ScheduleOverride.find(overrideQuery)
     .populate('teacherId', 'firstName lastName email')
-    .populate('classId', 'name section')
+    .populate('batchId', 'name section')
     .populate('subjectId', 'name')
     .lean();
 
@@ -135,7 +135,7 @@ exports.getCalculatedSchedule = async (reqUser, dateString, filters = {}) => {
   const extraClasses = overrides.filter(o => o.overrideType === 'EXTRA_CLASS').map(o => ({
     _id: o._id,
     instituteId: o.instituteId,
-    classId: o.classId,
+    batchId: o.batchId,
     subjectId: o.subjectId,
     teacherId: o.teacherId,
     startTime: o.newStartTime,

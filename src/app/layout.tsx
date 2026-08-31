@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LMS Portal",
-  description: "Unified LMS platform",
+  title: "SKD Xpress — #1 Online NEET Preparation Platform | Live Classes, Mock Tests & DPPs",
+  description: "Join 15,000+ NEET aspirants on SKD Xpress. Expert faculty, live HD classes, NTA-pattern mock tests, DPPs, and AI analytics. Crack NEET with India's best online coaching from Lucknow.",
 };
 
 export default function RootLayout({

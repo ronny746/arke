@@ -6,6 +6,7 @@ const auth = require('../../middlewares/auth.middleware');
 const { requireRole } = require('../../middlewares/rbac.middleware');
 const { ROLES } = require('../../config/constants');
 const multer = require('multer');
+const requireDeveloperToken = require('../../middlewares/developer.middleware');
 const memoryUpload = multer({ 
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
@@ -26,7 +27,12 @@ router.get('/questions', requireRole(allowedRoles), questionBankController.getQu
 
 router.get('/:id', requireRole(allowedRoles), questionBankController.getQuestionBankById);
 router.put('/:id', requireRole(allowedRoles), questionBankController.updateQuestionBank);
-router.delete('/:id', requireRole(allowedRoles), questionBankController.deleteQuestionBank);
+router.patch('/:id/rename', requireRole(allowedRoles), questionBankController.renameQuestionBank);
+router.delete('/:id', requireDeveloperToken, requireRole(allowedRoles), questionBankController.deleteQuestionBank);
+
+// Individual Question Update/Delete
+router.put('/:bankId/questions/:questionId', requireRole(allowedRoles), questionBankController.updateSingleQuestion);
+router.delete('/:bankId/questions/:questionId', requireRole(allowedRoles), questionBankController.deleteSingleQuestion);
 
 // Old word parse route (can keep for legacy or UI that just previews)
 router.post('/parse-word', requireRole(allowedRoles), memoryUpload.single('file'), examController.parseWordFile);

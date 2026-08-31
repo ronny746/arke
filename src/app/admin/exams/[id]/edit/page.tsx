@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/Button.jsx';
 import { Input } from '@/components/forms/index.jsx';
 import { adminAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
+import { AdvancedEditor } from '@/components/ui/AdvancedEditor';
+import { Edit2, Trash2 } from 'lucide-react';
 
 export default function ExamBuilder() {
   const { id } = useParams();
@@ -49,11 +51,37 @@ export default function ExamBuilder() {
   const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
   
-  // Random picking state
   const [randomCount, setRandomCount] = useState('');
   const [isPickingRandom, setIsPickingRandom] = useState(false);
 
+  // Explore Topic State
+  const [exploreTopicState, setExploreTopicState] = useState(null);
+  const [loadingExplore, setLoadingExplore] = useState(false);
+
   // Accordion UI state
+  
+  // For editing inline
+  const [editingIndex, setEditingIndex] = useState(-1);
+  const [editQuestionState, setEditQuestionState] = useState<any>(null);
+
+  const startEdit = (idx) => {
+    setEditingIndex(idx);
+    setEditQuestionState(JSON.parse(JSON.stringify(questions[idx]))); // deep copy
+  };
+
+  const saveEdit = () => {
+    const updated = [...questions];
+    updated[editingIndex] = editQuestionState;
+    setQuestions(updated);
+    setEditingIndex(-1);
+    setEditQuestionState(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingIndex(-1);
+    setEditQuestionState(null);
+  };
+
   const [expandedChapter, setExpandedChapter] = useState(null);
   const [localTopicQuestions, setLocalTopicQuestions] = useState<any>({});
   const [loadingTopic, setLoadingTopic] = useState(null);
@@ -66,7 +94,7 @@ export default function ExamBuilder() {
 
   useEffect(() => {
     fetchHierarchy();
-    fetchAvailableClasses();
+    fetchAvailableBatches();
     fetchFullPapers();
     if (id) {
       fetchExam();
@@ -93,7 +121,7 @@ export default function ExamBuilder() {
       
       // Filter out questions that are already in the exam
       const existingIds = new Set(questions.map(q => q._id || q.questionText));
-      const newQuestions = paperQuestions.filter(q => !existingIds.has(q._id || q.questionText));
+      const newQuestions = paperQuestions.filter(q => !existingIds.has(q._id || q.questionText) && !q.isUnpublished);
       
       if (newQuestions.length === 0) {
         return toast.error("All questions from this paper are already added.");
@@ -122,6 +150,29 @@ export default function ExamBuilder() {
     const fetched = res.data?.data || [];
     setLocalTopicQuestions(prev => ({ ...prev, [topicId]: fetched }));
     return fetched;
+  };
+
+  const handleExploreTopic = async (topic, subjectId, chapterId) => {
+    setExploreTopicState({ topic, subjectId, chapterId, questions: [] });
+    setLoadingExplore(true);
+    try {
+      const allQs = await ensureTopicQuestionsLoaded(topic._id, subjectId, chapterId);
+      setExploreTopicState({ topic, subjectId, chapterId, questions: allQs });
+    } catch (err) {
+      toast.error("Failed to load topic questions");
+      setExploreTopicState(null);
+    } finally {
+      setLoadingExplore(false);
+    }
+  };
+
+  const toggleExploreQuestion = (q) => {
+    const isSelected = questions.some(exQ => (exQ._id || exQ.questionText) === (q._id || q.questionText));
+    if (isSelected) {
+      setQuestions(questions.filter(exQ => (exQ._id || exQ.questionText) !== (q._id || q.questionText)));
+    } else {
+      setQuestions([...questions, q]);
+    }
   };
 
   const handleIncrementTopic = async (topic, subjectId, chapterId) => {
@@ -162,12 +213,12 @@ export default function ExamBuilder() {
     setQuestions(questions.filter(q => q._id !== questionToRemove._id));
   };
 
-  const fetchAvailableClasses = async () => {
+  const fetchAvailableBatches = async () => {
     try {
-      const res = await adminAPI.getAcademicClasses();
+      const res = await adminAPI.getBatches();
       setAvailableClasses(res.data?.data || []);
     } catch (error) {
-      console.error("Failed to load classes", error);
+      console.error("Failed to load batches", error);
     }
   };
 
@@ -197,7 +248,7 @@ export default function ExamBuilder() {
         title: data.exam.title,
         description: data.exam.description || '',
         examType: data.exam.examType || 'INTERNAL',
-        assignedClasses: data.exam.assignedClasses.map(c => typeof c === 'object' ? c._id : c) || [],
+        assignedClasses: data.exam.assignedBatches?.map(c => typeof c === 'object' ? c._id : c) || [],
         settings: {
           startTime: formatDateForInput(data.exam.settings.startTime),
           endTime: formatDateForInput(data.exam.settings.endTime),
@@ -224,6 +275,7 @@ export default function ExamBuilder() {
       let res;
       const payload = {
         ...examData,
+        assignedBatches: examData.assignedClasses, // Map UI state back to API payload
         settings: {
           ...examData.settings,
           startTime: new Date(examData.settings.startTime).toISOString(),
@@ -265,29 +317,40 @@ export default function ExamBuilder() {
           </div>
         </div>
         
-        <div className="flex items-center gap-3 bg-gray-50 p-1.5 rounded-lg border">
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => handleDecrementTopic(topic)}
-              disabled={addedCount === 0 || loadingTopic === topic._id}
-              className="w-7 h-7 flex justify-center items-center rounded-full bg-white border shadow-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              -
-            </button>
-            
-            <div className="w-8 text-center font-bold text-sm text-primary-700">
-              {loadingTopic === topic._id ? <span className="animate-pulse">...</span> : addedCount}
+        <div className="flex flex-wrap items-center gap-3 mt-3 md:mt-0">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="text-primary-600 border-primary-200 bg-primary-50 hover:bg-primary-100 flex items-center gap-1 h-9 px-3"
+            onClick={() => handleExploreTopic(topic, subjectId, chapterId)}
+          >
+            <Search className="w-4 h-4" /> Explore
+          </Button>
+
+          <div className="flex items-center gap-3 bg-gray-50 p-1.5 rounded-lg border">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => handleDecrementTopic(topic)}
+                disabled={addedCount === 0 || loadingTopic === topic._id}
+                className="w-7 h-7 flex justify-center items-center rounded-full bg-white border shadow-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                -
+              </button>
+              
+              <div className="w-8 text-center font-bold text-sm text-primary-700">
+                {loadingTopic === topic._id ? <span className="animate-pulse">...</span> : addedCount}
+              </div>
+              
+              <button 
+                onClick={() => handleIncrementTopic(topic, subjectId, chapterId)}
+                disabled={addedCount >= topic.count || loadingTopic === topic._id}
+                className="w-7 h-7 flex justify-center items-center rounded-full bg-primary-600 text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                +
+              </button>
             </div>
-            
-            <button 
-              onClick={() => handleIncrementTopic(topic, subjectId, chapterId)}
-              disabled={addedCount >= topic.count || loadingTopic === topic._id}
-              className="w-7 h-7 flex justify-center items-center rounded-full bg-primary-600 text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              +
-            </button>
+            {addedCount > 0 && <CheckCircle className="w-4 h-4 text-success-500" />}
           </div>
-          {addedCount > 0 && <CheckCircle className="w-4 h-4 text-success-500" />}
         </div>
       </div>
     );
@@ -299,7 +362,7 @@ export default function ExamBuilder() {
     const subjectNode = hierarchy.find(s => s._id === selectedSubject);
     if (!subjectNode) return null;
     
-    const chapters = Object.values(subjectNode.chapters || {});
+    const chapters = Object.values(subjectNode.chapters || {}).filter(c => !c.isUnpublished);
     if (chapters.length === 0) return <div className="text-center py-8 text-gray-500">No chapters found for this subject</div>;
     
     return (
@@ -329,7 +392,7 @@ export default function ExamBuilder() {
               {isExpanded && (
                 <div className="p-3 bg-gray-50 space-y-2">
                   {ch.topics && ch.topics.length > 0 ? (
-                    ch.topics.map(t => renderTopicRow(t, selectedSubject, ch._id))
+                    ch.topics.filter(t => !t.isUnpublished).map(t => renderTopicRow(t, selectedSubject, ch._id))
                   ) : (
                     <div className="text-center text-sm text-gray-500 py-4">No topics found in this chapter</div>
                   )}
@@ -438,8 +501,8 @@ export default function ExamBuilder() {
                   onChange={() => setExamData({...examData, examType: 'INTERNAL'})}
                   className="hidden"
                 />
-                <div className="font-semibold text-gray-900 mb-1">Internal (Specific Classes)</div>
-                <div className="text-sm text-gray-500">Only enrolled students from selected classes can take this test.</div>
+                <div className="font-semibold text-gray-900 mb-1">Internal (Specific Batches)</div>
+                <div className="text-sm text-gray-500">Only enrolled students from selected batches can take this test.</div>
               </label>
 
               <label className={`flex-1 p-4 border rounded-xl cursor-pointer transition-all ${examData.examType === 'PUBLIC' ? 'border-primary-500 bg-primary-50' : 'hover:border-gray-300'}`}>
@@ -457,7 +520,7 @@ export default function ExamBuilder() {
 
             {examData.examType === 'INTERNAL' && (
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Classes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Batches</label>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {availableClasses.map(cls => (
                     <label key={cls._id} className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
@@ -478,7 +541,7 @@ export default function ExamBuilder() {
                       <span className="text-sm font-medium">{cls.name} {cls.section}</span>
                     </label>
                   ))}
-                  {availableClasses.length === 0 && <span className="text-sm text-gray-500">No classes found.</span>}
+                  {availableClasses.length === 0 && <span className="text-sm text-gray-500">No batches found.</span>}
                 </div>
               </div>
             )}
@@ -657,47 +720,133 @@ export default function ExamBuilder() {
                         {subjectQuestions.map((q) => {
                           const idx = q.originalIdx;
                           return (
-                            <div key={idx} className="p-4 border rounded-lg bg-gray-50 space-y-3 relative group">
-                              <button 
-                                onClick={() => removeQuestion(idx)}
-                                className="absolute top-2 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-red-50 p-1 rounded"
-                                title="Remove question"
-                              >
-                                Remove
-                              </button>
-                              <div className="flex items-start gap-3">
-                                <span className="font-bold text-gray-700 w-8">Q{idx + 1}.</span>
-                                <div className="flex-1 space-y-2">
-                                  <div className="text-gray-900 font-medium" dangerouslySetInnerHTML={{ __html: q.questionText }} />
-                                  <div className="flex flex-wrap gap-2 text-xs">
-                                    <span className="px-2.5 py-0.5 rounded-full bg-primary-50 text-primary-700 border border-primary-100 font-medium">
-                                      Topic: {q.topic?.name || q.topicName || 'General'}
-                                    </span>
-                                    <span className={`px-2.5 py-0.5 rounded-full border font-medium ${
-                                      (q.difficulty || 'Medium') === 'Easy' ? 'bg-success-50 text-success-700 border-success-100' :
-                                      (q.difficulty || 'Medium') === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                      'bg-rose-50 text-rose-700 border-rose-100'
-                                    }`}>
-                                      Difficulty: {q.difficulty || 'Medium'}
-                                    </span>
+                            <div key={idx} className="py-6 border-b border-gray-200 last:border-0 space-y-4 group">
+                              {editingIndex === idx ? (
+                                <div className="space-y-4">
+                                  <p className="font-bold text-gray-700">Editing Q{idx + 1}</p>
+                                  <div>
+                                    <label className="text-xs font-semibold text-gray-500 block mb-1">Question Text</label>
+                                    <AdvancedEditor 
+                                      value={editQuestionState.questionText || ''}
+                                      onChange={(content) => setEditQuestionState({...editQuestionState, questionText: content})}
+                                    />
+                                  </div>
+                                  <div className="space-y-4">
+                                    <div className="flex justify-between items-center border-b pb-1">
+                                      <label className="text-xs font-semibold text-gray-500 block">Options</label>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="py-1 px-2 text-xs"
+                                        onClick={() => {
+                                          const newOpts = [...(editQuestionState.options || [])];
+                                          newOpts.push({ label: String.fromCharCode(65 + newOpts.length), text: '', isCorrect: false });
+                                          setEditQuestionState({...editQuestionState, options: newOpts});
+                                        }}
+                                      >
+                                        + Add Option
+                                      </Button>
+                                    </div>
+                                    {editQuestionState.options?.map((opt, oIdx) => (
+                                      <div key={oIdx} className="flex items-start gap-3">
+                                        <span className="font-bold w-6 text-center mt-2">{String.fromCharCode(65 + oIdx)}</span>
+                                        <div className="flex-1">
+                                          <AdvancedEditor 
+                                            value={opt.text || ''}
+                                            onChange={(content) => {
+                                              const newOpts = [...editQuestionState.options];
+                                              newOpts[oIdx].text = content;
+                                              setEditQuestionState({...editQuestionState, options: newOpts});
+                                            }}
+                                          />
+                                        </div>
+                                        <div className="mt-2 flex flex-col items-center gap-2">
+                                          <button 
+                                            className="text-red-500 hover:text-red-700 p-1"
+                                            onClick={() => {
+                                              const newOpts = editQuestionState.options.filter((_, i) => i !== oIdx);
+                                              setEditQuestionState({...editQuestionState, options: newOpts});
+                                            }}
+                                            title="Remove Option"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                          <input 
+                                            type="radio"
+                                            name={`correct-${idx}`}
+                                            checked={opt.isCorrect}
+                                            className="w-4 h-4 text-primary-600"
+                                            onChange={() => {
+                                              const newOpts = editQuestionState.options.map((o, i) => ({...o, isCorrect: i === oIdx}));
+                                              setEditQuestionState({...editQuestionState, options: newOpts});
+                                            }}
+                                          />
+                                          <span className="text-[10px] text-gray-500">Correct</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="pt-4 border-t mt-4">
+                                    <label className="text-xs font-semibold text-gray-500 block mb-1">Explanation / Solution (Optional)</label>
+                                    <AdvancedEditor 
+                                      value={editQuestionState.explanation || ''}
+                                      onChange={(content) => setEditQuestionState({...editQuestionState, explanation: content})}
+                                    />
+                                  </div>
+                                  <div className="flex gap-2 justify-end">
+                                    <Button variant="ghost" size="sm" onClick={cancelEdit}>Cancel</Button>
+                                    <Button variant="primary" size="sm" onClick={saveEdit}>Save Question</Button>
                                   </div>
                                 </div>
-                              </div>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-11">
-                                {q.options?.map((opt, oIdx) => (
-                                  <div key={oIdx} className={`p-3 rounded-lg border ${opt.isCorrect ? 'bg-success-50 border-success-200' : 'bg-white border-gray-200'}`}>
-                                    <div className="flex items-center">
-                                      <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mr-3 ${opt.isCorrect ? 'bg-success-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                                        {String.fromCharCode(65 + oIdx)}
-                                      </span>
-                                      <span dangerouslySetInnerHTML={{ __html: opt.text }} />
+                              ) : (
+                                <>
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                                      <span className="font-bold text-gray-700 w-8 flex-shrink-0">Q{idx + 1}.</span>
+                                      <div className="flex-1 space-y-3 min-w-0">
+                                        <div className="prose max-w-none text-gray-900 font-medium break-words overflow-x-auto" dangerouslySetInnerHTML={{ __html: q.questionText }} />
+                                        <div className="flex flex-wrap gap-2 text-xs">
+                                          <span className="px-2.5 py-0.5 rounded-full bg-primary-50 text-primary-700 border border-primary-100 font-medium">
+                                            Topic: {q.topic?.name || q.topicName || 'General'}
+                                          </span>
+                                          <span className={`px-2.5 py-0.5 rounded-full border font-medium ${
+                                            (q.difficulty || 'Medium') === 'Easy' ? 'bg-success-50 text-success-700 border-success-100' :
+                                            (q.difficulty || 'Medium') === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                            'bg-rose-50 text-rose-700 border-rose-100'
+                                          }`}>
+                                            Difficulty: {q.difficulty || 'Medium'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 flex-shrink-0 mt-0">
+                                      <Button variant="ghost" size="sm" icon={Edit2} onClick={() => startEdit(idx)} />
+                                      <button 
+                                        onClick={() => removeQuestion(idx)}
+                                        className="text-red-500 bg-red-50 hover:bg-red-100 p-1.5 px-3 rounded text-sm font-semibold transition-colors"
+                                        title="Remove question"
+                                      >
+                                        Remove
+                                      </button>
                                     </div>
                                   </div>
-                                ))}
-                              </div>
-                              {(!q.options || q.options.filter(o => o.isCorrect).length === 0) && (
-                                <p className="text-sm text-error-500 pl-11">⚠️ Warning: No correct answer ([Ans]) specified for this question.</p>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-11 mt-4">
+                                    {q.options?.map((opt, oIdx) => (
+                                      <div key={oIdx} className={`p-3 rounded-lg border ${opt.isCorrect ? 'bg-success-50 border-success-200' : 'bg-white border-gray-200'}`}>
+                                        <div className="flex items-center min-w-0">
+                                          <span className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-bold mr-3 ${opt.isCorrect ? 'bg-success-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                            {String.fromCharCode(65 + oIdx)}
+                                          </span>
+                                          <span className="break-words min-w-0 flex-1 overflow-x-auto" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {(!q.options || q.options.filter(o => o.isCorrect).length === 0) && (
+                                    <p className="text-sm text-error-500 pl-11 mt-2">⚠️ Warning: No correct answer ([Ans]) specified for this question.</p>
+                                  )}
+                                </>
                               )}
                             </div>
                           );
@@ -749,6 +898,85 @@ export default function ExamBuilder() {
                 </div>
               </Card>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Explore Topic Questions Modal */}
+      {exploreTopicState && (
+        <div className="fixed inset-0 z-[200] bg-black/50 flex justify-center items-center p-4">
+          <div className="w-full max-w-4xl h-[90vh] bg-white rounded-xl shadow-2xl flex flex-col transform transition-transform duration-300 overflow-hidden">
+            <div className="flex justify-between items-center p-5 border-b bg-gray-50">
+              <div>
+                <h3 className="font-bold text-lg text-gray-800">Explore Questions</h3>
+                <p className="text-sm font-medium text-primary-600">
+                  Topic: {exploreTopicState.topic?.name}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Selected: {questions.filter(q => (q.topic?._id || q.topic) === exploreTopicState.topic?._id).length} / {exploreTopicState.topic?.count}
+                </p>
+              </div>
+              <Button variant="ghost" className="bg-gray-200 hover:bg-gray-300" onClick={() => setExploreTopicState(null)}>Close</Button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-gray-100/50">
+              {loadingExplore ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                </div>
+              ) : exploreTopicState.questions.length === 0 ? (
+                <div className="text-center text-gray-500 py-10 bg-white rounded-lg border border-dashed">No questions found in this topic.</div>
+              ) : (
+                exploreTopicState.questions.map((q, idx) => {
+                  const isSelected = questions.some(exQ => (exQ._id || exQ.questionText) === (q._id || q.questionText));
+                  return (
+                    <div key={q._id || idx} className={`p-5 bg-white border-2 rounded-xl transition-all cursor-pointer ${isSelected ? 'border-primary-500 shadow-md ring-2 ring-primary-100' : 'border-gray-200 hover:border-primary-300 hover:shadow-sm'}`} onClick={() => toggleExploreQuestion(q)}>
+                      <div className="flex gap-4">
+                        <div className="pt-1">
+                          <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-primary-600 border-primary-600' : 'border-gray-300'}`}>
+                            {isSelected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start mb-3">
+                            <span className={`px-2.5 py-1 rounded text-xs font-bold border ${
+                              (q.difficulty || 'Medium') === 'Easy' ? 'bg-success-50 text-success-700 border-success-200' :
+                              (q.difficulty || 'Medium') === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}>
+                              {q.difficulty || 'Medium'}
+                            </span>
+                          </div>
+                          <div className="prose prose-sm max-w-none text-gray-800 font-medium" dangerouslySetInnerHTML={{ __html: q.questionText }} />
+                          
+                          {/* Options */}
+                          {q.options && q.options.length > 0 && (
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {q.options.map((opt, oIdx) => (
+                                <div key={oIdx} className={`p-2.5 rounded-lg border text-sm flex items-start ${opt.isCorrect ? 'bg-success-50 border-success-200 text-success-900' : 'bg-gray-50 border-gray-100 text-gray-600'}`}>
+                                  <span className={`font-bold mr-2 mt-0.5 flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${opt.isCorrect ? 'bg-success-500 text-white' : 'bg-gray-200'}`}>
+                                    {String.fromCharCode(65 + oIdx)}
+                                  </span>
+                                  <span className="break-words min-w-0 flex-1 overflow-x-auto" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            
+            {/* Sticky footer for quick action */}
+            <div className="p-4 border-t bg-white flex justify-between items-center">
+               <div className="text-sm text-gray-600">
+                  <span className="font-bold text-primary-600">{questions.filter(q => (q.topic?._id || q.topic) === exploreTopicState.topic?._id).length}</span> questions selected from this topic.
+               </div>
+               <Button variant="primary" onClick={() => setExploreTopicState(null)}>Done Exploring</Button>
+            </div>
           </div>
         </div>
       )}

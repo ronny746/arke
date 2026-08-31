@@ -60,3 +60,12 @@ exports.processPayment = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getTransactions = async (req, res, next) => {
+  try {
+    const data = await FeesPaymentsService.getTransactions(req.user, req.query);
+    return successResponse(res, 'Transactions retrieved successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};

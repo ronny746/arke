@@ -5,14 +5,17 @@ const authMiddleware = require('../../middlewares/auth.middleware');
 const { requireRole } = require('../../middlewares/rbac.middleware');
 const { ROLES } = require('../../config/constants');
 
-router.use(authMiddleware);
-router.use(requireRole([ROLES.STUDENT]));
+const { checkAccess } = require('../../middlewares/contentAccess.middleware');
 
-router.get('/filters', practiceController.getFilters);
-router.get('/history', practiceController.getHistory);
-router.post('/generate', practiceController.generateSession);
-router.get('/:id', practiceController.getSession);
-router.put('/:id/progress', practiceController.saveProgress);
-router.post('/:id/submit', practiceController.submitSession);
+router.use(authMiddleware);
+// router.use(requireRole([ROLES.STUDENT]));
+
+router.get('/filters', requireRole([ROLES.STUDENT]), checkAccess('dpps'), practiceController.getFilters);
+router.get('/history', requireRole([ROLES.STUDENT]), checkAccess('dpps'), practiceController.getHistory);
+router.get('/exam/:examId', requireRole([ROLES.STUDENT]), checkAccess('dpps'), practiceController.getRemedialDpps);
+router.post('/generate', requireRole([ROLES.STUDENT]), checkAccess('dpps'), practiceController.generateSession);
+router.get('/:id', requireRole([ROLES.STUDENT, ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.TEACHER]), checkAccess('dpps'), practiceController.getSession);
+router.put('/:id/progress', requireRole([ROLES.STUDENT]), checkAccess('dpps'), practiceController.saveProgress);
+router.post('/:id/submit', requireRole([ROLES.STUDENT]), checkAccess('dpps'), practiceController.submitSession);
 
 module.exports = router;

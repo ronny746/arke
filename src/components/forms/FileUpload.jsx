@@ -12,6 +12,7 @@ export function FileUpload({
   label = "Upload File" 
 }) {
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [localFile, setLocalFile] = useState(null);
   const inputRef = useRef(null);
@@ -32,6 +33,7 @@ export function FileUpload({
     }
 
     setLoading(true);
+    setUploadProgress(0);
     const formData = new FormData();
     formData.append('file', file);
 
@@ -41,6 +43,10 @@ export function FileUpload({
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
       });
 
       if (res.data?.success) {
@@ -150,8 +156,10 @@ export function FileUpload({
         {loading ? (
           <>
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            <p className="text-sm font-medium text-surface-900 dark:text-white mt-2">Uploading...</p>
-            <p className="text-xs text-surface-500">Please wait while your file is being uploaded</p>
+            <p className="text-sm font-medium text-surface-900 dark:text-white mt-2">Uploading... {uploadProgress}%</p>
+            <div className="w-full max-w-[200px] h-1.5 bg-surface-200 dark:bg-surface-700 rounded-full mt-2 overflow-hidden">
+              <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+            </div>
           </>
         ) : (
           <>

@@ -1,132 +1,190 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Video, FileCheck, Database, Plus, Users, Copy, Check } from 'lucide-react';
+import { Users, GraduationCap, Video, FileCheck, Database, TrendingUp, Plus, ArrowUpRight, BookOpen, Calendar, Bell, BarChart2, Activity, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
-import toast from 'react-hot-toast';
+import { adminAPI } from '@/api/admin';
+import NeetCountdownCard from '@/components/NeetCountdownCard';
+
+const quickActions = [
+  { label: 'Add Student', icon: Plus, color: '#0033a0', bg: '#eef2ff', to: '/admin/students' },
+  { label: 'Add Teacher', icon: GraduationCap, color: '#059669', bg: '#ecfdf5', to: '/admin/teachers' },
+  { label: 'Create Exam', icon: FileCheck, color: '#7b3fa0', bg: '#f5f3ff', to: '/admin/exams' },
+  { label: 'Question Bank', icon: Database, color: '#e8470a', bg: '#fff7ed', to: '/admin/question-banks' },
+  { label: 'Manage Courses', icon: BookOpen, color: '#0284c7', bg: '#eff6ff', to: '/admin/courses' },
+  { label: 'Study Materials', icon: FileText, color: '#d97706', bg: '#fffbeb', to: '/admin/study-materials' },
+];
+
+const typeColor = { student: '#0033a0', material: '#059669', exam: '#7b3fa0', live: '#e8470a', fee: '#d97706' };
+const typeBg = { student: '#eef2ff', material: '#ecfdf5', exam: '#f5f3ff', live: '#fff7ed', fee: '#fffbeb' };
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [generatingClass, setGeneratingClass] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
 
-  const handleCreateClass = () => {
-    setGeneratingClass(true);
-    // Generate a random 6 character alphanumeric code
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    setTimeout(() => {
-      toast.success(`Live Class Created: ${code}`);
-      router.push(`/class/${code}`);
-    }, 800);
-  };
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (stored) setUser(JSON.parse(stored));
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.15 }
-    }
-  };
+    const fetchData = async () => {
+      try {
+        const res = await adminAPI.getDashboardData();
+        if (res.data?.success) {
+          setDashboardData(res.data.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data', error);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-  };
+  const stats = [
+    { label: 'Total Students', value: dashboardData?.overview?.totalStudents?.toString() || '0', change: 'Total Registered', icon: Users, color: '#0033a0', bg: '#eef2ff' },
+    { label: 'Active Teachers', value: dashboardData?.overview?.totalTeachers?.toString() || '0', change: 'Total Registered', icon: GraduationCap, color: '#059669', bg: '#ecfdf5' },
+    { label: 'Live Classes Today', value: dashboardData?.overview?.activeClassesToday?.toString() || '0', change: 'Ongoing', icon: Video, color: '#7b3fa0', bg: '#f5f3ff' },
+    { label: 'Exams Conducted', value: dashboardData?.overview?.totalExams?.toString() || '0', change: 'Total Created', icon: FileCheck, color: '#e8470a', bg: '#fff7ed' },
+  ];
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
   return (
-    <div className="animate-fade-in p-4 md:p-8 max-w-6xl mx-auto">
-      <header className="mb-10">
-        <h1 className="text-4xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-surface-900 to-surface-600 dark:from-white dark:to-surface-400">
-          Admin Dashboard
-        </h1>
-        <p className="text-surface-500 dark:text-surface-400 mt-2 text-lg">
-          Manage your institution, classes, and examinations.
-        </p>
-      </header>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
 
-      <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-      >
-        {/* Create Live Class Card */}
-        <motion.div variants={itemVariants} className="group relative overflow-hidden rounded-3xl p-8 bg-white dark:bg-surface-800 shadow-xl shadow-accent-500/5 border border-accent-100 dark:border-accent-900/30 hover:shadow-2xl hover:shadow-accent-500/10 transition-all duration-300">
-          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500 pointer-events-none">
-            <Video size={120} className="text-accent-500" />
-          </div>
-          
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center mb-6 shadow-lg shadow-accent-500/30">
-              <Video className="w-7 h-7 text-white" />
-            </div>
-            
-            <h2 className="text-2xl font-bold text-surface-900 dark:text-white mb-3">Live Classroom</h2>
-            <p className="text-surface-500 dark:text-surface-400 mb-8 flex-1">
-              Start a new secure live classroom session and generate a room code to share with your students.
-            </p>
-            
-            <button 
-              onClick={handleCreateClass} 
-              disabled={generatingClass}
-              className="mt-auto w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-600 hover:to-accent-700 text-white rounded-xl font-semibold shadow-lg shadow-accent-500/30 hover:shadow-accent-500/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:transform-none"
-            >
-              {generatingClass ? 'Generating Room...' : <><Plus size={20} /> Create Live Class</>}
-            </button>
-          </div>
-        </motion.div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-sm text-gray-400 font-medium">{greeting} 👋</p>
+          <h1 className="text-2xl font-black text-gray-800 mt-0.5">
+            {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Admin Dashboard'}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Here's what's happening at SKD Institute today.</p>
+        </div>
+        <div className="flex items-center gap-3">
+        </div>
+      </div>
 
-        {/* Exams & Results */}
-        <motion.div variants={itemVariants} className="group relative overflow-hidden rounded-3xl p-8 bg-white dark:bg-surface-800 shadow-xl shadow-primary-500/5 border border-primary-100 dark:border-primary-900/30 hover:shadow-2xl hover:shadow-primary-500/10 transition-all duration-300">
-          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500 pointer-events-none">
-            <FileCheck size={120} className="text-primary-500" />
-          </div>
-          
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center mb-6 shadow-lg shadow-primary-500/30">
-              <FileCheck className="w-7 h-7 text-white" />
-            </div>
-            
-            <h2 className="text-2xl font-bold text-surface-900 dark:text-white mb-3">Exams & Results</h2>
-            <p className="text-surface-500 dark:text-surface-400 mb-8 flex-1">
-              Create new examinations, monitor active exams, and publish results to students.
-            </p>
-            
-            <div className="mt-auto flex flex-col gap-3">
-              <button onClick={() => router.push('/admin/exams/create')} className="w-full py-3 px-4 bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/40 rounded-xl font-semibold transition-all">
-                Create Exam
-              </button>
-              <button onClick={() => router.push('/admin/exams')} className="w-full py-3 px-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-xl font-semibold shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
-                Manage Exams
-              </button>
-            </div>
-          </div>
-        </motion.div>
+      {/* NEET Countdown Card (with Edit option for Admin) */}
+      <NeetCountdownCard isAdmin={true} />
 
-        {/* Question Banks */}
-        <motion.div variants={itemVariants} className="group relative overflow-hidden rounded-3xl p-8 bg-white dark:bg-surface-800 shadow-xl shadow-success-500/5 border border-success-100 dark:border-success-900/30 hover:shadow-2xl hover:shadow-success-500/10 transition-all duration-300">
-          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500 pointer-events-none">
-            <Database size={120} className="text-success-500" />
-          </div>
-          
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-success-400 to-success-600 flex items-center justify-center mb-6 shadow-lg shadow-success-500/30">
-              <Database className="w-7 h-7 text-white" />
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.08 }}
+            className="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg transition-all cursor-pointer group"
+            style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: stat.bg }}
+              >
+                <stat.icon size={18} style={{ color: stat.color }} />
+              </div>
+              <ArrowUpRight size={14} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
             </div>
-            
-            <h2 className="text-2xl font-bold text-surface-900 dark:text-white mb-3">Question Banks</h2>
-            <p className="text-surface-500 dark:text-surface-400 mb-8 flex-1">
-              Upload documents or manually create rich text question banks to be reused across exams.
-            </p>
-            
-            <button onClick={() => router.push('/admin/question-banks')} className="mt-auto w-full py-3 px-4 bg-gradient-to-r from-success-500 to-success-600 hover:from-success-600 hover:to-success-700 text-white rounded-xl font-semibold shadow-lg shadow-success-500/30 hover:shadow-success-500/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
-              Manage Banks
-            </button>
-          </div>
-        </motion.div>
+            <p className="text-2xl font-black text-gray-800">{stat.value}</p>
+            <p className="text-xs font-semibold text-gray-500 mt-0.5">{stat.label}</p>
+            <p className="text-[11px] mt-2 font-medium" style={{ color: stat.color }}>{stat.change}</p>
+          </motion.div>
+        ))}
+      </div>
 
-      </motion.div>
+      {/* Quick Actions + Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-gray-800 text-sm">Quick Actions</h2>
+            <Activity size={14} className="text-gray-400" />
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {quickActions.map((action, i) => (
+              <motion.button
+                key={i}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.05 + 0.2 }}
+                onClick={() => router.push(action.to)}
+                className="flex flex-col items-center gap-2 p-3 rounded-xl hover:scale-105 transition-all active:scale-95"
+                style={{ background: action.bg }}
+              >
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: action.color + '20' }}>
+                  <action.icon size={16} style={{ color: action.color }} />
+                </div>
+                <span className="text-[11px] font-bold text-gray-600 text-center leading-tight">{action.label}</span>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-gray-800 text-sm">Recent Activity</h2>
+            <Bell size={14} className="text-gray-400" />
+          </div>
+          <div className="space-y-3">
+            {(dashboardData?.recentActivity || []).map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.08 + 0.1 }}
+                className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                <div
+                  className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                  style={{ background: typeColor[item.type as keyof typeof typeColor] }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-700 leading-relaxed">{item.text}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 font-medium">{item.time}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Performance Overview */}
+      <div className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="font-bold text-gray-800 text-sm">Batch Performance Overview</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Average scores across active batches this month</p>
+          </div>
+        </div>
+        <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+          {(dashboardData?.batchPerformance || []).map((b, i) => (
+            <div key={i} className="flex items-center gap-4">
+              <div className="w-40 flex-shrink-0">
+                <p className="text-xs font-semibold text-gray-700 truncate">{b.batch}</p>
+                <p className="text-[10px] text-gray-400">{b.students} students</p>
+              </div>
+              <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${b.avg}%` }}
+                  transition={{ delay: i * 0.1 + 0.3, duration: 0.7, ease: 'easeOut' }}
+                  className="h-full rounded-full"
+                  style={{ background: b.color }}
+                />
+              </div>
+              <span className="text-xs font-bold text-gray-600 w-8 text-right">{b.avg}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }

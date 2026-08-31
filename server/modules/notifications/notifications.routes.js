@@ -21,9 +21,24 @@ router.get(
   NotificationsController.getNotifications
 );
 
+router.post(
+  '/read-all',
+  NotificationsController.markAllAsRead
+);
+
 router.put(
   '/:id/read',
   NotificationsController.markAsRead
+);
+
+router.post(
+  '/:id/read',
+  NotificationsController.markAsRead
+);
+
+router.delete(
+  '/:id',
+  NotificationsController.deleteNotification
 );
 
 module.exports = router;

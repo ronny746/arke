@@ -3,7 +3,7 @@ import axiosInstance from './axiosInstance';
 export const teacherAPI = {
   getDashboard: () => axiosInstance.get('/dashboard'),
   getMyDailySchedule: (params) => axiosInstance.get('/classes-schedule/my-schedule', { params }),
-  getViewAcademicClasses: () => axiosInstance.get('/academic-classes'),
+  getViewBatches: () => axiosInstance.get('/batches'),
   getSubjects: () => axiosInstance.get('/subjects'),
 
   // Students

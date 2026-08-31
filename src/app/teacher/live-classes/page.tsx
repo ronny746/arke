@@ -12,6 +12,23 @@ import toast from 'react-hot-toast';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const getLiveClassUrl = (liveClass, preferHostUrl = false) => {
+  const primaryUrl = preferHostUrl ? liveClass?.startUrl || liveClass?.meetingLink : liveClass?.meetingLink || liveClass?.startUrl;
+  if (!primaryUrl) return null;
+
+  if (primaryUrl.includes('/class/')) {
+    const roomCode = primaryUrl.split('/class/')[1]?.split(/[?#]/)[0];
+    return roomCode ? `/class/${roomCode}` : primaryUrl;
+  }
+
+  return primaryUrl;
+};
+
+const getApiErrorMessage = (error, fallbackMessage) => {
+  const candidate = error?.response?.data?.message || error?.message;
+  return typeof candidate === 'string' && candidate.trim() ? candidate : fallbackMessage;
+};
+
 export default function TeacherLiveClassesPage() {
   const [activeTab, setActiveTab] = useState('TIMETABLE_BUILDER'); // 'DAILY_MONITOR' | 'TIMETABLE_BUILDER'
   const [loading, setLoading] = useState(true);
@@ -25,7 +42,7 @@ export default function TeacherLiveClassesPage() {
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [overrideData, setOverrideData] = useState({
     recurringScheduleId: null,
-    classId: '',
+    batchId: '',
     subjectId: '',
     teacherId: '',
     overrideDate: '',
@@ -36,7 +53,7 @@ export default function TeacherLiveClassesPage() {
   });
 
   // Timetable Builder State
-  const [selectedClassId, setSelectedClassId] = useState('');
+  const [selectedBatchId, setSelectedBatchId] = useState('');
   const [gridSchedules, setGridSchedules] = useState([]);
   const [timeColumns, setTimeColumns] = useState([]); // [{startTime, endTime}]
   const [showTimeColumnModal, setShowTimeColumnModal] = useState(false);
@@ -56,6 +73,7 @@ export default function TeacherLiveClassesPage() {
   const [classes, setClasses] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const ongoingClasses = activeClasses.filter((liveClass) => liveClass.status === 'ONGOING');
 
   useEffect(() => {
     fetchInitialData();
@@ -64,19 +82,21 @@ export default function TeacherLiveClassesPage() {
   useEffect(() => {
     if (activeTab === 'DAILY_MONITOR') {
       fetchDailyData();
-    } else if (activeTab === 'TIMETABLE_BUILDER' && selectedClassId) {
+    } else if (activeTab === 'TIMETABLE_BUILDER' && selectedBatchId) {
       fetchGridData();
     }
-  }, [activeTab, selectedDate, selectedClassId]);
+  }, [activeTab, selectedDate, selectedBatchId]);
 
   const fetchInitialData = async () => {
     try {
-      const [classRes, subRes] = await Promise.all([
-        teacherAPI.getViewAcademicClasses(),
-        teacherAPI.getSubjects()
+      const [batchRes, subRes, liveRes] = await Promise.all([
+        teacherAPI.getViewBatches(),
+        teacherAPI.getSubjects(),
+        teacherAPI.getLiveClasses()
       ]);
-      setClasses(classRes.data?.data || []);
+      setClasses(batchRes.data?.data || []);
       setSubjects(subRes.data?.data || []);
+      setActiveClasses(liveRes.data?.data || []);
       const stored = localStorage.getItem('user');
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -108,7 +128,7 @@ export default function TeacherLiveClassesPage() {
     try {
       setLoading(true);
       const [res, liveRes] = await Promise.all([
-        teacherAPI.getClassSchedule({ classId: selectedClassId }),
+        teacherAPI.getClassSchedule({ batchId: selectedBatchId }),
         teacherAPI.getLiveClasses()
       ]);
       const scheds = res.data?.data || [];
@@ -139,36 +159,32 @@ export default function TeacherLiveClassesPage() {
     try {
       const res = await teacherAPI.createLiveClass({ classScheduleId: scheduleId, platform: 'custom' });
       toast.success("Live class started!");
-      if (res.data?.data?.startUrl) {
-        let startUrl = res.data.data.startUrl;
-        if (startUrl.includes('/class/')) {
-          const roomCode = startUrl.split('/class/')[1];
-          startUrl = `/class/${roomCode}`;
-        }
+      const startUrl = getLiveClassUrl(res.data?.data, true);
+      if (startUrl) {
         window.open(startUrl, '_blank');
       }
       fetchDailyData();
     } catch (err) {
-      toast.error(err.response?.data?.error || err.response?.data?.message || "Failed to start live class");
+      const existingLiveClass = err?.response?.data?.data;
+      if (err?.response?.status === 409 && existingLiveClass) {
+        toast(getApiErrorMessage(err, "A live class is already running. Rejoining it now."), { icon: 'ℹ️' });
+        handleJoinClass(existingLiveClass);
+        fetchDailyData();
+        return;
+      }
+
+      toast.error(getApiErrorMessage(err, "Failed to start live class"));
     }
   };
 
   const handleJoinClass = (liveClass) => {
-    if (liveClass.meetingLink && liveClass.meetingLink.includes('/class/')) {
-      const roomCode = liveClass.meetingLink.split('/class/')[1];
-      window.open(`/class/${roomCode}`, '_blank');
-    } else if (liveClass.startUrl) {
-      let startUrl = liveClass.startUrl;
-      if (startUrl.includes('/class/')) {
-        const roomCode = startUrl.split('/class/')[1];
-        startUrl = `/class/${roomCode}`;
-      }
-      window.open(startUrl, '_blank');
-    } else if (liveClass.meetingLink) {
-      window.open(liveClass.meetingLink, '_blank');
-    } else {
+    const joinUrl = getLiveClassUrl(liveClass, true);
+    if (!joinUrl) {
       toast.error("No meeting link available");
+      return;
     }
+
+    window.open(joinUrl, '_blank');
   };
 
   const handleEndClass = async (liveClassId) => {
@@ -228,7 +244,7 @@ export default function TeacherLiveClassesPage() {
     e.preventDefault();
     try {
       const payload = {
-        classId: selectedClassId,
+        batchId: selectedBatchId,
         subjectId: cellData.subjectId || undefined,
         teacherId: cellData.teacherId,
         dayOfWeek: cellData.dayOfWeek,
@@ -267,7 +283,7 @@ export default function TeacherLiveClassesPage() {
 
   const scheduleColumns = [
     { header: 'Status', cell: (row) => row.type === 'EXTRA_CLASS' ? <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">Extra</span> : (row.isRescheduled ? <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Rescheduled</span> : <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Regular</span>) },
-    { header: 'Class', cell: (row) => `${row.classId?.name} ${row.classId?.section || ''}` },
+    { header: 'Class', cell: (row) => `${row.batchId?.name} ${row.batchId?.section || ''}` },
     { header: 'Subject', cell: (row) => row.subjectId?.name || 'N/A' },
     { header: 'Teacher', cell: (row) => `${row.teacherId?.firstName} ${row.teacherId?.lastName}` },
     { header: 'Date/Day', cell: (row) => row.type === 'EXTRA_CLASS' ? new Date(selectedDate).toLocaleDateString() : DAYS[row.dayOfWeek] },
@@ -284,7 +300,7 @@ export default function TeacherLiveClassesPage() {
             onClick: () => {
               setOverrideData({
                 recurringScheduleId: row._id,
-                classId: row.classId._id,
+                batchId: row.batchId._id,
                 subjectId: row.subjectId?._id || '',
                 teacherId: row.teacherId._id,
                 overrideDate: selectedDate,
@@ -302,7 +318,7 @@ export default function TeacherLiveClassesPage() {
             onClick: () => {
               setOverrideData({
                 recurringScheduleId: row._id,
-                classId: row.classId._id,
+                batchId: row.batchId._id,
                 subjectId: row.subjectId?._id || '',
                 teacherId: row.teacherId._id,
                 overrideDate: selectedDate,
@@ -341,11 +357,75 @@ export default function TeacherLiveClassesPage() {
         breadcrumbs={['Home', 'Live Classes']}
       />
 
+      <Card className="p-5">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Video className="w-5 h-5 text-success-500" /> Ongoing Live Classes
+            </h2>
+            <p className="text-sm text-surface-500">Your currently running classes appear here instantly.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={fetchDailyData}>
+            Refresh
+          </Button>
+        </div>
+
+        {ongoingClasses.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {ongoingClasses.map((liveClass) => {
+              const schedule = liveClass.classScheduleId || {};
+              const batch = schedule.batchId || {};
+              const subject = schedule.subjectId || {};
+
+              return (
+                <div
+                  key={liveClass._id}
+                  className="rounded-2xl border border-success-200 bg-success-50/70 dark:bg-success-900/10 dark:border-success-900/40 p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-success-600">Live Now</div>
+                      <h3 className="font-bold text-surface-900 dark:text-white">
+                        {subject.name || 'Live Class'}
+                      </h3>
+                      <p className="text-sm text-surface-600 dark:text-surface-300">
+                        {batch.name || 'Class'}{batch.section ? ` • Section ${batch.section}` : ''}
+                      </p>
+                    </div>
+                    <span className="px-2 py-1 rounded-full text-xs font-semibold bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300">
+                      {liveClass.status}
+                    </span>
+                  </div>
+
+                  <div className="text-sm text-surface-500 space-y-1">
+                    <p>Teacher: {liveClass.teacherId?.firstName || currentUser?.firstName || 'You'} {liveClass.teacherId?.lastName || currentUser?.lastName || ''}</p>
+                    {liveClass.roomCode && <p>Room: {liveClass.roomCode}</p>}
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" variant="success" className="flex-1" onClick={() => handleJoinClass(liveClass)}>
+                      <PlayCircle size={16} className="mr-1" /> Rejoin
+                    </Button>
+                    <Button size="sm" variant="danger" className="flex-1" onClick={() => handleEndClass(liveClass._id)}>
+                      <StopCircle size={16} className="mr-1" /> End
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-surface-200 dark:border-surface-700 p-8 text-center text-surface-500">
+            No ongoing live classes right now.
+          </div>
+        )}
+      </Card>
+
       {/* activeTab === 'DAILY_MONITOR' && ... */}
 
       {activeTab === 'TIMETABLE_BUILDER' && (
         <Card className="p-5 overflow-x-auto">
-          {!selectedClassId ? (
+          {!selectedBatchId ? (
             <>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -358,7 +438,7 @@ export default function TeacherLiveClassesPage() {
                     key={c._id}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    onClick={() => setSelectedClassId(c._id)}
+                    onClick={() => setSelectedBatchId(c._id)}
                     className="cursor-pointer bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 hover:border-primary-500 hover:shadow-lg rounded-xl p-5 flex flex-col items-center justify-center transition-all text-center"
                   >
                     <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mb-3">
@@ -379,15 +459,15 @@ export default function TeacherLiveClassesPage() {
             <div className="space-y-6">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-surface-100 dark:border-surface-800 pb-4">
                 <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedClassId("")} className="hover:bg-surface-100 dark:hover:bg-surface-800">
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedBatchId("")} className="hover:bg-surface-100 dark:hover:bg-surface-800">
                     <ArrowLeft size={18} className="mr-2" /> Back
                   </Button>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Grid className="text-primary-500 w-5 h-5" /> 
-                    {classes.find(c => c._id === selectedClassId)?.name} 
-                    {classes.find(c => c._id === selectedClassId)?.section ? ` - Sec ${classes.find(c => c._id === selectedClassId)?.section}` : ''}
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Grid className="text-primary-500" /> 
+                    {classes.find(c => c._id === selectedBatchId)?.name} 
+                    {classes.find(c => c._id === selectedBatchId)?.section ? ` - Sec ${classes.find(c => c._id === selectedBatchId)?.section}` : ''}
                     <span className="text-sm font-normal text-surface-500 ml-2">Weekly Timetable</span>
-                  </h3>
+                  </h2>
                 </div>
               </div>
 
@@ -426,7 +506,10 @@ export default function TeacherLiveClassesPage() {
                             <div className="font-semibold truncate">{cellSchedule.subjectId?.name || 'No Subject'}</div>
                             <div className="text-xs opacity-80 truncate mb-1">{cellSchedule.teacherId?.firstName} {cellSchedule.teacherId?.lastName}</div>
                             {dayIndex === new Date().getDay() && currentUser && (cellSchedule.teacherId?._id === currentUser.userId || cellSchedule.teacherId?._id === currentUser._id) && (
-                              activeClasses.find(lc => lc.classScheduleId?._id === cellSchedule._id && lc.status === 'ONGOING') ? (
+                              activeClasses.find(lc => {
+                                const lcId = lc.classScheduleId?._id || lc.classScheduleId;
+                                return lcId === cellSchedule._id && lc.status === 'ONGOING';
+                              }) ? (
                                 <div className="mt-2 space-y-1">
                                   <Button 
                                     size="sm" 
@@ -434,7 +517,10 @@ export default function TeacherLiveClassesPage() {
                                     className="w-full" 
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleJoinClass(activeClasses.find(lc => lc.classScheduleId?._id === cellSchedule._id && lc.status === 'ONGOING'));
+                                      handleJoinClass(activeClasses.find(lc => {
+                                        const lcId = lc.classScheduleId?._id || lc.classScheduleId;
+                                        return lcId === cellSchedule._id && lc.status === 'ONGOING';
+                                      }));
                                     }}
                                   >
                                     <PlayCircle size={14} className="mr-1"/> Rejoin
@@ -445,7 +531,10 @@ export default function TeacherLiveClassesPage() {
                                     className="w-full" 
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleEndClass(activeClasses.find(lc => lc.classScheduleId?._id === cellSchedule._id && lc.status === 'ONGOING')._id);
+                                      handleEndClass(activeClasses.find(lc => {
+                                        const lcId = lc.classScheduleId?._id || lc.classScheduleId;
+                                        return lcId === cellSchedule._id && lc.status === 'ONGOING';
+                                      })._id);
                                     }}
                                   >
                                     <StopCircle size={14} className="mr-1"/> End
@@ -575,9 +664,9 @@ export default function TeacherLiveClassesPage() {
               {overrideData.overrideType === 'EXTRA_CLASS' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Academic Class</label>
-                    <select required value={overrideData.classId} onChange={e => setOverrideData({...overrideData, classId: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700">
-                      <option value="">-- Select Class --</option>
+                    <label className="block text-sm font-medium mb-1">Batch</label>
+                    <select required value={overrideData.batchId} onChange={e => setOverrideData({...overrideData, batchId: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700">
+                      <option value="">-- Select Batch --</option>
                       {classes.map(c => <option key={c._id} value={c._id}>{c.name} {c.section}</option>)}
                     </select>
                   </div>

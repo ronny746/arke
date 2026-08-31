@@ -13,7 +13,8 @@ const subjectSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }
+  },
+  isUnpublished: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const chapterSchema = new mongoose.Schema({
@@ -30,7 +31,8 @@ const chapterSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }
+  },
+  isUnpublished: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const topicSchema = new mongoose.Schema({
@@ -52,7 +54,8 @@ const topicSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }
+  },
+  isUnpublished: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const QuestionCategory = mongoose.models.QuestionCategory || mongoose.model('QuestionCategory', subjectSchema);

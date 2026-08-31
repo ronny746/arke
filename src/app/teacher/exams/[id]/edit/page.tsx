@@ -60,7 +60,7 @@ export default function ExamBuilder() {
   
   useEffect(() => {
     fetchHierarchy();
-    fetchAvailableClasses();
+    fetchAvailableBatches();
     if (id) {
       fetchExam();
     }
@@ -112,12 +112,12 @@ export default function ExamBuilder() {
     setQuestions(questions.filter(q => q._id !== questionToRemove._id));
   };
 
-  const fetchAvailableClasses = async () => {
+  const fetchAvailableBatches = async () => {
     try {
-      const res = await adminAPI.getAcademicClasses();
+      const res = await adminAPI.getViewBatches();
       setAvailableClasses(res.data?.data || []);
     } catch (error) {
-      console.error("Failed to load classes", error);
+      console.error("Failed to load batches", error);
     }
   };
 
@@ -147,7 +147,7 @@ export default function ExamBuilder() {
         title: data.exam.title,
         description: data.exam.description || '',
         examType: data.exam.examType || 'INTERNAL',
-        assignedClasses: data.exam.assignedClasses.map(c => typeof c === 'object' ? c._id : c) || [],
+        assignedClasses: data.exam.assignedBatches?.map(c => typeof c === 'object' ? c._id : c) || [],
         settings: {
           startTime: formatDateForInput(data.exam.settings.startTime),
           endTime: formatDateForInput(data.exam.settings.endTime),
@@ -174,6 +174,7 @@ export default function ExamBuilder() {
       let res;
       const payload = {
         ...examData,
+        assignedBatches: examData.assignedClasses, // Map UI state back to API payload
         settings: {
           ...examData.settings,
           startTime: new Date(examData.settings.startTime).toISOString(),
@@ -388,8 +389,8 @@ export default function ExamBuilder() {
                   onChange={() => setExamData({...examData, examType: 'INTERNAL'})}
                   className="hidden"
                 />
-                <div className="font-semibold text-gray-900 mb-1">Internal (Specific Classes)</div>
-                <div className="text-sm text-gray-500">Only enrolled students from selected classes can take this test.</div>
+                <div className="font-semibold text-gray-900 mb-1">Internal (Specific Batches)</div>
+                <div className="text-sm text-gray-500">Only enrolled students from selected batches can take this test.</div>
               </label>
 
               <label className={`flex-1 p-4 border rounded-xl cursor-pointer transition-all ${examData.examType === 'PUBLIC' ? 'border-primary-500 bg-primary-50' : 'hover:border-gray-300'}`}>
@@ -407,7 +408,7 @@ export default function ExamBuilder() {
 
             {examData.examType === 'INTERNAL' && (
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Classes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Batches</label>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {availableClasses.map(cls => (
                     <label key={cls._id} className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
@@ -428,7 +429,7 @@ export default function ExamBuilder() {
                       <span className="text-sm font-medium">{cls.name} {cls.section}</span>
                     </label>
                   ))}
-                  {availableClasses.length === 0 && <span className="text-sm text-gray-500">No classes found.</span>}
+                  {availableClasses.length === 0 && <span className="text-sm text-gray-500">No batches found.</span>}
                 </div>
               </div>
             )}

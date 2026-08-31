@@ -40,12 +40,40 @@ export default function PracticePlayer() {
     loadSession();
   }, [id, router]);
 
-  const handleOptionSelect = (questionId, optionId) => {
-    // Prevent changing answer once selected and saved
-    const existingAns = session.answers?.find(a => a.questionId === questionId);
-    if (existingAns && existingAns.selectedOptionId) return;
+  const handleOptionSelect = async (questionId, optionId) => {
+    const isDpp = session.sessionType === 'DPP';
+    
+    // Prevent changing answer once selected and saved in practice mode
+    if (!isDpp) {
+      const existingAns = session.answers?.find(a => a.questionId === questionId);
+      if (existingAns && existingAns.selectedOptionId) return;
+    }
     
     setUnsavedAnswers(prev => ({ ...prev, [questionId]: optionId }));
+
+    // For DPP, auto-save silently so they don't need a "Check" button
+    if (isDpp) {
+      try {
+        await studentAPI.savePracticeProgress(id, {
+          questionId,
+          selectedOptionId: optionId,
+          status: 'ANSWERED'
+        });
+        
+        const newAnswers = [...(session.answers || [])];
+        const existingIdx = newAnswers.findIndex(a => a.questionId === questionId);
+        const newAns = { questionId, selectedOptionId: optionId, status: 'ANSWERED' };
+        
+        if (existingIdx >= 0) {
+          newAnswers[existingIdx] = { ...newAnswers[existingIdx], ...newAns };
+        } else {
+          newAnswers.push(newAns);
+        }
+        setSession(prev => ({ ...prev, answers: newAnswers }));
+      } catch (e) {
+        console.error('Auto-save failed');
+      }
+    }
   };
 
   const handleCheckAnswer = async () => {
@@ -83,9 +111,10 @@ export default function PracticePlayer() {
 
   const handleFinish = async () => {
     try {
-      await studentAPI.submitPracticeSession(id);
+      const res = await studentAPI.submitPracticeSession(id);
       toast.success('Practice Session Finished!');
-      router.push('/student/practice');
+      setSession(res.data.data); // Update with evaluated answers
+      setCurrentQIdx(0); // Go back to question 1 for review
     } catch (e) {
       toast.error('Failed to finish session');
     }
@@ -99,6 +128,7 @@ export default function PracticePlayer() {
   const currentAnswer = session.answers?.find(a => a.questionId === currentQuestion?.questionId);
   const isAnswered = currentAnswer && currentAnswer.selectedOptionId;
   const isCompleted = session.status === 'COMPLETED';
+  const isDpp = session.sessionType === 'DPP';
   
   // Subject grouping
   const subjectGroups = {};
@@ -117,12 +147,20 @@ export default function PracticePlayer() {
           <div className="font-bold text-xl text-gray-900 truncate pr-4">{session.title || 'Practice Session'}</div>
           
           <div className="flex items-center gap-3">
-             <Button variant="outline" onClick={() => router.push('/student/practice')} className="text-gray-600 border-gray-300">
-               Pause / Exit
+             <Button variant="outline" onClick={() => {
+                if (session?.linkedExamId) {
+                  router.push(`/student/exams/${session.linkedExamId}/analysis`);
+                } else {
+                  router.push('/student/practice');
+                }
+             }} className="text-gray-600 border-gray-300">
+               {isCompleted ? (session?.linkedExamId ? 'Back to Analysis' : 'Back to List') : 'Pause / Exit'}
              </Button>
-             <Button variant="gradient" onClick={handleFinish}>
-               Submit Practice
-             </Button>
+             {!isCompleted && (
+               <Button variant="gradient" onClick={handleFinish}>
+                 Submit Practice
+               </Button>
+             )}
           </div>
         </header>
 
@@ -163,15 +201,15 @@ export default function PracticePlayer() {
                 {/* Options */}
                 <div className="space-y-4">
                   {currentQuestion.options?.map((opt, idx) => {
-                    const isSelected = isAnswered 
-                      ? currentAnswer.selectedOptionId === opt._id 
-                      : unsavedAnswers[currentQuestion.questionId] === opt._id;
+                    const isSelected = (currentAnswer?.selectedOptionId === opt._id) || (unsavedAnswers[currentQuestion.questionId] === opt._id);
+                    const showCorrectness = isCompleted || (!isDpp && isAnswered);
+                    const isLocked = isCompleted || (!isDpp && isAnswered);
                     
                     let optionClass = "border-gray-200 hover:border-primary-200 hover:bg-gray-50";
                     let circleClass = "border-gray-300";
                     let innerCircle = null;
 
-                    if (isAnswered) {
+                    if (showCorrectness) {
                       if (opt.isCorrect) {
                         optionClass = "border-success-500 bg-success-50";
                         circleClass = "border-success-500 bg-success-500 text-white";
@@ -192,8 +230,8 @@ export default function PracticePlayer() {
                     return (
                       <div 
                         key={opt._id}
-                        onClick={() => !isAnswered && !isCompleted && !savingAnswer && handleOptionSelect(currentQuestion.questionId, opt._id)}
-                        className={`flex items-start p-4 rounded-xl border-2 transition-all ${(isAnswered || savingAnswer) ? 'cursor-default' : 'cursor-pointer'} ${optionClass}`}
+                        onClick={() => !isLocked && !savingAnswer && handleOptionSelect(currentQuestion.questionId, opt._id)}
+                        className={`flex items-start p-4 rounded-xl border-2 transition-all ${(isLocked || savingAnswer) ? 'cursor-default' : 'cursor-pointer'} ${optionClass}`}
                       >
                         <div className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full border-2 mr-4 mt-0.5 ${circleClass}`}>
                           {innerCircle}
@@ -205,19 +243,17 @@ export default function PracticePlayer() {
                 </div>
 
                 {/* Immediate Solution Feedback */}
-                {((isAnswered && currentAnswer?.isCorrect !== null) || isCompleted) && (
+                {(isCompleted || (!isDpp && isAnswered && currentAnswer?.isCorrect !== undefined)) && (
                   <div className={`mt-8 border rounded-xl p-6 animate-fade-in ${currentAnswer?.isCorrect ? 'bg-success-50 border-success-200' : (currentAnswer?.isCorrect === false ? 'bg-danger-50 border-danger-200' : 'bg-blue-50 border-blue-200')}`}>
-                    {(isAnswered || currentAnswer?.isCorrect !== undefined) && (
-                      <h3 className={`font-bold mb-2 flex items-center ${currentAnswer?.isCorrect ? 'text-success-800' : (currentAnswer?.isCorrect === false ? 'text-danger-800' : 'text-blue-800')}`}>
-                        {currentAnswer?.isCorrect ? (
-                          <><CheckCircle className="w-6 h-6 mr-2" /> Correct Answer!</>
-                        ) : currentAnswer?.isCorrect === false ? (
-                          <><XCircle className="w-6 h-6 mr-2" /> Incorrect!</>
-                        ) : (
-                          <><CheckCircle className="w-6 h-6 mr-2" /> Solution</>
-                        )}
-                      </h3>
-                    )}
+                    <h3 className={`font-bold mb-2 flex items-center ${currentAnswer?.isCorrect ? 'text-success-800' : (currentAnswer?.isCorrect === false ? 'text-danger-800' : 'text-blue-800')}`}>
+                      {currentAnswer?.isCorrect ? (
+                        <><CheckCircle className="w-6 h-6 mr-2" /> Correct Answer!</>
+                      ) : currentAnswer?.isCorrect === false ? (
+                        <><XCircle className="w-6 h-6 mr-2" /> Incorrect!</>
+                      ) : (
+                        <><CheckCircle className="w-6 h-6 mr-2" /> Solution</>
+                      )}
+                    </h3>
                     
                     <div className="mt-4 pt-4 border-t border-gray-200/50">
                       <h4 className="font-bold text-gray-800 mb-2">Explanation:</h4>
@@ -243,27 +279,25 @@ export default function PracticePlayer() {
                      </Button>
                    </div>
                    <div className="flex gap-3">
-                     {!isAnswered && !isCompleted && unsavedAnswers[currentQuestion.questionId] && (
+                     {!isDpp && !isAnswered && !isCompleted && unsavedAnswers[currentQuestion.questionId] && (
                        <Button onClick={handleCheckAnswer} disabled={savingAnswer} variant="primary">
                          {savingAnswer ? 'Checking...' : 'Check Answer'}
                        </Button>
                      )}
                      
-                     {(isAnswered || (!unsavedAnswers[currentQuestion.questionId] && !isAnswered)) && (
-                       <Button 
-                        variant={isAnswered ? "primary" : "outline"}
-                        icon={ChevronRight} 
-                        disabled={currentQIdx === questions.length - 1}
-                        onClick={() => {
-                          const nextIdx = currentQIdx + 1;
-                          setCurrentQIdx(nextIdx);
-                          setActiveSubject(getSubjectName(questions[nextIdx]));
-                        }}
-                        className="flex-row-reverse"
-                       >
-                         Next
-                       </Button>
-                     )}
+                     <Button 
+                      variant={(!isDpp && isAnswered) || (isDpp && (isAnswered || unsavedAnswers[currentQuestion.questionId])) ? "primary" : "outline"}
+                      icon={ChevronRight} 
+                      disabled={currentQIdx === questions.length - 1}
+                      onClick={() => {
+                        const nextIdx = currentQIdx + 1;
+                        setCurrentQIdx(nextIdx);
+                        setActiveSubject(getSubjectName(questions[nextIdx]));
+                      }}
+                      className="flex-row-reverse"
+                     >
+                       Next
+                     </Button>
                    </div>
                 </div>
              </div>
@@ -297,7 +331,12 @@ export default function PracticePlayer() {
                       if (isCurrent) {
                         statusClass = 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50';
                       } else if (qAnswered) {
-                        statusClass = ans.isCorrect ? 'bg-success-500 border-success-600 text-white' : 'bg-danger-500 border-danger-600 text-white';
+                        const showCorrectness = isCompleted || (!isDpp && ans.isCorrect !== undefined);
+                        if (showCorrectness) {
+                          statusClass = ans.isCorrect ? 'bg-success-500 border-success-600 text-white' : 'bg-danger-500 border-danger-600 text-white';
+                        } else {
+                          statusClass = 'bg-primary-500 border-primary-600 text-white'; // Answered but not evaluated
+                        }
                       }
 
                       return (

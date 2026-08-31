@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Plus, Trash, Folder, File as FileIcon, ExternalLink, Video } from 'lucide-react';
+import { BookOpen, Plus, Trash, Folder, File as FileIcon, ExternalLink, Video, MoveRight, Menu } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card, Badge } from '@/components/ui/index.jsx';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/modals/index.jsx';
 import { Button } from '@/components/ui/Button.jsx';
-import { Input, Select, FormField, FileUpload } from '@/components/forms/index.jsx';
+import { Input, Select, FormField } from '@/components/forms/index.jsx';
+import { FileUpload } from '@/components/forms/FileUpload.jsx';
 import { FileExplorer } from '@/components/ui/FileExplorer.jsx';
+import ResourceViewerModal from '@/components/ui/ResourceViewerModal.jsx';
 import { teacherAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
 
@@ -18,12 +20,17 @@ export default function TeacherStudyMaterialsPage() {
   const [subjects, setSubjects] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [newBatchId, setNewBatchId] = useState('');
+  const [newFolderPath, setNewFolderPath] = useState('/');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [currentPath, setCurrentPath] = useState('/');
+  const [selectedBatchId, setSelectedBatchId] = useState('all');
+  const [selectedResource, setSelectedResource] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
     title: '',
-    classId: '',
+    batchId: '',
     subjectId: '',
     type: 'NOTES',
     folderPath: '/',
@@ -36,7 +43,7 @@ export default function TeacherStudyMaterialsPage() {
       setLoading(true);
       const [resourcesRes, classesRes, subjectsRes] = await Promise.all([
         teacherAPI.getResources(),
-        teacherAPI.getViewAcademicClasses(),
+        teacherAPI.getViewBatches(),
         teacherAPI.getSubjects()
       ]);
       setData(resourcesRes.data?.data || []);
@@ -73,7 +80,7 @@ export default function TeacherStudyMaterialsPage() {
         title: folderName,
         type: 'FOLDER',
         folderPath: currentPath,
-        classId: null,
+        batchId: selectedBatchId === 'all' ? null : selectedBatchId,
         fileUrl: null
       });
       toast.success("Folder created successfully");
@@ -91,13 +98,20 @@ export default function TeacherStudyMaterialsPage() {
     
     try {
       setUploading(true);
-      const submitData = { ...formData, folderPath: currentPath };
+      const submitData = { 
+        ...formData, 
+        folderPath: currentPath,
+        batchId: selectedBatchId === 'all' ? null : selectedBatchId
+      };
+      if (!submitData.subjectId) delete submitData.subjectId;
+      if (!submitData.batchId) delete submitData.batchId;
+
       await teacherAPI.createResource(submitData);
       toast.success("Material uploaded successfully!");
       setShowUploadModal(false);
       setFormData({
         title: '',
-        classId: '',
+        batchId: '',
         subjectId: '',
         type: 'NOTES',
         folderPath: '/',
@@ -113,9 +127,35 @@ export default function TeacherStudyMaterialsPage() {
   };
 
   // Filter subjects based on selected class
-  const availableSubjects = formData.classId 
-    ? subjects.filter(s => (s.classId?._id || s.classId) === formData.classId)
+  const availableSubjects = formData.batchId 
+    ? subjects.filter(s => (s.batchId?._id || s.batchId) === formData.batchId)
     : subjects;
+
+  const filteredData = selectedBatchId === 'all' 
+    ? data.filter(item => !item.batchId)
+    : data.filter(item => {
+        const itemBatchId = item.batchId?._id || item.batchId;
+        if (String(itemBatchId) === String(selectedBatchId)) return true;
+
+        if (item.type === 'FOLDER') {
+          let folderFullPath = item.folderPath || '/';
+          if (!folderFullPath.startsWith('/')) folderFullPath = '/' + folderFullPath;
+          if (!folderFullPath.endsWith('/')) folderFullPath += '/';
+          folderFullPath += item.title + '/';
+
+          return data.some(child => {
+             const childBatchId = child.batchId?._id || child.batchId;
+             if (String(childBatchId) !== String(selectedBatchId)) return false;
+             
+             let childPath = child.folderPath || '/';
+             if (!childPath.startsWith('/')) childPath = '/' + childPath;
+             if (!childPath.endsWith('/')) childPath += '/';
+             
+             return childPath.startsWith(folderFullPath);
+          });
+        }
+        return false;
+      });
 
   const columns = [
     { 
@@ -138,7 +178,7 @@ export default function TeacherStudyMaterialsPage() {
       header: 'Details', 
       cell: (row) => (
         <div className="flex flex-col gap-1 text-sm">
-          <span className="text-surface-700 font-medium">{row.classId?.name}</span>
+          <span className="text-surface-700 font-medium">{row.batchId?.name}</span>
           <span className="text-surface-500 text-xs">{row.subjectId?.name || 'All Subjects'}</span>
         </div>
       )
@@ -182,22 +222,89 @@ export default function TeacherStudyMaterialsPage() {
             <Button variant="outline" icon={Folder} onClick={handleCreateFolder}>
               New Folder
             </Button>
-            <Button variant="gradient" icon={Plus} onClick={() => setShowUploadModal(true)}>
+            <Button variant="gradient" icon={Plus} onClick={() => {
+              setFormData(f => ({ ...f, batchId: selectedBatchId === 'all' ? '' : selectedBatchId }));
+              setShowUploadModal(true);
+            }}>
               Upload Material
             </Button>
           </div>
         }
       />
 
-      <div className="h-[600px]">
-        <FileExplorer 
-          files={data} 
-          currentPath={currentPath}
-          onNavigate={setCurrentPath}
-          onDelete={handleDelete} 
-          onView={(file) => window.open(file.fileUrl, '_blank')} 
-        />
+      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-200px)] min-h-[600px]">
+        {/* Drive Sidebar */}
+        <div className={`flex-shrink-0 flex flex-col gap-2 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm overflow-y-auto transition-all duration-300 relative ${isSidebarOpen ? 'w-full lg:w-64 opacity-100' : 'w-0 opacity-0 p-0 border-0 overflow-hidden hidden lg:flex'}`}>
+          <div className="flex items-center justify-between mb-2 px-3">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">Drive Folders</h3>
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <Menu size={16} />
+            </button>
+          </div>
+          
+          <button
+            onClick={() => { setSelectedBatchId('all'); setCurrentPath('/'); }}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-medium ${
+              selectedBatchId === 'all'
+                ? "bg-primary-50 text-primary-700"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <Folder size={18} className={selectedBatchId === 'all' ? "text-primary-500 fill-primary-100" : "text-gray-400 fill-gray-100"} />
+            Global Materials
+          </button>
+          
+          <div className="h-px bg-gray-100 my-2 mx-2"></div>
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-3">Classes</h3>
+
+          {classes.map(cls => (
+            <button
+              key={cls._id || cls.id}
+              onClick={() => { setSelectedBatchId(cls._id || cls.id); setCurrentPath('/'); }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-medium ${
+                selectedBatchId === (cls._id || cls.id)
+                  ? "bg-primary-50 text-primary-700"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <Folder size={18} className={selectedBatchId === (cls._id || cls.id) ? "text-primary-500 fill-primary-100" : "text-gray-400 fill-gray-100"} />
+              {cls.name} {cls.section || ''}
+            </button>
+          ))}
+        </div>
+
+        {/* Expand Sidebar Button (when collapsed) */}
+        {!isSidebarOpen && (
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            className="hidden lg:flex items-center justify-center w-10 h-10 bg-white border border-gray-200 shadow-sm rounded-xl text-gray-500 hover:text-primary-600 transition-colors shrink-0"
+            title="Expand Sidebar"
+          >
+            <Menu size={20} />
+          </button>
+        )}
+
+        {/* Drive Content */}
+        <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col min-w-0">
+          <FileExplorer 
+            files={filteredData} 
+            currentPath={currentPath}
+            onNavigate={setCurrentPath}
+            onDelete={handleDelete} 
+            onView={(file) => setSelectedResource(file)} 
+          />
+        </div>
       </div>
+
+      {selectedResource && (
+        <ResourceViewerModal 
+          resource={selectedResource}
+          onClose={() => setSelectedResource(null)}
+        />
+      )}
 
       <Modal
         isOpen={showUploadModal}
@@ -228,28 +335,6 @@ export default function TeacherStudyMaterialsPage() {
                   { label: 'Syllabus', value: 'SYLLABUS' }
                 ]}
               />
-
-              <Select
-                label="Class / Batch (Optional)"
-                value={formData.classId}
-                onChange={e => setFormData({ ...formData, classId: e.target.value })}
-              >
-                <option value="">Select a class...</option>
-                {classes.map(c => (
-                  <option key={c._id} value={c._id}>{c.name}</option>
-                ))}
-              </Select>
-
-              <Select
-                label="Subject (Optional)"
-                value={formData.subjectId}
-                onChange={e => setFormData({ ...formData, subjectId: e.target.value })}
-              >
-                <option value="">All Subjects</option>
-                {availableSubjects.map(s => (
-                  <option key={s._id} value={s._id}>{s.name}</option>
-                ))}
-              </Select>
 
             </div>
 

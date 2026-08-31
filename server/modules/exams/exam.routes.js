@@ -6,6 +6,7 @@ const { requireRole } = require('../../middlewares/rbac.middleware');
 const { ROLES } = require('../../config/constants');
 const upload = require('../../middlewares/upload.middleware');
 const uploadMemory = require('../../middlewares/uploadMemory.middleware');
+const { checkAccess } = require('../../middlewares/contentAccess.middleware');
 
 router.use(authMiddleware);
 
@@ -75,6 +76,13 @@ router.get(
   ExamController.getExamSubmissions
 );
 
+// Export Exam Submissions to CSV (Admin)
+router.get(
+  '/:id/submissions/export',
+  requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.TEACHER]),
+  ExamController.exportExamSubmissions
+);
+
 // Get Snapshots for a Submission (Admin)
 router.get(
   '/submissions/:submissionId/snapshots',
@@ -87,24 +95,28 @@ router.get(
 router.get(
   '/student/my-exams',
   requireRole([ROLES.STUDENT]),
+  checkAccess('testSeries'),
   ExamController.getStudentExams
 );
 
 router.get(
   '/:id/analysis',
   requireRole([ROLES.STUDENT]),
+  checkAccess('testSeries'),
   ExamController.getExamAnalysis
 );
 
 router.post(
   '/:id/start',
   requireRole([ROLES.STUDENT]),
+  checkAccess('testSeries'),
   ExamController.startExam
 );
 
 router.post(
   '/:id/save-answer',
   requireRole([ROLES.STUDENT]),
+  checkAccess('testSeries'),
   ExamController.saveAnswer
 );
 
@@ -112,6 +124,7 @@ router.post(
 router.post(
   '/:id/snapshot',
   requireRole([ROLES.STUDENT]),
+  checkAccess('testSeries'),
   uploadMemory.single('snapshot'),
   ExamController.uploadSnapshot
 );
@@ -119,6 +132,7 @@ router.post(
 router.post(
   '/:id/submit',
   requireRole([ROLES.STUDENT]),
+  checkAccess('testSeries'),
   ExamController.submitExam
 );
 

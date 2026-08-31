@@ -1,32 +1,39 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Folder, File as FileIcon, ExternalLink, Video } from 'lucide-react';
+import { BookOpen, Folder, File as FileIcon, ExternalLink, Video, Menu } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
-import { Card, Badge } from '@/components/ui/index.jsx';
+import { Card, Badge, IconButton } from '@/components/ui/index.jsx';
+import ResourceViewerModal from '@/components/ui/ResourceViewerModal.jsx';
 import { studentAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
+import { FileExplorer } from '@/components/ui/FileExplorer.jsx';
+import { useMemo } from 'react';
 
 export default function StudentStudyMaterialsPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
-  const [groupedData, setGroupedData] = useState({});
+  const [selectedResource, setSelectedResource] = useState(null);
+  const [selectedSection, setSelectedSection] = useState('global'); // 'classId' or 'global'
+  const [currentPath, setCurrentPath] = useState('/');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const [userBatches, setUserBatches] = useState([]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await studentAPI.getResources();
+      const [res, batchRes] = await Promise.all([
+        studentAPI.getResources(),
+        studentAPI.getMyBatches()
+      ]);
       const resources = res.data?.data || [];
-      setData(resources);
-
-      // Group by folderPath
-      const grouped = resources.reduce((acc, curr) => {
-        const path = curr.folderPath || '/';
-        if (!acc[path]) acc[path] = [];
-        acc[path].push(curr);
-        return acc;
-      }, {});
-      setGroupedData(grouped);
+      console.log("RESOURCES: ", resources); setData(resources);
+      const batches = batchRes.data?.data || [];
+      setUserBatches(batches);
+      if (batches.length > 0) {
+        setSelectedSection(batches[0]._id);
+      }
     } catch (error) {
       toast.error('Failed to load study materials');
     } finally {
@@ -51,70 +58,82 @@ export default function StudentStudyMaterialsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Study Materials"
-        subtitle="Access your class notes, past papers, and video lectures"
-        breadcrumbs={['Home', 'Academics', 'Study Materials']}
-      />
+      <div className="flex items-center justify-between mb-2">
+        <PageHeader
+          title="Study Materials"
+          subtitle="Access your class notes, past papers, and video lectures"
+          breadcrumbs={['Home', 'Academics', 'Study Materials']}
+        />
+      </div>
 
-      {Object.keys(groupedData).length === 0 ? (
-        <Card className="p-12 text-center text-surface-500 border border-dashed bg-surface-50 dark:bg-surface-800">
-          <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-20" />
-          <h3 className="text-lg font-semibold text-surface-700 dark:text-surface-200">No Study Materials</h3>
-          <p className="mt-1 text-sm">Your teachers haven't uploaded any materials for your class yet.</p>
-        </Card>
-      ) : (
-        <div className="space-y-8">
-          {Object.entries(groupedData).map(([folderPath, items]) => (
-            <div key={folderPath} className="space-y-4">
-              <div className="flex items-center gap-2 border-b border-surface-200 pb-2">
-                <Folder className="text-primary-500" size={20} />
-                <h3 className="text-lg font-bold text-surface-800 dark:text-white">
-                  {folderPath === '/' ? 'General' : folderPath}
-                </h3>
-                <span className="text-xs font-medium bg-surface-100 text-surface-500 px-2 py-0.5 rounded-full ml-2">
-                  {items.length} items
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {items.map((item) => (
-                  <Card key={item._id} className="p-4 flex flex-col justify-between hover:border-primary-300 transition-colors cursor-pointer group" onClick={() => window.open(item.fileUrl, '_blank')}>
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0 group-hover:bg-primary-100 transition-colors">
-                        {item.type === 'VIDEO' ? <Video size={24} /> : <FileIcon size={24} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-surface-800 dark:text-white truncate" title={item.title}>
-                          {item.title}
-                        </h4>
-                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                          <Badge variant={item.type === 'VIDEO' ? 'danger' : 'primary'} className="text-[10px]">
-                            {item.type}
-                          </Badge>
-                          {item.subjectId && (
-                            <span className="text-xs text-surface-500 truncate" title={item.subjectId.name}>
-                              • {item.subjectId.name}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {item.description && (
-                      <p className="mt-3 text-xs text-surface-600 dark:text-surface-400 line-clamp-2">
-                        {item.description}
-                      </p>
-                    )}
-                    <div className="mt-4 pt-3 border-t border-surface-100 flex items-center justify-between text-xs font-medium text-primary-600">
-                      <span>{item.type === 'VIDEO' ? 'Watch Video' : 'Open Document'}</span>
-                      <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
+      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-200px)] min-h-[600px]">
+        {/* Sidebar */}
+        <div className={`flex-shrink-0 flex flex-col gap-2 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm overflow-y-auto transition-all duration-300 relative ${isSidebarOpen ? 'w-full lg:w-64 opacity-100' : 'w-0 opacity-0 p-0 border-0 overflow-hidden hidden lg:flex'}`}>
+          <div className="flex items-center justify-between mb-2 px-3">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">My Classes</h3>
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <Menu size={16} />
+            </button>
+          </div>
+
+          {userBatches.map(batch => (
+            <button
+              key={batch._id}
+              onClick={() => { setSelectedSection(batch._id); setCurrentPath('/'); }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-medium whitespace-nowrap ${
+                selectedSection === batch._id
+                  ? "bg-primary-50 text-primary-700"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <Folder size={18} className={`shrink-0 ${selectedSection === batch._id ? "text-primary-500 fill-primary-100" : "text-gray-400 fill-gray-100"}`} />
+              {batch.name} {batch.section || ''}
+            </button>
           ))}
         </div>
+
+        {/* Expand Sidebar Button (when collapsed) */}
+        {!isSidebarOpen && (
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            className="hidden lg:flex items-center justify-center w-10 h-10 bg-white border border-gray-200 shadow-sm rounded-xl text-gray-500 hover:text-primary-600 transition-colors shrink-0"
+            title="Expand Sidebar"
+          >
+            <Menu size={20} />
+          </button>
+        )}
+
+        {/* Content Area */}
+        <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col min-w-0">
+          <FileExplorer 
+            files={data.filter(item => {
+              const itemBatchId = item.batchId?._id || item.batchId;
+              const itemBatchIds = item.batchIds?.map(b => b?._id || b) || [];
+              const isGlobal = !itemBatchId && itemBatchIds.length === 0;
+
+              if (selectedSection === 'global') return isGlobal;
+              
+              return isGlobal || 
+                     String(itemBatchId) === String(selectedSection) || 
+                     itemBatchIds.some(id => String(id) === String(selectedSection));
+            })} 
+            currentPath={currentPath}
+            onNavigate={setCurrentPath}
+            onView={(file) => setSelectedResource(file)}
+            readOnly={true}
+          />
+        </div>
+      </div>
+
+      {selectedResource && (
+        <ResourceViewerModal 
+          resource={selectedResource}
+          onClose={() => setSelectedResource(null)}
+          hideDownload={true}
+        />
       )}
     </div>
   );

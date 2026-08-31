@@ -16,6 +16,7 @@ export default function DPPPlayer() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeSpent, setTimeSpent] = useState(0);
+  const [timeSpentPerQuestion, setTimeSpentPerQuestion] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [currentQIdx, setCurrentQIdx] = useState(0);
@@ -35,6 +36,21 @@ export default function DPPPlayer() {
         
         setSession(data);
         
+        let initialTotal = 0;
+        const initialTimeMap = {};
+        if (data.answers) {
+          data.answers.forEach(a => {
+            const t = a.timeSpentSeconds || 0;
+            if (t > 0) {
+              initialTimeMap[a.questionId] = t;
+              initialTimeMap[a.questionId || a._id] = t; // Just in case
+              initialTotal += t;
+            }
+          });
+        }
+        setTimeSpent(Math.max(data.totalTimeSpentSeconds || 0, initialTotal));
+        setTimeSpentPerQuestion(initialTimeMap);
+        
         if (data.questions && data.questions.length > 0) {
           setActiveSubject(getSubjectName(data.questions[0]));
         }
@@ -53,9 +69,20 @@ export default function DPPPlayer() {
     if (loading || submitted) return;
     const interval = setInterval(() => {
       setTimeSpent(prev => prev + 1);
+      
+      // Also increment for current question
+      if (session && session.questions && session.questions.length > 0) {
+        const qId = session.questions[currentQIdx]?.questionId;
+        if (qId) {
+          setTimeSpentPerQuestion(prevMap => ({
+            ...prevMap,
+            [qId]: (prevMap[qId] || 0) + 1
+          }));
+        }
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [loading, submitted]);
+  }, [loading, submitted, session, currentQIdx]);
 
   const formatTime = (seconds) => {
     const h = Math.floor(seconds / 3600);
@@ -84,7 +111,8 @@ export default function DPPPlayer() {
       await studentAPI.savePracticeProgress(id, {
         questionId,
         selectedOptionId: optionId,
-        status: 'ANSWERED'
+        status: 'ANSWERED',
+        timeSpentSeconds: timeSpentPerQuestion[questionId] || 0
       });
     } catch (e) {
       toast.error('Failed to save answer');
@@ -106,7 +134,7 @@ export default function DPPPlayer() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const res = await studentAPI.submitPracticeSession(id);
+      const res = await studentAPI.submitPracticeSession(id, { totalTimeSpentSeconds: timeSpent, timeSpentPerQuestion });
       setSession(res.data.data);
       setSubmitted(true);
       setShowSubmitModal(false);
@@ -144,7 +172,13 @@ export default function DPPPlayer() {
           <div className="flex items-center gap-6">
             {!submitted ? (
               <div className="flex items-center gap-3">
-                <Button variant="outline" className="text-gray-600 border-gray-300" onClick={() => router.push('/student/dpp')}>
+                <Button variant="outline" className="text-gray-600 border-gray-300" onClick={() => {
+                  if (session?.linkedExamId) {
+                    router.push(`/student/exams/${session.linkedExamId}/analysis`);
+                  } else {
+                    router.push('/student/dpp');
+                  }
+                }}>
                   Pause / Exit
                 </Button>
                 <Button variant="gradient" onClick={() => setShowSubmitModal(true)}>
@@ -152,12 +186,24 @@ export default function DPPPlayer() {
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6">
+                <div className="text-right border-r pr-4">
+                  <div className="text-sm text-gray-500 font-semibold flex items-center gap-1 justify-end"><Clock className="w-4 h-4"/> Total Time</div>
+                  <div className="text-xl font-bold text-gray-800">{formatTime(session.totalTimeSpentSeconds || timeSpent)}</div>
+                </div>
                 <div className="text-right">
                   <div className="text-sm text-gray-500 font-semibold">Your Score</div>
                   <div className="text-xl font-bold text-primary-600">{session.score} / {session.totalMarks}</div>
                 </div>
-                <Button variant="outline" onClick={() => router.push('/student/dpp')}>Exit</Button>
+                <Button variant="outline" onClick={() => {
+                  if (session?.linkedExamId) {
+                    router.push(`/student/exams/${session.linkedExamId}/analysis`);
+                  } else {
+                    router.push('/student/dpp');
+                  }
+                }}>
+                  {session?.linkedExamId ? 'Back to Analysis' : 'Exit'}
+                </Button>
               </div>
             )}
           </div>
@@ -241,11 +287,23 @@ export default function DPPPlayer() {
 
                 {/* Solution/Explanation (Only visible when submitted) */}
                 {submitted && (
-                  <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
-                    <h3 className="font-bold text-blue-900 mb-2 flex items-center">
-                      <CheckCircle className="w-5 h-5 mr-2" /> Solution & Explanation
-                    </h3>
-                    <div className="prose max-w-none text-blue-800" dangerouslySetInnerHTML={{ __html: currentAnswer?.explanation || currentQuestion?.explanation || '<p>No explanation provided.</p>' }} />
+                  <div className="mt-8 space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                      <h3 className="font-bold text-blue-900 mb-2 flex items-center">
+                        <CheckCircle className="w-5 h-5 mr-2" /> Solution & Explanation
+                      </h3>
+                      <div className="prose max-w-none text-blue-800" dangerouslySetInnerHTML={{ __html: currentAnswer?.explanation || currentQuestion?.explanation || '<p>No explanation provided.</p>' }} />
+                    </div>
+                    
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Clock className="w-5 h-5 text-gray-500" />
+                        <span className="font-semibold">Time Spent on this Question:</span>
+                      </div>
+                      <div className="font-bold text-gray-900">
+                        {formatTime(currentAnswer?.timeSpentSeconds || 0)}
+                      </div>
+                    </div>
                   </div>
                 )}
 

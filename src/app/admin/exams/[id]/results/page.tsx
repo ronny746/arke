@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/index.jsx';
 import { DataTable } from '@/components/tables/DataTable.jsx';
 import { Button } from '@/components/ui/Button.jsx';
 import { adminAPI } from '@/api/index.js';
-import { Camera, AlertCircle, X, ChevronLeft, ChevronRight, LineChart } from 'lucide-react';
+import { Camera, AlertCircle, X, ChevronLeft, ChevronRight, LineChart, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/utils/helpers.js';
 
@@ -24,6 +24,7 @@ export default function ExamResults() {
   const [loading, setLoading] = useState(true);
   const [submissions, setSubmissions] = useState([]);
   const [exam, setExam] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   // Snapshots Modal state
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
@@ -51,6 +52,68 @@ export default function ExamResults() {
     };
     fetchData();
   }, [id]);
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const res = await adminAPI.exportExamSubmissions(id);
+      const data = res.data?.data;
+      if (!data || data.length === 0) {
+        return toast.error("No data available to export");
+      }
+
+      const dynamicSubjects = new Set();
+      data.forEach(row => {
+        Object.keys(row).forEach(key => {
+          if (!['studentName', 'rollNumber', 'email', 'status', 'score', 'totalCorrect', 'totalWrong', 'totalUnattempted', 'tabSwitches', 'fullScreenExits'].includes(key)) {
+            dynamicSubjects.add(key);
+          }
+        });
+      });
+      
+      const subjectHeaders = Array.from(dynamicSubjects);
+      const headers = ['Student Name', 'Roll No', 'Email', 'Status', 'Total Score', 'Correct', 'Wrong', 'Unattempted', 'Tab Switches', 'Fullscreen Exits', ...subjectHeaders.map(h => `${h} Score`)];
+      
+      const csvRows = [headers.join(',')];
+
+      data.forEach(row => {
+        const rowValues = [
+          `"${row.studentName || ''}"`,
+          `"${row.rollNumber || '-'}"`,
+          `"${row.email || 'N/A'}"`,
+          `"${row.status || ''}"`,
+          row.score || 0,
+          row.totalCorrect || 0,
+          row.totalWrong || 0,
+          row.totalUnattempted || 0,
+          row.tabSwitches || 0,
+          row.fullScreenExits || 0
+        ];
+        
+        subjectHeaders.forEach(subject => {
+          rowValues.push(row[subject] || 0);
+        });
+
+        csvRows.push(rowValues.join(','));
+      });
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Exam_Results_${exam?.title || 'Export'}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success("Results exported successfully!");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to export results");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const openSnapshots = async (submission) => {
     setSelectedSubmission(submission);
@@ -83,8 +146,12 @@ export default function ExamResults() {
       }
     },
     {
-      header: 'Roll No / Email',
-      cell: (row) => row.student?.rollNumber || row.publicUser?.email || 'N/A'
+      header: 'Roll No',
+      cell: (row) => row.student?.metadata?.rollNo || row.student?.rollNumber || '-'
+    },
+    {
+      header: 'Email',
+      cell: (row) => row.student?.email || row.publicUser?.email || 'N/A'
     },
     {
       header: 'Status',
@@ -147,6 +214,11 @@ export default function ExamResults() {
         subtitle="View student performance and proctoring logs"
         breadcrumbs={['Home', 'Exams', 'Results']}
         onBack={() => router.push(getBackPath())}
+        actions={
+          <Button variant="outline" onClick={handleExport} disabled={exporting || submissions.length === 0} icon={Download}>
+            {exporting ? 'Exporting...' : 'Export CSV'}
+          </Button>
+        }
       />
 
       <Card className="p-5">

@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 exports.createResourceSchema = Joi.object({
-  classId: Joi.string().when('type', {
+  batchId: Joi.string().when('type', {
     is: 'FOLDER',
     then: Joi.optional().allow('', null),
     otherwise: Joi.required()

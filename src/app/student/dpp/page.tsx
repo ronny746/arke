@@ -18,6 +18,7 @@ export default function StudentDPP() {
   
   // Generator State
   const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
   const [numberOfQuestions, setNumberOfQuestions] = useState<number | ''>('');
@@ -45,12 +46,19 @@ export default function StudentDPP() {
   };
 
   const activeSubjectObj = filters.find(f => f.subject === selectedSubject);
-  const availableTopics = activeSubjectObj ? activeSubjectObj.topics : [];
+  const availableChapters = activeSubjectObj?.chapters || [];
+  const activeChapterObj = availableChapters.find(c => c.chapter === selectedChapter);
+  
+  // If chapter is selected, show its topics. Else show all topics for subject.
+  const availableTopics = selectedChapter 
+    ? (activeChapterObj ? activeChapterObj.topics : [])
+    : (activeSubjectObj ? activeSubjectObj.topics : []);
 
   // Calculate available questions based on selection
   const getAvailableQuestions = () => {
     let filtered = counts;
     if (selectedSubject) filtered = filtered.filter(c => c.subject === selectedSubject);
+    if (selectedChapter) filtered = filtered.filter(c => c.chapter === selectedChapter);
     if (selectedTopic) filtered = filtered.filter(c => c.topic === selectedTopic);
     if (selectedDifficulty) filtered = filtered.filter(c => c.difficulty === selectedDifficulty);
     return filtered.reduce((sum, c) => sum + c.count, 0);
@@ -68,6 +76,7 @@ export default function StudentDPP() {
       const res = await studentAPI.generatePracticeSession({
         sessionType: 'DPP',
         subject: selectedSubject,
+        chapter: selectedChapter,
         topic: selectedTopic,
         difficulty: selectedDifficulty,
         numberOfQuestions
@@ -107,11 +116,26 @@ export default function StudentDPP() {
                 <select 
                   className="w-full p-2.5 border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500 transition-all outline-none"
                   value={selectedSubject}
-                  onChange={(e) => { setSelectedSubject(e.target.value); setSelectedTopic(''); }}
+                  onChange={(e) => { setSelectedSubject(e.target.value); setSelectedChapter(''); setSelectedTopic(''); }}
                 >
                   <option value="">Any Subject</option>
                   {filters.map(f => (
                     <option key={f.subject} value={f.subject}>{f.subject}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Chapter</label>
+                <select 
+                  className="w-full p-2.5 border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500 transition-all outline-none"
+                  value={selectedChapter}
+                  onChange={(e) => { setSelectedChapter(e.target.value); setSelectedTopic(''); }}
+                  disabled={!selectedSubject || availableChapters.length === 0}
+                >
+                  <option value="">Any Chapter</option>
+                  {availableChapters.map(c => (
+                    <option key={c.chapter} value={c.chapter}>{c.chapter}</option>
                   ))}
                 </select>
               </div>

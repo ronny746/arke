@@ -40,3 +40,15 @@ export const useAuthStore = create(
     { name: 'lms-auth' }
   )
 );
+
+export const useDeveloperStore = create(
+  persist(
+    (set) => ({
+      isDeveloperMode: false,
+      developerToken: null,
+      activateDeveloperMode: (token) => set({ isDeveloperMode: true, developerToken: token }),
+      deactivateDeveloperMode: () => set({ isDeveloperMode: false, developerToken: null }),
+    }),
+    { name: 'lms-developer-mode' }
+  )
+);

@@ -1,6 +1,26 @@
 const mediasoup = require('mediasoup');
 const os = require('os');
 
+let detectedPublicIp = process.env.MEDIASOUP_ANNOUNCED_IP || process.env.SERVER_IP || '103.208.105.33';
+
+// Auto-detect server public IP on startup if not explicitly provided
+if (!process.env.MEDIASOUP_ANNOUNCED_IP && !process.env.SERVER_IP && process.env.NODE_ENV !== 'development') {
+  try {
+    const https = require('https');
+    https.get('https://api.ipify.org', (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        const ip = data.trim();
+        if (ip && /^[\d\.]+\$/.test(ip)) {
+          detectedPublicIp = ip;
+          console.log(`[Mediasoup] Auto-detected public IP: ${detectedPublicIp}`);
+        }
+      });
+    }).on('error', () => {});
+  } catch (e) {}
+}
+
 // mediasoup Configuration options
 const config = {
   // Worker Settings
@@ -17,7 +37,7 @@ const config = {
     rtcMinPort: parseInt(process.env.MEDIASOUP_MIN_PORT || 20000),
     rtcMaxPort: parseInt(process.env.MEDIASOUP_MAX_PORT || 20100),
   },
-  // Router media codecs config
+  // Router media codecs config - supporting VP8, VP9, and all major H264 profiles
   routerMediaCodecs: [
     {
       kind: 'audio',
@@ -35,33 +55,72 @@ const config = {
     },
     {
       kind: 'video',
+      mimeType: 'video/VP9',
+      clockRate: 90000,
+      parameters: {
+        'profile-id': 0,
+        'x-google-start-bitrate': 1000
+      }
+    },
+    {
+      kind: 'video',
       mimeType: 'video/h264',
       clockRate: 90000,
       parameters: {
         'packetization-mode': 1,
         'profile-level-id': '42e01f',
-        'level-asymmetry-allowed': 1
+        'level-asymmetry-allowed': 1,
+        'x-google-start-bitrate': 1000
+      }
+    },
+    {
+      kind: 'video',
+      mimeType: 'video/h264',
+      clockRate: 90000,
+      parameters: {
+        'packetization-mode': 1,
+        'profile-level-id': '42001f',
+        'level-asymmetry-allowed': 1,
+        'x-google-start-bitrate': 1000
+      }
+    },
+    {
+      kind: 'video',
+      mimeType: 'video/h264',
+      clockRate: 90000,
+      parameters: {
+        'packetization-mode': 1,
+        'profile-level-id': '4d0032',
+        'level-asymmetry-allowed': 1,
+        'x-google-start-bitrate': 1000
       }
     }
   ],
   // WebRtcTransport Settings
-  webRtcTransportOptions: {
-    listenInfos: [
-      {
-        protocol: 'udp',
-        ip: process.env.MEDIASOUP_LISTEN_IP || '127.0.0.1',
-        announcedAddress: process.env.MEDIASOUP_ANNOUNCED_IP || '127.0.0.1',
-      },
-      {
-        protocol: 'tcp',
-        ip: process.env.MEDIASOUP_LISTEN_IP || '127.0.0.1',
-        announcedAddress: process.env.MEDIASOUP_ANNOUNCED_IP || '127.0.0.1',
+  get webRtcTransportOptions() {
+    const listenIp = process.env.MEDIASOUP_LISTEN_IP || '0.0.0.0';
+    let announcedIp = process.env.MEDIASOUP_ANNOUNCED_IP || process.env.SERVER_IP;
+    
+    if (!announcedIp) {
+      if (process.env.NODE_ENV === 'development' || listenIp === '127.0.0.1') {
+        announcedIp = '127.0.0.1';
+      } else {
+        announcedIp = '200.141.15.18';
       }
-    ],
-    initialAvailableOutgoingBitrate: 1000000,
-    minimumAvailableOutgoingBitrate: 600000,
-    maxSctpMessageSize: 262144,
-    enableSctp: true,
+    }
+
+    const listenInfos = [
+      { protocol: 'udp', ip: listenIp, announcedAddress: announcedIp },
+      { protocol: 'tcp', ip: listenIp, announcedAddress: announcedIp }
+    ];
+
+    return {
+      listenInfos,
+      initialAvailableOutgoingBitrate: 1000000,
+      minimumAvailableOutgoingBitrate: 600000,
+      maxSctpMessageSize: 262144,
+      enableSctp: true,
+    };
   }
 };
 
@@ -188,7 +247,7 @@ async function consume(roomCode, peerId, transportId, producerId, rtpCapabilitie
   const consumer = await transport.consume({
     producerId,
     rtpCapabilities,
-    paused: true // Client should explicitly resume
+    paused: false // Start unpaused immediately!
   });
 
   consumer.on('transportclose', () => {

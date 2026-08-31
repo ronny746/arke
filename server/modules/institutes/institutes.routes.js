@@ -6,6 +6,7 @@ const rbacMiddleware = require('../../middlewares/rbac.middleware');
 const validate = require('../../middlewares/validate.middleware');
 const { createInstituteSchema, updateInstituteSchema } = require('./institutes.validation');
 const { ROLES } = require('../../config/constants');
+const requireDeveloperToken = require('../../middlewares/developer.middleware');
 
 // Apply auth to all routes in this module
 router.use(authMiddleware);
@@ -40,7 +41,7 @@ router.put(
 );
 
 router.delete(
-  '/:id',
+  '/:id', requireDeveloperToken,
   rbacMiddleware.requireRole([ROLES.SUPER_SUPER_ADMIN]),
   InstituteController.delete
 );

@@ -3,7 +3,7 @@ const AttendanceModel = require('./attendance.model');
 exports.markAttendance = async (reqUser, payload) => {
   const query = {
     instituteId: reqUser.instituteId,
-    classId: payload.classId,
+    batchId: payload.batchId,
     subjectId: payload.subjectId || null,
     date: new Date(payload.date).setHours(0, 0, 0, 0)
   };
@@ -22,7 +22,7 @@ exports.markAttendance = async (reqUser, payload) => {
 exports.geoCheckin = async (reqUser, payload) => {
   const query = {
     instituteId: reqUser.instituteId,
-    classId: payload.classId,
+    batchId: payload.batchId,
     date: new Date().setHours(0, 0, 0, 0)
   };
 
@@ -61,7 +61,7 @@ exports.geoCheckin = async (reqUser, payload) => {
 exports.getAttendance = async (reqUser, filters) => {
   const query = { instituteId: reqUser.instituteId };
   
-  if (filters.classId) query.classId = filters.classId;
+  if (filters.batchId) query.batchId = filters.batchId;
   if (filters.subjectId) query.subjectId = filters.subjectId;
   if (filters.studentId) query['records.studentId'] = filters.studentId;
   

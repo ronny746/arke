@@ -18,33 +18,41 @@ export default function ParentExamsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchExams = async () => {
+    const fetchExamsAndChildren = async () => {
       try {
-        const res = await parentAPI.getChildrenExams();
-        const data = res.data?.data || [];
+        const token = localStorage.getItem('token');
+        const [authRes, examsRes] = await Promise.all([
+          fetch('/api/v1/users/me', { headers: { 'Authorization': `Bearer ${token}` } }),
+          parentAPI.getChildrenExams()
+        ]);
+        
+        const authData = await authRes.json();
+        const childrenArray = authData.data?.childrenIds || [];
+        setChildrenList(childrenArray);
+
+        const examData = examsRes.data?.data || [];
         
         // Group by childId
         const grouped = {};
-        const childrenMap = new Map();
-        
-        data.forEach(exam => {
+        childrenArray.forEach(child => {
+          grouped[child._id] = [];
+        });
+
+        examData.forEach(exam => {
           const cId = exam.childId;
-          const cName = exam.childName || (exam.child?.firstName + ' ' + exam.child?.lastName);
-          
-          if (!grouped[cId]) grouped[cId] = [];
-          grouped[cId].push(exam);
-          
-          if (!childrenMap.has(cId)) {
-            childrenMap.set(cId, { id: cId, name: cName });
+          if (grouped[cId]) {
+            grouped[cId].push(exam);
+          } else {
+            grouped[cId] = [exam];
           }
         });
         
         setExamsByChild(grouped);
-        const childrenArray = Array.from(childrenMap.values());
-        setChildrenList(childrenArray);
         
         if (childrenArray.length > 0) {
-          setActiveTab(childrenArray[0].id);
+          setActiveTab(childrenArray[0]._id);
+        } else if (examData.length > 0) {
+          setActiveTab(examData[0].childId);
         }
       } catch (error) {
         toast.error('Failed to load exams');
@@ -52,7 +60,7 @@ export default function ParentExamsPage() {
         setLoading(false);
       }
     };
-    fetchExams();
+    fetchExamsAndChildren();
   }, []);
 
   const columns = [
@@ -123,22 +131,22 @@ export default function ParentExamsPage() {
       />
 
       {childrenList.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide border-b border-surface-200 dark:border-surface-800">
-          {childrenList.map((child) => (
-            <button
-              key={child.id}
-              onClick={() => setActiveTab(child.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
-                activeTab === child.id 
-                  ? 'border-primary-500 text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
-                  : 'border-transparent text-surface-500 hover:text-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800'
-              }`}
-            >
-              <Avatar name={child.name} size="xs" />
-              {child.name}
-            </button>
-          ))}
-        </div>
+        <div className="flex border-b border-surface-200 dark:border-surface-700 overflow-x-auto no-scrollbar">
+            {childrenList.map(child => (
+              <button
+                key={child._id}
+                onClick={() => setActiveTab(child._id)}
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === child._id
+                    ? 'border-primary text-primary bg-primary/5'
+                    : 'border-transparent text-surface-500 hover:text-surface-700 hover:bg-surface-50'
+                }`}
+              >
+                <Avatar src={child.profilePictureUrl} fallback={child.firstName?.charAt(0) || '?'} size="sm" />
+                {child.firstName} {child.lastName}
+              </button>
+            ))}
+          </div>
       )}
 
       <Card className="p-5">

@@ -1,12 +1,11 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, FileCheck, Database, Users, BookOpen, Video, Briefcase, LogOut } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Home, Users, BookOpen, Video, FileText, Settings, CreditCard, LayoutDashboard, Database, UserCheck, UserCircle, Briefcase, FileCheck, MessageSquare, Archive } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import DeveloperModeListener from '@/components/common/DeveloperModeListener';
 
 export default function AdminLayout({ children }) {
-  const router = useRouter();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -20,14 +19,15 @@ export default function AdminLayout({ children }) {
       items: [
         { icon: Home, label: 'Dashboard', to: '/admin/dashboard' },
         { icon: Users, label: 'Students', to: '/admin/students' },
-        { icon: Briefcase, label: 'Teachers', to: '/admin/teachers' },
-        { icon: Users, label: 'Parents', to: '/admin/parents' },
+        { icon: UserCircle, label: 'Parents', to: '/admin/parents' },
+        { icon: UserCheck, label: 'Teachers', to: '/admin/teachers' },
+        { icon: BookOpen, label: 'Courses', to: '/admin/courses' },
+        { icon: Settings, label: 'Settings', to: '/admin/settings' },
       ]
     },
     {
       label: 'Academics',
       items: [
-        { icon: BookOpen, label: 'Classes', to: '/admin/classes' },
         { icon: BookOpen, label: 'Study Materials', to: '/admin/study-materials' },
         { icon: Video, label: 'Live Classes', to: '/admin/live-classes' },
       ]
@@ -38,46 +38,29 @@ export default function AdminLayout({ children }) {
         { icon: FileCheck, label: 'Exams & Results', to: '/admin/exams' },
         { icon: Database, label: 'Question Banks', to: '/admin/question-banks' },
       ]
+    },
+    {
+      label: 'Management',
+      items: [
+        { icon: CreditCard, label: 'Fees & Payments', to: '/admin/fees' },
+        { icon: MessageSquare, label: 'Doubts Monitor', to: '/admin/doubts' },
+        { icon: Archive, label: 'Recycle Bin', to: '/admin/recycle-bin' }
+      ]
     }
   ];
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    router.push('/login');
-  };
-
-  const footer = user ? (
-    <div className="flex items-center gap-2.5 px-2 py-1.5">
-      <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-        {(user.firstName || user.name || 'A')?.charAt(0)?.toUpperCase()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-surface-800 dark:text-white truncate">
-          {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.name}
-        </p>
-        <p className="text-[10px] text-surface-400 capitalize">{user.role}</p>
-      </div>
-      <button
-        onClick={handleLogout}
-        className="p-1.5 rounded-lg hover:bg-danger-50 dark:hover:bg-danger-900/20 text-surface-400 hover:text-danger-500 transition-colors flex-shrink-0"
-        title="Logout"
-      >
-        <LogOut size={14} />
-      </button>
-    </div>
-  ) : null;
 
   return (
     <DashboardLayout sidebar={
       <Sidebar
-        title="Admin Portal"
-        subtitle="Learning Management"
+        title="SKD Xpress"
+        subtitle="Admin Portal"
+        portalInitial="A"
         navGroups={navGroups}
-        footerContent={footer}
+        user={user}
       />
     }>
-      <Topbar title="Admin Portal" user={user} />
+      <Topbar title="SKD Xpress | Admin" user={user} />
+      <DeveloperModeListener />
       <main className="p-4 md:p-6">
         {children}
       </main>

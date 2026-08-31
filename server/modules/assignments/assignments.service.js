@@ -14,15 +14,15 @@ exports.getAssignments = async (reqUser, filters) => {
   const query = { instituteId: reqUser.instituteId };
 
   if (reqUser.role === 'student') {
-    const AcademicClassModel = require('../academic-classes/academic-classes.model');
-    const studentClass = await AcademicClassModel.findOne({ students: reqUser.userId });
+    const BatchModel = require('../batches/batches.model');
+    const studentClass = await BatchModel.findOne({ students: reqUser.userId });
     if (studentClass) {
-      query.classId = studentClass._id;
+      query.batchId = studentClass._id;
     } else {
-      return []; // Student has no class assigned, so no assignments
+      return []; // Student has no batch assigned, so no assignments
     }
-  } else if (filters.classId) {
-    query.classId = filters.classId;
+  } else if (filters.batchId) {
+    query.batchId = filters.batchId;
   }
   
   if (filters.subjectId) query.subjectId = filters.subjectId;
@@ -30,7 +30,7 @@ exports.getAssignments = async (reqUser, filters) => {
   return await Assignment.find(query)
     .populate('subjectId', 'name')
     .populate('teacherId', 'firstName lastName')
-    .populate('classId', 'name')
+    .populate('batchId', 'name')
     .sort({ dueDate: 1 });
 };
 

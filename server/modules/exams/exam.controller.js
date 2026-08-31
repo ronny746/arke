@@ -12,6 +12,7 @@ const calculateAnalysisData = (submission, questions) => {
     Medium: { totalQuestions: 0, attempted: 0, correct: 0, wrong: 0, totalMarks: 0, score: 0 },
     Hard: { totalQuestions: 0, attempted: 0, correct: 0, wrong: 0, totalMarks: 0, score: 0 }
   };
+  let nestedStats = {};
 
   const detailedQuestions = questions.map(q => {
     const qObj = q.toObject();
@@ -62,50 +63,66 @@ const calculateAnalysisData = (submission, questions) => {
     difficultyStats[diff].totalQuestions++;
     difficultyStats[diff].totalMarks += q.marks || 0;
 
-    totalMarks += q.marks || 0;
+    // Initialize Nested stats (Subject -> Topic -> Difficulty)
+    if (!nestedStats[subject]) nestedStats[subject] = {};
+    if (!nestedStats[subject][topic]) nestedStats[subject][topic] = {};
+    if (!nestedStats[subject][topic][diff]) {
+      nestedStats[subject][topic][diff] = {
+        totalQuestions: 0, attempted: 0, correct: 0, wrong: 0, totalMarks: 0, score: 0
+      };
+    }
+    nestedStats[subject][topic][diff].totalQuestions++;
+    nestedStats[subject][topic][diff].totalMarks += q.marks || 0;
+
+    const qMarks = q.marks !== undefined && q.marks !== null ? q.marks : 4;
+    const qNegativeMarks = q.negativeMarks !== undefined && q.negativeMarks !== null ? q.negativeMarks : 1;
+
+    totalMarks += qMarks;
     qObj.userAnswer = userAns || null;
     let isCorrect = false;
     let marksObtained = 0;
 
-    if (userAns && userAns.status !== 'NOT_ANSWERED') {
+    if (userAns && userAns.selectedOptionId) {
       subjectStats[subject].attempted++;
       topicStats[topic].attempted++;
       difficultyStats[diff].attempted++;
+      nestedStats[subject][topic][diff].attempted++;
       
-      if (q.type === 'MCQ' || q.type === 'TRUE_FALSE') {
-        const correctOpt = q.options.find(o => o.isCorrect);
-        if (correctOpt && userAns.selectedOptionId && correctOpt._id?.toString() === userAns.selectedOptionId?.toString()) {
-          isCorrect = true;
-        }
-      } else {
-        // Subjective manual grading check (if grading exists)
-        if (userAns.marksObtained === q.marks) isCorrect = true;
+      const correctOpt = q.options.find(o => o.isCorrect);
+      if (correctOpt && correctOpt._id?.toString() === userAns.selectedOptionId?.toString()) {
+        isCorrect = true;
       }
 
       if (isCorrect) {
         subjectStats[subject].correct++;
-        subjectStats[subject].score += q.marks || 0;
+        subjectStats[subject].score += qMarks;
 
         topicStats[topic].correct++;
-        topicStats[topic].score += q.marks || 0;
+        topicStats[topic].score += qMarks;
 
         difficultyStats[diff].correct++;
-        difficultyStats[diff].score += q.marks || 0;
+        difficultyStats[diff].score += qMarks;
+        
+        nestedStats[subject][topic][diff].correct++;
+        nestedStats[subject][topic][diff].score += qMarks;
 
-        score += q.marks || 0;
-        marksObtained = q.marks || 0;
+        score += qMarks;
+        marksObtained = qMarks;
       } else {
         subjectStats[subject].wrong++;
-        subjectStats[subject].score -= q.negativeMarks || 0;
+        subjectStats[subject].score -= qNegativeMarks;
 
         topicStats[topic].wrong++;
-        topicStats[topic].score -= q.negativeMarks || 0;
+        topicStats[topic].score -= qNegativeMarks;
 
         difficultyStats[diff].wrong++;
-        difficultyStats[diff].score -= q.negativeMarks || 0;
+        difficultyStats[diff].score -= qNegativeMarks;
+        
+        nestedStats[subject][topic][diff].wrong++;
+        nestedStats[subject][topic][diff].score -= qNegativeMarks;
 
-        score -= q.negativeMarks || 0;
-        marksObtained = -(q.negativeMarks || 0);
+        score -= qNegativeMarks;
+        marksObtained = -qNegativeMarks;
       }
     }
 
@@ -133,10 +150,21 @@ const calculateAnalysisData = (submission, questions) => {
     stats.accuracy = stats.totalQuestions > 0 ? Math.round((stats.correct / stats.totalQuestions) * 100) : 0;
   }
 
+  // Calculate accuracies for nested stats
+  for (let subj in nestedStats) {
+    for (let top in nestedStats[subj]) {
+      for (let df in nestedStats[subj][top]) {
+        const stats = nestedStats[subj][top][df];
+        stats.accuracy = stats.totalQuestions > 0 ? Math.round((stats.correct / stats.totalQuestions) * 100) : 0;
+      }
+    }
+  }
+
   return {
     subjectStats,
     topicStats,
     difficultyStats,
+    nestedStats,
     detailedQuestions,
     totalMarks,
     score
@@ -145,13 +173,13 @@ const calculateAnalysisData = (submission, questions) => {
 
 exports.createExam = async (req, res) => {
   try {
-    const { title, description, examType, assignedClasses, settings, security } = req.body;
+    const { title, description, examType, assignedBatches, settings, security } = req.body;
     
     const exam = new Exam({
       title,
       description,
       examType,
-      assignedClasses,
+      assignedBatches,
       settings,
       security,
       status: 'PUBLISHED',
@@ -173,10 +201,10 @@ exports.createExam = async (req, res) => {
 
 exports.updateExam = async (req, res) => {
   try {
-    const { title, description, examType, assignedClasses, settings, security, status } = req.body;
+    const { title, description, examType, assignedBatches, settings, security, status } = req.body;
     const exam = await Exam.findOneAndUpdate(
       { _id: req.params.id, institute: req.user.instituteId },
-      { title, description, examType, assignedClasses, settings, security, status },
+      { title, description, examType, assignedBatches, settings, security, status },
       { new: true }
     );
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
@@ -190,24 +218,12 @@ exports.getExams = async (req, res) => {
   try {
     let filter = { institute: req.user.instituteId };
 
-    if (req.user.role === 'teacher') {
-      const AcademicClass = require('../academic-classes/academic-classes.model');
-      const ClassSchedule = require('../classes-schedule/classes-schedule.model');
-      
-      const classTeacherDocs = await AcademicClass.find({ classTeacherId: req.user.userId }).select('_id');
-      const classTeacherIds = classTeacherDocs.map(doc => doc._id);
-
-      const scheduleDocs = await ClassSchedule.find({ teacherId: req.user.userId }).select('classId');
-      const scheduledClassIds = scheduleDocs.map(doc => doc.classId);
-
-      const allowedClassIds = [...new Set([...classTeacherIds, ...scheduledClassIds].map(id => id.toString()))];
-
-      filter.assignedClasses = { $in: allowedClassIds };
-    }
+    // Let teachers see all exams in the institute (same as admin)
+    // No additional filtering needed based on role
 
     console.log("TEACHER EXAM FILTER:", JSON.stringify(filter));
     const exams = await Exam.find(filter)
-      .populate('assignedClasses', 'name section')
+      .populate('assignedBatches', 'name section')
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 });
 
@@ -220,7 +236,7 @@ exports.getExams = async (req, res) => {
 exports.getExamDetails = async (req, res) => {
   try {
     const exam = await Exam.findById(req.params.id)
-      .populate('assignedClasses', 'name section');
+      .populate('assignedBatches', 'name section');
       
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
 
@@ -376,6 +392,12 @@ exports.getLiveMonitoringData = async (req, res) => {
     const examId = req.params.id;
     const ExamSubmission = require('./exam-submission.model');
     const ProctoringLog = require('./proctoring-log.model');
+    const Exam = require('./exam.model');
+    const ExamQuestion = require('./exam-question.model');
+
+    const exam = await Exam.findById(examId);
+    const totalQuestions = await ExamQuestion.countDocuments({ exam: examId });
+    const durationMs = (exam?.settings?.durationMinutes || 0) * 60 * 1000;
 
     const submissions = await ExamSubmission.find({ exam: examId })
       .populate('student', 'firstName lastName email profilePicture metadata')
@@ -387,6 +409,12 @@ exports.getLiveMonitoringData = async (req, res) => {
         .sort({ timestamp: -1 })
         .select('snapshotUrl timestamp type');
       
+      let timeLeft = 0;
+      if (sub.status === 'IN_PROGRESS' && sub.startTime) {
+         const elapsed = Date.now() - new Date(sub.startTime).getTime();
+         timeLeft = Math.max(0, Math.floor((durationMs - elapsed) / 1000));
+      }
+
       return {
         student: sub.student,
         publicUser: sub.publicUser,
@@ -396,7 +424,15 @@ exports.getLiveMonitoringData = async (req, res) => {
         endTime: sub.endTime,
         score: sub.score,
         latestSnapshot: latestLog ? latestLog.snapshotUrl : null,
-        lastSnapshotTime: latestLog ? latestLog.timestamp : null
+        lastSnapshotTime: latestLog ? latestLog.timestamp : null,
+        progress: {
+          attempted: sub.answers ? sub.answers.filter(a => ['ANSWERED', 'ANSWERED_AND_MARKED_FOR_REVIEW'].includes(a.status)).length : 0,
+          skipped: sub.answers ? sub.answers.filter(a => a.status === 'NOT_ANSWERED').length : 0,
+          markedForReview: sub.answers ? sub.answers.filter(a => ['MARKED_FOR_REVIEW', 'ANSWERED_AND_MARKED_FOR_REVIEW'].includes(a.status)).length : 0,
+          totalVisited: sub.answers ? sub.answers.length : 0,
+          totalQuestions,
+          timeLeft
+        }
       };
     }));
 
@@ -410,16 +446,16 @@ exports.getLiveMonitoringData = async (req, res) => {
 
 exports.getStudentExams = async (req, res) => {
   try {
-    const AcademicClass = require('../academic-classes/academic-classes.model');
-    const studentClasses = await AcademicClass.find({ students: req.user.userId }).select('_id');
+    const Batch = require('../batches/batches.model');
+    const studentClasses = await Batch.find({ students: req.user.userId }).select('_id');
     const classIds = studentClasses.map(c => c._id);
 
     const exams = await Exam.find({
       institute: req.user.instituteId,
       status: 'PUBLISHED',
-      assignedClasses: { $in: classIds }
+      assignedBatches: { $in: classIds }
     })
-    .select('title settings security status totalQuestions totalMarks examType assignedClasses')
+    .select('title settings security status totalQuestions totalMarks examType assignedBatches')
     .sort({ 'settings.startTime': 1 });
 
     const ExamSubmission = require('./exam-submission.model');
@@ -443,7 +479,7 @@ exports.getStudentExams = async (req, res) => {
 exports.getParentChildrenExams = async (req, res) => {
   try {
     const User = require('../users/users.model');
-    const AcademicClass = require('../academic-classes/academic-classes.model');
+    const Batch = require('../batches/batches.model');
     const ExamSubmission = require('./exam-submission.model');
 
     const parentUser = await User.findById(req.user.userId).populate('childrenIds', 'firstName lastName');
@@ -455,16 +491,16 @@ exports.getParentChildrenExams = async (req, res) => {
     const childIds = children.map(c => c._id);
 
     // Find all classes any of the children are enrolled in
-    const studentClasses = await AcademicClass.find({ students: { $in: childIds } }).select('_id students');
+    const studentClasses = await Batch.find({ students: { $in: childIds } }).select('_id students');
     const classIds = studentClasses.map(c => c._id);
 
     // Find exams assigned to these classes
     const exams = await Exam.find({
       institute: req.user.instituteId,
       status: 'PUBLISHED',
-      assignedClasses: { $in: classIds }
+      assignedBatches: { $in: classIds }
     })
-    .select('title settings security status totalQuestions totalMarks examType assignedClasses')
+    .select('title settings security status totalQuestions totalMarks examType assignedBatches')
     .sort({ 'settings.startTime': 1 });
 
     const submissions = await ExamSubmission.find({ student: { $in: childIds } });
@@ -480,7 +516,7 @@ exports.getParentChildrenExams = async (req, res) => {
       
       // Filter exams assigned to this child's classes
       const childExams = exams.filter(exam => 
-        exam.assignedClasses && exam.assignedClasses.some(ac => ac && classesForChild.includes(ac.toString()))
+        exam.assignedBatches && exam.assignedBatches.some(ac => ac && classesForChild.includes(ac.toString()))
       );
 
       childExams.forEach(exam => {
@@ -589,6 +625,7 @@ exports.getExamAnalysis = async (req, res) => {
         subjectStats: analysis.subjectStats,
         topicStats: analysis.topicStats,
         difficultyStats: analysis.difficultyStats,
+        nestedStats: analysis.nestedStats,
         detailedQuestions: analysis.detailedQuestions,
         details: analysis.detailedQuestions,
         totalTime: submission.totalTimeTaken || 0,
@@ -633,6 +670,7 @@ exports.getAdminExamAnalysis = async (req, res) => {
         subjectStats: analysis.subjectStats,
         topicStats: analysis.topicStats,
         difficultyStats: analysis.difficultyStats,
+        nestedStats: analysis.nestedStats,
         detailedQuestions: analysis.detailedQuestions,
         details: analysis.detailedQuestions,
         totalTime: submission.totalTimeTaken || 0,
@@ -797,20 +835,23 @@ exports.submitExam = async (req, res) => {
 
     questions.forEach(q => {
       const studentAns = submission.answers.find(a => a?.questionId && q?._id && a.questionId?.toString() === q._id?.toString());
+      const qMarks = q.marks !== undefined && q.marks !== null ? q.marks : 4;
+      const qNegativeMarks = q.negativeMarks !== undefined && q.negativeMarks !== null ? q.negativeMarks : 1;
+
       if (!studentAns || !studentAns.selectedOptionId) {
         unattempted++;
       } else {
         const correctOpt = q.options.find(o => o.isCorrect);
-        if (correctOpt && studentAns.selectedOptionId && studentAns.selectedOptionId?.toString() === correctOpt._id?.toString()) {
+        if (correctOpt && studentAns.selectedOptionId?.toString() === correctOpt._id?.toString()) {
           correct++;
-          score += (q.marks || 4);
+          score += qMarks;
           studentAns.isCorrect = true;
-          studentAns.marksObtained = (q.marks || 4);
+          studentAns.marksObtained = qMarks;
         } else {
           wrong++;
-          score -= (q.negativeMarks || 1);
+          score -= qNegativeMarks;
           studentAns.isCorrect = false;
-          studentAns.marksObtained = -(q.negativeMarks || 1);
+          studentAns.marksObtained = -qNegativeMarks;
         }
       }
     });
@@ -844,12 +885,74 @@ exports.getExamSubmissions = async (req, res) => {
     // Fetch submissions, sort by latest first.
     // Populate student to get basic user details if they exist.
     const submissions = await ExamSubmission.find({ exam: examId })
-      .populate('student', 'firstName lastName email rollNumber')
+      .populate('student', 'firstName lastName email rollNumber metadata')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       data: submissions
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.exportExamSubmissions = async (req, res) => {
+  try {
+    const examId = req.params.id;
+    const ExamSubmission = require('./exam-submission.model');
+    const Question = require('./exam-question.model');
+    
+    const submissions = await ExamSubmission.find({ exam: examId })
+      .populate('student', 'firstName lastName email rollNumber metadata')
+      .populate('publicUser', 'name email')
+      .sort({ createdAt: -1 });
+
+    // Fetch all questions for this exam and populate subject
+    const questions = await Question.find({ exam: examId }).populate('subject', 'name');
+    
+    // Map question ID to subject name
+    const questionSubjectMap = {};
+    questions.forEach(q => {
+      questionSubjectMap[q._id.toString()] = q.subject?.name || 'Unknown Subject';
+    });
+
+    const formattedData = submissions.map(sub => {
+      const studentName = sub.student 
+        ? `${sub.student.firstName} ${sub.student.lastName}`
+        : (sub.publicUser ? `${sub.publicUser.name} (Public)` : 'Unknown');
+      
+      const rollNumber = sub.student?.metadata?.rollNo || sub.student?.rollNumber || '-';
+      const email = sub.student?.email || sub.publicUser?.email || 'N/A';
+      
+      // Calculate subject-wise marks
+      const subjectMarks = {};
+      sub.answers.forEach(ans => {
+        const subjectName = questionSubjectMap[ans.questionId.toString()] || 'Unknown Subject';
+        if (!subjectMarks[subjectName]) {
+          subjectMarks[subjectName] = 0;
+        }
+        subjectMarks[subjectName] += ans.marksObtained;
+      });
+
+      return {
+        studentName,
+        rollNumber,
+        email,
+        status: sub.status,
+        score: sub.score,
+        totalCorrect: sub.totalCorrect,
+        totalWrong: sub.totalWrong,
+        totalUnattempted: sub.totalUnattempted,
+        tabSwitches: sub.violations?.tabSwitches || 0,
+        fullScreenExits: sub.violations?.fullScreenExits || 0,
+        ...subjectMarks
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: formattedData
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

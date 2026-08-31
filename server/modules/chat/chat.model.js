@@ -5,7 +5,7 @@ const chatRoomSchema = new mongoose.Schema({
   type: { type: String, enum: ['DIRECT', 'GROUP'], required: true },
   name: { type: String }, // Optional, mostly for GROUP chats
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  metadata: { type: mongoose.Schema.Types.Mixed } // e.g. { classId: '...', subjectId: '...' }
+  metadata: { type: mongoose.Schema.Types.Mixed } // e.g. { batchId: '...', subjectId: '...' }
 }, { timestamps: true });
 
 const chatMessageSchema = new mongoose.Schema({

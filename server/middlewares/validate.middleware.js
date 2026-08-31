@@ -6,7 +6,7 @@ module.exports = (schema, property = 'body') => {
     
     if (error) {
       const details = error.details.map(i => i.message).join(', ');
-      return errorResponse(res, 'Validation error', details, 422);
+      return errorResponse(res, `Validation Error: ${details}`, details, 422);
     }
     
     next();

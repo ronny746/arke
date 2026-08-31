@@ -24,7 +24,26 @@ exports.markAsRead = async (req, res, next) => {
     const data = await NotificationsService.markAsRead(req.params.id, req.user);
     return successResponse(res, 'Notification marked as read', data);
   } catch (error) {
-    if (error.message.includes('not found')) return res.status(404).json({ success: false, message: error.message });
+    if (error.message && error.message.includes('not found')) return res.status(404).json({ success: false, message: error.message });
+    next(error);
+  }
+};
+
+exports.markAllAsRead = async (req, res, next) => {
+  try {
+    const data = await NotificationsService.markAllAsRead(req.user);
+    return successResponse(res, 'All notifications marked as read', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteNotification = async (req, res, next) => {
+  try {
+    const data = await NotificationsService.deleteNotification(req.params.id, req.user);
+    return successResponse(res, 'Notification deleted successfully', data);
+  } catch (error) {
+    if (error.message && error.message.includes('not found')) return res.status(404).json({ success: false, message: error.message });
     next(error);
   }
 };

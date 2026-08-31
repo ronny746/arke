@@ -6,6 +6,7 @@ const rbacMiddleware = require('../../middlewares/rbac.middleware');
 const validate = require('../../middlewares/validate.middleware');
 const { createScheduleSchema, getScheduleSchema, createOverrideSchema, getCalculatedScheduleSchema } = require('./classes-schedule.validation');
 const { ROLES } = require('../../config/constants');
+const requireDeveloperToken = require('../../middlewares/developer.middleware');
 
 router.use(authMiddleware);
 
@@ -36,7 +37,7 @@ router.get(
 );
 
 router.delete(
-  '/:id',
+  '/:id', requireDeveloperToken,
   rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS]),
   ClassesScheduleController.deleteSchedule
 );

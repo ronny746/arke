@@ -11,7 +11,7 @@ exports.createExam = async (reqUser, payload) => {
 
 exports.getExams = async (reqUser, filters) => {
   const query = { instituteId: reqUser.instituteId };
-  if (filters.classId) query.classId = filters.classId;
+  if (filters.batchId) query.batchId = filters.batchId;
   if (filters.subjectId) query.subjectId = filters.subjectId;
   if (filters.type) query.type = filters.type;
 

@@ -1,5 +1,6 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+const envFileName = process.env.DOTENV_CONFIG_PATH || (process.env.NODE_ENV === 'staging' ? '.env.staging' : '.env');
+require('dotenv').config({ path: path.join(__dirname, '../../', envFileName) });
 
 module.exports = {
   PORT: process.env.PORT || 3000,

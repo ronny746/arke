@@ -30,16 +30,53 @@
   /* ─── Sidebar ─── */
   .sidebar {
     width: var(--sidebar-width);
-    @apply fixed left-0 top-0 h-full z-40 bg-white dark:bg-surface-900 border-r border-surface-100 dark:border-surface-800 flex flex-col transition-transform duration-200;
+    @apply fixed left-0 top-0 h-full z-40 flex flex-col transition-transform duration-300;
+    background: #ffffff;
+    border-right: 1px solid #eef0f4;
+    box-shadow: 4px 0 24px rgba(0, 51, 160, 0.04);
+  }
+  .sidebar-brand {
+    @apply flex items-center gap-2.5 px-4 flex-shrink-0;
+    height: var(--topbar-height);
+    border-bottom: 1px solid #eef0f4;
+  }
+  .sidebar-logo-box {
+    @apply w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0;
+    border: 1.5px solid #e8ecf4;
+    box-shadow: 0 2px 8px rgba(0, 51, 160, 0.10);
+  }
+  .sidebar-section-label {
+    @apply text-[9px] font-bold uppercase tracking-widest px-3 mb-2 mt-1;
+    color: #a0aab4;
+    letter-spacing: 0.12em;
+  }
+  .sidebar-footer {
+    @apply px-3 pb-4 pt-2 flex-shrink-0;
+    border-top: 1px solid #eef0f4;
   }
   .main-content {
     margin-left: var(--sidebar-width);
     @apply min-h-screen transition-all duration-200;
   }
 
+  /* ─── Topbar ─── */
+  .topbar {
+    @apply sticky top-0 z-20 flex items-center gap-2 px-4 flex-shrink-0;
+    height: var(--topbar-height);
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid #eef0f4;
+    box-shadow: 0 2px 12px rgba(0,51,160,0.03);
+  }
+  .topbar-avatar {
+    @apply w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0;
+    background: linear-gradient(135deg, #0033a0, #7b3fa0);
+    box-shadow: 0 2px 8px rgba(0,51,160,0.25);
+  }
+
   /* ─── Cards ─── */
   .card {
-    @apply bg-white dark:bg-surface-800 rounded-xl border border-surface-100 dark:border-surface-700 shadow-card transition-shadow duration-150;
+    @apply bg-white rounded-xl border border-surface-100 dark:border-surface-700 shadow-card transition-shadow duration-150;
   }
   .card-glass {
     @apply bg-white/80 dark:bg-surface-800/80 backdrop-blur-sm rounded-xl border border-white/30 dark:border-surface-700/50 shadow-sm;
@@ -94,9 +131,37 @@
 
   /* ─── Nav Items ─── */
   .nav-item {
-    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-700 dark:hover:text-primary-400 transition-all duration-150 cursor-pointer;
+    @apply relative flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer transition-all duration-150 mb-0.5;
+    color: #64748b;
   }
-  .nav-item.active { @apply bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300; }
+  .nav-item:hover {
+    background: rgba(0, 51, 160, 0.06);
+    color: #0033a0;
+  }
+  .nav-item.active {
+    background: linear-gradient(135deg, rgba(0, 51, 160, 0.10), rgba(123, 63, 160, 0.08));
+    color: #0033a0;
+    font-weight: 600;
+  }
+  .nav-icon {
+    @apply w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-150;
+    color: #94a3b8;
+    background: transparent;
+  }
+  .nav-item:hover .nav-icon {
+    background: rgba(0, 51, 160, 0.10);
+    color: #0033a0;
+  }
+  .nav-item.active .nav-icon,
+  .active-icon {
+    background: linear-gradient(135deg, #0033a0, #7b3fa0) !important;
+    color: white !important;
+    box-shadow: 0 3px 8px rgba(0, 51, 160, 0.30);
+  }
+  .nav-active-bar {
+    @apply absolute right-2.5 w-1.5 h-1.5 rounded-full flex-shrink-0;
+    background: #0033a0;
+  }
 
   /* ─── Misc ─── */
   .avatar { @apply rounded-full object-cover flex-shrink-0; }

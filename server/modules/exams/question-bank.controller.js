@@ -106,11 +106,13 @@ exports.uploadDocx = async (req, res) => {
 
 exports.getHierarchy = async (req, res) => {
   try {
+    const matchStage = { bankType: { $ne: 'FULL_PAPER' } };
+    if (req.user.instituteId) {
+      matchStage.institute = new (require('mongoose').Types.ObjectId)(req.user.instituteId);
+    }
+    
     const pipeline = [
-      { $match: { 
-          institute: new (require('mongoose').Types.ObjectId)(req.user.instituteId),
-          bankType: { $ne: 'FULL_PAPER' }
-      } },
+      { $match: matchStage },
       { $unwind: "$questions" },
       { $group: {
           _id: {
@@ -150,13 +152,13 @@ exports.getHierarchy = async (req, res) => {
       const difficulty = item._id.difficulty || 'Medium';
 
       if (!tree[sId]) {
-        tree[sId] = { _id: sId, name: subject.name, count: 0, difficulties: { Easy: 0, Medium: 0, Hard: 0 }, chapters: {} };
+        tree[sId] = { _id: sId, name: subject.name, count: 0, isUnpublished: subject.isUnpublished || false, difficulties: { Easy: 0, Medium: 0, Hard: 0 }, chapters: {} };
       }
       tree[sId].count += item.count;
       if (tree[sId].difficulties[difficulty] !== undefined) tree[sId].difficulties[difficulty] += item.count;
 
       if (!tree[sId].chapters[cId]) {
-        tree[sId].chapters[cId] = { _id: cId, name: chapter.name, count: 0, difficulties: { Easy: 0, Medium: 0, Hard: 0 }, topics: {} };
+        tree[sId].chapters[cId] = { _id: cId, name: chapter.name, count: 0, isUnpublished: chapter.isUnpublished || false, difficulties: { Easy: 0, Medium: 0, Hard: 0 }, topics: {} };
       }
       tree[sId].chapters[cId].count += item.count;
       if (tree[sId].chapters[cId].difficulties[difficulty] !== undefined) tree[sId].chapters[cId].difficulties[difficulty] += item.count;
@@ -166,6 +168,7 @@ exports.getHierarchy = async (req, res) => {
           _id: tId,
           name: topic.name,
           count: 0,
+          isUnpublished: topic.isUnpublished || false,
           difficulties: { Easy: 0, Medium: 0, Hard: 0 }
         };
       }
@@ -177,7 +180,7 @@ exports.getHierarchy = async (req, res) => {
     });
 
     // Convert object maps back to arrays
-    const finalTree = Object.values(tree).map(s => ({
+    let finalTree = Object.values(tree).map(s => ({
       ...s,
       chapters: Object.values(s.chapters).map(c => ({
         ...c,
@@ -185,8 +188,23 @@ exports.getHierarchy = async (req, res) => {
       }))
     }));
 
+    if (req.user.role === 'student') {
+      finalTree = finalTree
+        .filter(s => !s.isUnpublished)
+        .map(s => ({
+          ...s,
+          chapters: s.chapters
+            .filter(c => !c.isUnpublished)
+            .map(c => ({
+              ...c,
+              topics: c.topics.filter(t => !t.isUnpublished)
+            }))
+        }));
+    }
+
     res.status(200).json({ success: true, data: finalTree });
   } catch (error) {
+    console.error("ERROR IN getHierarchy:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -196,7 +214,10 @@ exports.getQuestionsByHierarchy = async (req, res) => {
     const { subject, chapter, topic, random, limit } = req.query;
     
     // Using aggregation to filter within QuestionBank documents
-    const matchStage = { institute: new (require('mongoose').Types.ObjectId)(req.user.instituteId) };
+    const matchStage = {};
+    if (req.user.instituteId) {
+      matchStage.institute = new (require('mongoose').Types.ObjectId)(req.user.instituteId);
+    }
     const filterStage = {};
     if (subject) filterStage['questions.subject'] = new (require('mongoose').Types.ObjectId)(subject);
     if (chapter) filterStage['questions.chapter'] = new (require('mongoose').Types.ObjectId)(chapter);
@@ -216,6 +237,12 @@ exports.getQuestionsByHierarchy = async (req, res) => {
     } else if (limit) {
       pipeline.push({ $limit: parseInt(limit) });
     }
+
+    pipeline.push({ 
+      $addFields: {
+        "questions.bankId": "$_id"
+      }
+    });
 
     pipeline.push({ $replaceRoot: { newRoot: "$questions" } });
 
@@ -272,16 +299,35 @@ exports.createQuestionBank = async (req, res) => {
     const qb = new QuestionBank({
       title,
       description,
-      bankType: bankType || 'SUBJECT_WISE',
+      bankType,
+      institute: req.user.instituteId,
+      createdBy: req.user.userId,
       questions: questions || [],
       totalQuestions,
-      totalMarks,
-      institute: req.user.instituteId,
-      createdBy: req.user.userId
+      totalMarks
     });
     
     await qb.save();
     res.status(201).json({ success: true, data: qb, message: 'Question Bank created successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.renameQuestionBank = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title } = req.body;
+    if (!title) return res.status(400).json({ success: false, message: 'Title is required' });
+
+    const qb = await QuestionBank.findOneAndUpdate(
+      { _id: id, institute: req.user.instituteId },
+      { title },
+      { new: true }
+    );
+    if (!qb) return res.status(404).json({ success: false, message: 'Question Bank not found' });
+
+    res.status(200).json({ success: true, data: qb, message: 'Question Bank renamed successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -317,6 +363,42 @@ exports.deleteQuestionBank = async (req, res) => {
     if (!qb) return res.status(404).json({ success: false, message: 'Question Bank not found' });
     
     res.status(200).json({ success: true, message: 'Question Bank deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.updateSingleQuestion = async (req, res) => {
+  try {
+    const { bankId, questionId } = req.params;
+    const qb = await QuestionBank.findOne({ _id: bankId, institute: req.user.instituteId });
+    if (!qb) return res.status(404).json({ success: false, message: 'Question Bank not found' });
+    
+    const qIndex = qb.questions.findIndex(q => q._id.toString() === questionId);
+    if (qIndex === -1) return res.status(404).json({ success: false, message: 'Question not found' });
+    
+    qb.questions[qIndex] = { ...qb.questions[qIndex].toObject(), ...req.body };
+    qb.totalMarks = qb.questions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
+    
+    await qb.save();
+    res.status(200).json({ success: true, message: 'Question updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.deleteSingleQuestion = async (req, res) => {
+  try {
+    const { bankId, questionId } = req.params;
+    const qb = await QuestionBank.findOne({ _id: bankId, institute: req.user.instituteId });
+    if (!qb) return res.status(404).json({ success: false, message: 'Question Bank not found' });
+    
+    qb.questions = qb.questions.filter(q => q._id.toString() !== questionId);
+    qb.totalQuestions = qb.questions.length;
+    qb.totalMarks = qb.questions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
+    
+    await qb.save();
+    res.status(200).json({ success: true, message: 'Question deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

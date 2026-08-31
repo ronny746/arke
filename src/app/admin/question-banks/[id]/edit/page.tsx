@@ -12,39 +12,8 @@ import { adminAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
 const PDFCropDrawer = dynamic(() => import('@/components/ui/PDFCropDrawer').then(m => m.PDFCropDrawer), { ssr: false });
-import 'react-quill-new/dist/quill.snow.css';
-
-let globalBlotFormatterOptions = {};
-
-const ReactQuill = dynamic(async () => {
-  const ReactQuillMod = await import('react-quill-new');
-  const Quill = ReactQuillMod.Quill;
-  if (typeof window !== 'undefined') {
-    try {
-      const { registerCustomBlotFormatter } = await import('@/components/ui/QuillBlotFormatterWithDelete');
-      globalBlotFormatterOptions = await registerCustomBlotFormatter(Quill);
-    } catch (e) {
-      console.error("Failed to load quill-blot-formatter", e);
-    }
-  }
-  return function Forwarded(props: any) {
-    const mergedModules = {
-      ...props.modules,
-      blotFormatter: globalBlotFormatterOptions
-    };
-    return <ReactQuillMod.default {...props} modules={mergedModules} />;
-  }
-}, { ssr: false });
-
-const quillModules = {
-  toolbar: [
-    [{ 'header': [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{'list': 'ordered'}, {'list': 'bullet'}, {'script': 'sub'}, {'script': 'super'}],
-    ['link', 'image', 'formula'],
-    ['clean']
-  ]
-};
+import { AdvancedEditor } from '@/components/ui/AdvancedEditor';
+import { Suspense } from 'react';
 
 export default function QuestionBankBuilder() {
   const { id } = useParams();
@@ -59,7 +28,9 @@ export default function QuestionBankBuilder() {
   });
 
   const [questions, setQuestions] = useState([]);
+  const [stagedQuestions, setStagedQuestions] = useState(null);
   const [uploadingWord, setUploadingWord] = useState(false);
+  const [parsingProgress, setParsingProgress] = useState(0);
   const [bankType, setBankType] = useState('SUBJECT_WISE');
   
   // For editing inline
@@ -129,26 +100,35 @@ export default function QuestionBankBuilder() {
 
     try {
       setUploadingWord(true);
-      toast.loading("Extracting questions and uploading images to S3...", { id: 'wordUpload' });
-      
-      const res = await adminAPI.uploadDocxToBank(formData);
-      // Append or replace? Let's append
-      setQuestions(prev => [...prev, ...res.data.data]);
-      if (res.data.docxUrl) {
-        setUploadedWordUrl(res.data.docxUrl);
-        // setShowPreview(true); // Don't auto-open preview as requested by user
+      setParsingProgress(10);
+      toast.loading("Parsing document and extracting questions...", { id: 'wordUpload' });
+
+      const progressInterval = setInterval(() => {
+        setParsingProgress(prev => (prev >= 85 ? 85 : prev + 5));
+      }, 1200);
+
+      try {
+        const res = await adminAPI.uploadDocxToBank(formData);
+        setStagedQuestions(res.data.data);
+        if (res.data.docxUrl) {
+          setUploadedWordUrl(res.data.docxUrl);
+        }
+        toast.success(`Successfully parsed ${res.data.data.length} questions! Please review them.`, { id: 'wordUpload' });
+      } finally {
+        clearInterval(progressInterval);
+        setParsingProgress(100);
       }
-      toast.success(`Successfully parsed ${res.data.data.length} questions!`, { id: 'wordUpload' });
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to parse word document", { id: 'wordUpload' });
     } finally {
       setUploadingWord(false);
+      setParsingProgress(0);
       e.target.value = null;
     }
   };
 
   const handleAddEmptyQuestion = () => {
-    setQuestions([...questions, {
+    const newQ = {
       type: 'MCQ',
       questionText: '',
       options: [
@@ -165,7 +145,12 @@ export default function QuestionBankBuilder() {
       chapterName: 'General',
       topicName: 'General',
       difficulty: 'Medium'
-    }]);
+    };
+    if (stagedQuestions) {
+      setStagedQuestions([...stagedQuestions, newQ]);
+    } else {
+      setQuestions([...questions, newQ]);
+    }
   };
 
   const handleCropComplete = (s3Url) => {
@@ -218,13 +203,15 @@ export default function QuestionBankBuilder() {
   // Quick edit handlers
   const startEdit = (idx) => {
     setEditingIndex(idx);
-    setEditQuestionState(JSON.parse(JSON.stringify(questions[idx]))); // deep copy
+    const targetList = stagedQuestions || questions;
+    setEditQuestionState(JSON.parse(JSON.stringify(targetList[idx]))); // deep copy
   };
 
   const saveEdit = () => {
-    const updated = [...questions];
+    const updated = stagedQuestions ? [...stagedQuestions] : [...questions];
     updated[editingIndex] = editQuestionState;
-    setQuestions(updated);
+    if (stagedQuestions) setStagedQuestions(updated);
+    else setQuestions(updated);
     setEditingIndex(-1);
     setEditQuestionState(null);
   };
@@ -236,29 +223,41 @@ export default function QuestionBankBuilder() {
 
   const deleteQuestion = (idx) => {
     if (confirm("Are you sure you want to remove this question?")) {
-      const newQs = [...questions];
-      newQs.splice(idx, 1);
-      setQuestions(newQs);
+      if (stagedQuestions) {
+        const newQs = [...stagedQuestions];
+        newQs.splice(idx, 1);
+        setStagedQuestions(newQs);
+      } else {
+        const newQs = [...questions];
+        newQs.splice(idx, 1);
+        setQuestions(newQs);
+      }
     }
   };
 
   const moveQuestionUp = (idx) => {
     if (idx === 0) return;
-    const newQs = [...questions];
+    const target = stagedQuestions || questions;
+    const newQs = [...target];
     const temp = newQs[idx];
     newQs[idx] = newQs[idx - 1];
     newQs[idx - 1] = temp;
-    setQuestions(newQs);
+    if (stagedQuestions) setStagedQuestions(newQs);
+    else setQuestions(newQs);
   };
 
   const moveQuestionDown = (idx) => {
-    if (idx === questions.length - 1) return;
-    const newQs = [...questions];
+    const target = stagedQuestions || questions;
+    if (idx === target.length - 1) return;
+    const newQs = [...target];
     const temp = newQs[idx];
     newQs[idx] = newQs[idx + 1];
     newQs[idx + 1] = temp;
-    setQuestions(newQs);
+    if (stagedQuestions) setStagedQuestions(newQs);
+    else setQuestions(newQs);
   };
+
+  const displayQuestions = stagedQuestions || questions;
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
@@ -278,7 +277,13 @@ export default function QuestionBankBuilder() {
               Show Doc Preview
             </Button>
           )}
-          <Button variant="gradient" onClick={handleSaveBank} disabled={loading} icon={Save}>
+          <Button 
+            variant="gradient" 
+            onClick={handleSaveBank} 
+            disabled={loading || stagedQuestions !== null} 
+            icon={Save}
+            title={stagedQuestions ? "Please confirm or discard your uploads first" : ""}
+          >
             {loading ? 'Saving...' : 'Save Question Bank'}
           </Button>
         </div>
@@ -302,6 +307,24 @@ export default function QuestionBankBuilder() {
             </div>
           </Card>
 
+          {stagedQuestions && (
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-lg shadow-sm flex flex-col md:flex-row md:items-center justify-between sticky top-4 z-40 gap-4">
+              <div>
+                 <h2 className="text-lg font-bold text-amber-900">Review Uploaded Questions</h2>
+                 <p className="text-sm text-amber-700">Please review these {stagedQuestions.length} newly uploaded questions. You can edit or delete them below.</p>
+              </div>
+              <div className="flex gap-3 shrink-0">
+                 <Button variant="outline" className="border-amber-500 text-amber-700 hover:bg-amber-100" onClick={() => { if(confirm('Discard these uploads?')) setStagedQuestions(null) }}>Discard</Button>
+                 <Button variant="primary" className="bg-amber-600 hover:bg-amber-700 border-none" onClick={() => {
+                   setQuestions(prev => [...prev, ...stagedQuestions]);
+                   setStagedQuestions(null);
+                   toast.success('Questions verified and merged to the main list!');
+                 }}>Confirm & Merge</Button>
+              </div>
+            </div>
+          )}
+
+          {!stagedQuestions && (
           <Card className="p-6 border-dashed border-2 border-primary-200 bg-primary-50">
             <div className="flex flex-col items-center justify-center text-center space-y-4">
               <div className="flex gap-4">
@@ -318,6 +341,17 @@ export default function QuestionBankBuilder() {
                   Use DOCX for auto-parsing. Use PDF to crop and manually insert images.
                 </p>
               </div>
+              {uploadingWord && (
+                <div className="w-full max-w-md space-y-2">
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <span>Parsing questions...</span>
+                    <span>{parsingProgress}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-600 transition-all duration-300 rounded-full" style={{ width: `${parsingProgress}%` }} />
+                  </div>
+                </div>
+              )}
               <div className="relative">
                 <input 
                   type="file" 
@@ -327,38 +361,63 @@ export default function QuestionBankBuilder() {
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                 />
                 <Button variant="primary" disabled={uploadingWord}>
-                  {uploadingWord ? 'Processing Document...' : 'Browse File'}
+                  {uploadingWord ? 'Parsing...' : 'Browse File'}
                 </Button>
               </div>
             </div>
           </Card>
+          )}
 
-          {questions.length > 0 && (
+          {displayQuestions.length > 0 && (
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold flex items-center">
-                  <CheckCircle className="w-5 h-5 text-success-500 mr-2"/>
-                  Questions ({questions.length})
+                  <CheckCircle className={`w-5 h-5 mr-2 ${stagedQuestions ? 'text-amber-500' : 'text-success-500'}`}/>
+                  {stagedQuestions ? 'Staged Questions' : 'Questions'} ({displayQuestions.length})
                 </h3>
               </div>
               
               {/* Subject Summary Pills */}
               <div className="flex flex-wrap gap-2 mb-6">
-                {[...new Set(questions.map(q => q.subjectName || (typeof q.subject === 'string' ? q.subject : q.subject?.name) || 'General'))].map(sub => (
+                {[...new Set(displayQuestions.map(q => q.subjectName || (typeof q.subject === 'string' ? q.subject : q.subject?.name) || 'General'))].map(sub => (
                   <span key={sub} className="px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm font-semibold">
-                    {sub}: {questions.filter(q => (q.subjectName || (typeof q.subject === 'string' ? q.subject : q.subject?.name) || 'General') === sub).length} Qs
+                    {sub}: {displayQuestions.filter(q => (q.subjectName || (typeof q.subject === 'string' ? q.subject : q.subject?.name) || 'General') === sub).length} Qs
                   </span>
                 ))}
               </div>
 
               <div className="space-y-6">
-                {questions.map((q, idx) => {
+                {displayQuestions.map((q, idx) => {
                   return (
                     <div key={idx} className="p-4 border rounded-lg bg-gray-50 space-y-3 relative group">
                       
                       {editingIndex === idx ? (
                         <div className="space-y-4">
                           <p className="font-bold text-gray-700">Editing Q{idx + 1}</p>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 p-3 bg-white border rounded-lg shadow-sm">
+                            <div>
+                              <label className="text-[10px] font-semibold text-gray-500 block mb-1 uppercase tracking-wider">Subject</label>
+                              <input type="text" className="w-full border rounded p-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" value={editQuestionState.subjectName || (typeof editQuestionState.subject === 'string' ? editQuestionState.subject : editQuestionState.subject?.name) || ''} onChange={(e) => setEditQuestionState({...editQuestionState, subjectName: e.target.value})} placeholder="e.g. Physics" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-semibold text-gray-500 block mb-1 uppercase tracking-wider">Chapter</label>
+                              <input type="text" className="w-full border rounded p-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" value={editQuestionState.chapterName || (typeof editQuestionState.chapter === 'string' ? editQuestionState.chapter : editQuestionState.chapter?.name) || ''} onChange={(e) => setEditQuestionState({...editQuestionState, chapterName: e.target.value})} placeholder="e.g. Kinematics" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-semibold text-gray-500 block mb-1 uppercase tracking-wider">Topic</label>
+                              <input type="text" className="w-full border rounded p-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" value={editQuestionState.topicName || (typeof editQuestionState.topic === 'string' ? editQuestionState.topic : editQuestionState.topic?.name) || ''} onChange={(e) => setEditQuestionState({...editQuestionState, topicName: e.target.value})} placeholder="e.g. Motion in 1D" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-semibold text-gray-500 block mb-1 uppercase tracking-wider">Difficulty</label>
+                              <select className="w-full border rounded p-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" value={editQuestionState.difficulty || 'Medium'} onChange={(e) => setEditQuestionState({...editQuestionState, difficulty: e.target.value})}>
+                                <option value="Easy">Easy</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Hard">Hard</option>
+                              </select>
+                            </div>
+                          </div>
+
                           <div>
                             <div className="flex justify-between items-center mb-1">
                               <label className="text-xs font-semibold text-gray-500 block">Question Text</label>
@@ -368,16 +427,27 @@ export default function QuestionBankBuilder() {
                                 </Button>
                               )}
                             </div>
-                            <ReactQuill 
-                              theme="snow"
-                              value={editQuestionState.questionText}
+                            <AdvancedEditor 
+                              value={editQuestionState.questionText || ''}
                               onChange={(content) => setEditQuestionState({...editQuestionState, questionText: content})}
-                              modules={quillModules}
-                              className="bg-white rounded"
                             />
                           </div>
                           <div className="space-y-4">
-                            <label className="text-xs font-semibold text-gray-500 block border-b pb-1">Options</label>
+                            <div className="flex justify-between items-center border-b pb-1">
+                              <label className="text-xs font-semibold text-gray-500 block">Options</label>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="py-1 px-2 text-xs"
+                                onClick={() => {
+                                  const newOpts = [...(editQuestionState.options || [])];
+                                  newOpts.push({ label: String.fromCharCode(65 + newOpts.length), text: '', isCorrect: false });
+                                  setEditQuestionState({...editQuestionState, options: newOpts});
+                                }}
+                              >
+                                + Add Option
+                              </Button>
+                            </div>
                             {editQuestionState.options?.map((opt, oIdx) => (
                               <div key={oIdx} className="flex items-start gap-3">
                                 <span className="font-bold w-6 text-center mt-2">{String.fromCharCode(65 + oIdx)}</span>
@@ -389,19 +459,26 @@ export default function QuestionBankBuilder() {
                                       </Button>
                                     )}
                                   </div>
-                                  <ReactQuill 
-                                    theme="snow"
-                                    value={opt.text}
+                                  <AdvancedEditor 
+                                    value={opt.text || ''}
                                     onChange={(content) => {
                                       const newOpts = [...editQuestionState.options];
                                       newOpts[oIdx].text = content;
                                       setEditQuestionState({...editQuestionState, options: newOpts});
                                     }}
-                                    modules={quillModules}
-                                    className="bg-white rounded"
                                   />
                                 </div>
-                                <div className="mt-2 flex flex-col items-center gap-1">
+                                <div className="mt-2 flex flex-col items-center gap-2">
+                                  <button 
+                                    className="text-red-500 hover:text-red-700 p-1"
+                                    onClick={() => {
+                                      const newOpts = editQuestionState.options.filter((_, i) => i !== oIdx);
+                                      setEditQuestionState({...editQuestionState, options: newOpts});
+                                    }}
+                                    title="Remove Option"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
                                   <input 
                                     type="radio"
                                     name={`correct-${idx}`}
@@ -426,12 +503,9 @@ export default function QuestionBankBuilder() {
                                 </Button>
                               )}
                             </div>
-                            <ReactQuill 
-                              theme="snow"
-                              value={editQuestionState.explanation}
+                            <AdvancedEditor 
+                              value={editQuestionState.explanation || ''}
                               onChange={(content) => setEditQuestionState({...editQuestionState, explanation: content})}
-                              modules={quillModules}
-                              className="bg-white rounded"
                             />
                           </div>
                           <div className="flex gap-2 justify-end">
@@ -443,7 +517,7 @@ export default function QuestionBankBuilder() {
                         <>
                           <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                             <Button variant="ghost" size="sm" onClick={() => moveQuestionUp(idx)} disabled={idx === 0}>↑</Button>
-                            <Button variant="ghost" size="sm" onClick={() => moveQuestionDown(idx)} disabled={idx === questions.length - 1}>↓</Button>
+                            <Button variant="ghost" size="sm" onClick={() => moveQuestionDown(idx)} disabled={idx === displayQuestions.length - 1}>↓</Button>
                             <Button variant="ghost" size="sm" icon={Edit2} onClick={() => startEdit(idx)} />
                             <Button variant="ghost" className="text-red-500 hover:bg-red-50" size="sm" icon={Trash2} onClick={() => deleteQuestion(idx)} />
                           </div>
