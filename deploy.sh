@@ -5,11 +5,11 @@ set -e
 # Next.js Production Deployment Script
 # ==========================================
 
-APP_NAME="lmsnew"
-PORT=1200
+APP_NAME="arkescholar"
+PORT=1220
 HOST="0.0.0.0"
-DOMAIN="skdinstitute.com"
-EMAIL="admin@skdinstitute.com"    # Change if required
+DOMAIN="arkescholar.com"
+EMAIL="admin@arkescholar.com"    # Change if required
 
 echo "========================================="
 echo "🚀 Deploying $APP_NAME"
@@ -37,16 +37,12 @@ fi
 # =====================================================
 # 2. Firewall
 # =====================================================
-echo "🛡 Configuring Firewall for port $PORT and Mediasoup WebRTC ranges (20000-20100, 45000-49999)..."
+echo "🛡 Configuring Firewall..."
 
 if command -v ufw >/dev/null 2>&1; then
     sudo ufw allow 80/tcp
     sudo ufw allow 443/tcp
     sudo ufw allow ${PORT}/tcp
-    sudo ufw allow 20000:20100/udp
-    sudo ufw allow 20000:20100/tcp
-    sudo ufw allow 45000:49999/udp
-    sudo ufw allow 45000:49999/tcp
     sudo ufw reload || true
 fi
 
@@ -76,12 +72,12 @@ fi
 echo "🚀 Starting Application..."
 
 if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
-
     pm2 delete "$APP_NAME"
-
 fi
 
-NODE_ENV=production PORT=$PORT HOST=$HOST MEDIASOUP_LISTEN_IP=0.0.0.0 MEDIASOUP_ANNOUNCED_IP=200.141.15.18 pm2 start server.js --name "$APP_NAME"
+NODE_ENV=production PORT=$PORT HOST=$HOST pm2 start npm \
+    --name "$APP_NAME" \
+    -- start -- -p $PORT -H $HOST
 
 pm2 save
 
@@ -106,17 +102,13 @@ echo "Creating nginx config..."
 
 sudo tee "$NGINX_CONF" >/dev/null <<EOF
 server {
-
     listen 80;
-
     server_name $DOMAIN www.$DOMAIN;
 
-    client_max_body_size 10m;
+    client_max_body_size 100M;
 
     location / {
-
         proxy_pass http://127.0.0.1:$PORT;
-
         proxy_http_version 1.1;
 
         proxy_set_header Upgrade \$http_upgrade;
@@ -128,9 +120,22 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
 
         proxy_cache_bypass \$http_upgrade;
-
     }
 
+    location /api {
+        proxy_pass http://127.0.0.1:$PORT;
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        proxy_cache_bypass \$http_upgrade;
+    }
 }
 EOF
 
@@ -148,12 +153,9 @@ sudo systemctl enable nginx
 # 9. Install Certbot
 # =====================================================
 if ! command -v certbot >/dev/null 2>&1; then
-
     echo "Installing Certbot..."
-
     sudo apt update
     sudo apt install certbot python3-certbot-nginx -y
-
 fi
 
 echo "Generating SSL Certificate..."
@@ -179,9 +181,9 @@ echo "=============================================="
 echo ""
 echo "Application Name : $APP_NAME"
 echo "Node Port        : $PORT"
-echo "Direct Access    : http://200.141.15.18:$PORT"
 echo "Domain           : http://$DOMAIN"
 echo "HTTPS            : https://$DOMAIN"
+echo "API Endpoint     : https://$DOMAIN/api"
 echo ""
 
 echo "PM2 Status"
