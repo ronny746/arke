@@ -173,7 +173,7 @@ exports.verifyDevice = async (req, res, next) => {
         const { sessionId } = req.body;
         const user = req.user; // From verifyToken middleware
 
-        if (user.activeSessionId !== sessionId) {
+        if (process.env.ENFORCE_SINGLE_DEVICE === 'true' && user.activeSessionId && user.activeSessionId !== sessionId) {
             return errorResponse(res, 'Session expired. Logged in from another device.', null, 401);
         }
 

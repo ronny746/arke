@@ -15,10 +15,10 @@ module.exports = async (req, res, next) => {
     const decoded = jwt.verify(token, env.JWT_SECRET);
     // Payload should contain: userId, role, instituteId, branchId, permissions, sessionId
     
-    // Check session validity to enforce single-device login (exempt admins from strict single-device lockout)
-    if (decoded.sessionId && !['super_admin', 'admin', 'institute_admin', 'admin_acadops', 'admin_operations'].includes(decoded.role)) {
+    // Check session validity to enforce single-device login only if explicitly enabled
+    if (process.env.ENFORCE_SINGLE_DEVICE === 'true' && decoded.sessionId) {
       const user = await UserModel.findById(decoded.userId).select('activeSessionId');
-      if (!user || (user.activeSessionId && user.activeSessionId !== decoded.sessionId)) {
+      if (user && user.activeSessionId && user.activeSessionId !== decoded.sessionId) {
         return errorResponse(res, 'Session expired. You logged in on another device.', null, 401);
       }
     }
