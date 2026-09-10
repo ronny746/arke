@@ -52,6 +52,7 @@ const practiceSessionSchema = new mongoose.Schema({
     options: [{
       _id: String, // option ID
       text: String,
+      imageUrl: String,
       isCorrect: Boolean,
     }],
     correctAnswerText: String,

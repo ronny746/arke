@@ -11,6 +11,7 @@ exports.getFilters = async (req, res) => {
     const filterCounts = await QuestionBank.aggregate([
       { $match: { institute: new mongoose.Types.ObjectId(instituteId) } },
       { $unwind: "$questions" },
+      { $match: { "questions.isUnpublished": { $ne: true } } },
       { $group: {
           _id: {
             subject: "$questions.subjectName",
@@ -25,7 +26,7 @@ exports.getFilters = async (req, res) => {
     // Fetch valid categories (folders) to filter out deleted ones
     const { QuestionCategory } = require('../exams/category.model');
     const validCategories = await QuestionCategory.find({ institute: req.user.instituteId }).select('name').lean();
-    const validSubjectNames = new Set(validCategories.map(c => c.name));
+    const validSubjectNames = new Set(validCategories.map(c => c.name ? c.name.toLowerCase() : ""));
 
     // Process the flat counts into a structured format for the frontend
     const subjectsMap = {};
@@ -35,7 +36,7 @@ exports.getFilters = async (req, res) => {
       const subj = f._id.subject || 'General';
       
       // Skip deleted subjects (if it's not 'General' and doesn't exist in active categories)
-      if (subj !== 'General' && !validSubjectNames.has(subj)) {
+      if (subj !== 'General' && subj && !validSubjectNames.has(subj.toLowerCase())) {
         return;
       }
 
@@ -136,7 +137,7 @@ exports.generateSession = async (req, res) => {
         const facetPipeline = {};
         subjectTopicPairs.forEach((pair, idx) => {
           const pipeline = [
-            { $match: { "questions.subjectName": pair.subject, "questions.topicName": pair.topic } }
+            { $match: { "questions.subjectName": pair.subject, "questions.topicName": pair.topic, "questions.isUnpublished": { $ne: true } } }
           ];
           if (excludeTexts && excludeTexts.length > 0) {
             pipeline.push({ $match: { "questions.questionText": { $nin: excludeTexts } } });
@@ -179,15 +180,32 @@ exports.generateSession = async (req, res) => {
     } else {
       const limit = parseInt(numberOfQuestions) || 10;
       const matchQuery = { institute: new mongoose.Types.ObjectId(instituteId) };
-      const qMatch = {};
+      const qMatch = { "questions.isUnpublished": { $ne: true } };
+
       
-      if (subject) qMatch["questions.subjectName"] = subject;
-      if (chapter) qMatch["questions.chapterName"] = chapter;
+      if (subject) {
+        if (subject === 'General') {
+           qMatch["questions.subjectName"] = { $in: [null, '', 'General'] };
+        } else {
+           qMatch["questions.subjectName"] = subject;
+        }
+      }
+      if (chapter) {
+        if (chapter === 'General') {
+           qMatch["questions.chapterName"] = { $in: [null, '', 'General'] };
+        } else {
+           qMatch["questions.chapterName"] = chapter;
+        }
+      }
       
       if (topics && Array.isArray(topics) && topics.length > 0) {
         qMatch["questions.topicName"] = { $in: topics };
       } else if (topic) {
-        qMatch["questions.topicName"] = topic;
+        if (topic === 'General') {
+           qMatch["questions.topicName"] = { $in: [null, '', 'General'] };
+        } else {
+           qMatch["questions.topicName"] = topic;
+        }
       }
       if (difficulty) qMatch["questions.difficulty"] = difficulty;
       if (uniqueExcludedTexts.length > 0) {
@@ -234,7 +252,7 @@ exports.generateSession = async (req, res) => {
         topicName: question.topicName,
         marks: marks,
         negativeMarks: question.negativeMarks || 1,
-        options: question.options,
+        options: (question.options || []).map(o => ({ _id: o._id ? o._id.toString() : (o.id ? o.id.toString() : undefined), text: o.text, imageUrl: o.imageUrl, isCorrect: o.isCorrect })),
         correctAnswerText: question.correctAnswerText,
         explanation: question.explanation
       };
