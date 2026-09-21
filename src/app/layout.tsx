@@ -16,11 +16,11 @@ const mulish = Mulish({
 });
 
 export const metadata: Metadata = {
-  title: "JEE, NEET & Foundation Exam Prep Online | ARKE Scholars",
-  description: "Crack JEE Main, JEE Advanced, NEET & Foundation with ARKE Scholars. Live classes from IIT educators, AI doubt solving, 500+ mock tests & 1-on-1 mentorship. India & UAE.",
+  title: "ARKE Scholars | Premium 1:1 Online Tutoring, JEE, NEET & Foundation (India · Dubai · Kuwait)",
+  description: "1 Student. 1 Expert Teacher. 1 Learning Journey. Premium 1:1 online tutoring for Classes 6–12, JEE Main, JEE Advanced & NEET UG across India, Dubai & Kuwait.",
   icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
     apple: "/logo.png",
   },
 };

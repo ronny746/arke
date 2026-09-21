@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" fill="none">
+  <!-- Symbol Mark -->
+  <g transform="translate(10, 15)">
+    <!-- White / Light Slate Roof Chevron -->
+    <path 
+      d="M 90 10 L 180 92 L 146 92 L 90 42 L 34 92 L 0 92 Z" 
+      fill="#FFFFFF" 
+    />
+    
+    <!-- Green Polygon Base -->
+    <path 
+      d="M 34 92 L 90 42 L 146 92 L 90 152 Z" 
+      fill="#10B981" 
+    />
+    
+    <!-- Navy / Dark Inner Upward Arrow -->
+    <path 
+      d="M 90 64 L 114 88 L 100 88 L 100 142 L 80 142 L 80 88 L 66 88 Z" 
+      fill="#0B132B" 
+    />
+  </g>
+
+  <!-- Typography -->
+  <g transform="translate(210, 20)">
+    <!-- ARKE (White) -->
+    <text 
+      x="0" 
+      y="76" 
+      font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" 
+      font-weight="900" 
+      font-size="78" 
+      fill="#FFFFFF" 
+      letter-spacing="1.5"
+    >ARKE</text>
+    
+    <!-- SCHOLARS (Emerald) -->
+    <text 
+      x="2" 
+      y="126" 
+      font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" 
+      font-weight="700" 
+      font-size="39" 
+      fill="#10B981" 
+      letter-spacing="5.5"
+    >SCHOLARS</text>
+  </g>
+</svg>

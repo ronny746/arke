@@ -8,11 +8,13 @@ import {
   BookOpen, Video, ArrowRight, Shield, Sparkles,
   BarChart, GraduationCap, CheckCircle2, Star, Trophy, Target,
   FlaskConical, Atom, HeartPulse, Brain, Award, ChevronRight,
-  ChevronDown, Play, Phone, Mail, MapPin, Menu, X, TrendingUp, FileText, Layers, Users, HelpCircle, Check, Smartphone
+  ChevronDown, Play, Phone, Mail, MapPin, Menu, X, TrendingUp, FileText, Layers, Users, HelpCircle, Check, Smartphone,
+  Globe2, UserCheck, Compass
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { LoginModal } from "@/components/LoginModal";
 import { BannerCarousel } from "@/components/BannerCarousel";
+import ArkeLogo from "@/components/ArkeLogo";
 
 // ─── Mentor Data ─────────────────────────────────────────────────────────────
 const MENTORS = [
@@ -94,19 +96,17 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Logo & Brand Name */}
           <Link href="/" className="flex items-center gap-2 group py-1">
-            <Image
-              src="/arke_logo_light.png"
-              alt="ARKE Scholars Logo"
-              width={200}
-              height={56}
-              className="h-9 sm:h-11 md:h-12 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]"
-              priority
-            />
+            <ArkeLogo variant="light" size="md" />
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-white/90">
+          <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-white/90">
+            <Link href="/one-on-one" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              1:1 Tutoring
+            </Link>
             <a href="#courses" className="hover:text-primary transition-colors">Courses</a>
+            <a href="#one-on-one" className="hover:text-primary transition-colors">1:1 Journey</a>
             <a href="#features" className="hover:text-primary transition-colors">Why ARKE</a>
             <a href="#mentors" className="hover:text-primary transition-colors">Mentors</a>
             <a href="#mobile-app" className="hover:text-primary transition-colors">App</a>
@@ -161,12 +161,27 @@ export default function LandingPage() {
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden border-b border-border bg-card px-4 pt-3 pb-5 space-y-3"
             >
+              <Link 
+                href="/one-on-one"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 py-2 px-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-500" />
+                Premium 1:1 Tutoring (India · Dubai · Kuwait)
+              </Link>
               <a 
                 href="#courses" 
                 onClick={() => setMobileMenuOpen(false)}
                 className="block py-2 text-base font-semibold text-foreground hover:text-primary"
               >
                 Courses
+              </a>
+              <a 
+                href="#one-on-one" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-base font-semibold text-foreground hover:text-primary"
+              >
+                1:1 Learning System
               </a>
               <a 
                 href="#features" 
@@ -570,6 +585,107 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ─── 1:1 Online Tutoring Section (From ARKE Scholars 1on1) ─────────── */}
+      <section id="one-on-one" className="py-16 md:py-24 bg-gradient-to-b from-[#0B132B] via-[#0D1B3E] to-[#0B132B] text-white relative overflow-hidden border-t border-b border-white/10">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-1.5 text-xs sm:text-sm font-bold text-emerald-400 mb-4 shadow-sm">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <span>Premium 1:1 Online Tutoring · Classes 6–12 | India · Dubai · Kuwait</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
+              1 Student. 1 Expert Teacher.{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-200">
+                1 Learning Journey.
+              </span>
+            </h2>
+            <p className="mt-4 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
+              True 1:1 teaching with zero batches and zero shared attention. Every session is one student and one dedicated expert teacher who adapts to your child.
+            </p>
+          </div>
+
+          {/* 3 Main Pillars */}
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 transition-all">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 border border-emerald-500/30">
+                <UserCheck className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-white">True 1:1 Teaching</h3>
+              <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                No batches, no shared attention. Every session is 100% focused on one student and one dedicated mentor.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 transition-all">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center mb-4 border border-blue-500/30">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-white">A Teacher Who Adapts</h3>
+              <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                The teaching keeps pace with your child, not the other way around. No moving ahead until concepts are completely mastered.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 transition-all">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-4 border border-amber-500/30">
+                <Target className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Built Around the Individual</h3>
+              <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Curriculum, pacing, and difficulty shaped by your child’s academic level, strengths, and target goals.
+              </p>
+            </div>
+          </div>
+
+          {/* 5-Step System Banner */}
+          <div className="mt-10 p-6 md:p-8 rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-sm">
+            <h4 className="text-center text-xs font-bold uppercase tracking-widest text-emerald-400 mb-6">
+              The ARKE Learning System (Diagnose → Teach → Practice → Assess → Improve)
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                <div className="text-emerald-400 font-mono font-bold text-xs">01</div>
+                <div className="font-bold text-sm text-white mt-1">Diagnose</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Find starting level</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                <div className="text-emerald-400 font-mono font-bold text-xs">02</div>
+                <div className="font-bold text-sm text-white mt-1">Teach</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Interactive 1:1 live</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                <div className="text-emerald-400 font-mono font-bold text-xs">03</div>
+                <div className="font-bold text-sm text-white mt-1">Practice</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Intelligent sets</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                <div className="text-emerald-400 font-mono font-bold text-xs">04</div>
+                <div className="font-bold text-sm text-white mt-1">Assess</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Real understanding</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5 col-span-2 sm:col-span-1">
+                <div className="text-emerald-400 font-mono font-bold text-xs">05</div>
+                <div className="font-bold text-sm text-white mt-1">Improve</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Close every gap</div>
+              </div>
+            </div>
+
+            <div className="mt-8 text-center">
+              <Link
+                href="/one-on-one"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-950/40 hover:scale-[1.02] transition-all"
+              >
+                <span>Explore Full 1:1 Tutoring Program & Book Trial</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── Why ARKE Features Section ───────────────────────────────────── */}
       <section id="features" className="bg-card py-16 md:py-24 border-t border-border">
         <div className="max-w-[70rem] mx-auto px-4">
@@ -720,26 +836,21 @@ export default function LandingPage() {
           {/* Brand Col */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Image
-                src="/arke_logo_light.png"
-                alt="ARKE Scholars"
-                width={190}
-                height={54}
-                className="h-10 md:h-12 w-auto object-contain"
-              />
+              <ArkeLogo variant="light" size="md" />
             </div>
             <p className="text-xs text-white/70 leading-relaxed">
-              India & UAE's premier online coaching platform for JEE Main, JEE Advanced, NEET UG & Foundation exams.
+              Premium 1:1 Online Tutoring and Coaching for Classes 6–12 & JEE/NEET across India, Dubai & Kuwait.
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="font-display font-bold text-sm text-white uppercase tracking-wider mb-4">Exam Prep</h4>
+            <h4 className="font-display font-bold text-sm text-white uppercase tracking-wider mb-4">Academic Programs</h4>
             <ul className="space-y-2 text-xs">
+              <li><Link href="/one-on-one" className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors">★ 1:1 Online Tutoring (6–12)</Link></li>
               <li><a href="#courses" className="hover:text-primary transition-colors">IIT-JEE Main & Advanced</a></li>
               <li><a href="#courses" className="hover:text-primary transition-colors">NEET UG Medical Prep</a></li>
-              <li><a href="#courses" className="hover:text-primary transition-colors">Class 8th - 10th Foundation</a></li>
+              <li><a href="#courses" className="hover:text-primary transition-colors">Class 6th - 10th Foundation</a></li>
               <li><a href="#courses" className="hover:text-primary transition-colors">NTA Mock Test Series</a></li>
             </ul>
           </div>
