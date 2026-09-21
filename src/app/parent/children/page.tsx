@@ -35,7 +35,7 @@ export default function MyChildrenPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0033a0]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#23346B]"></div>
       </div>
     );
   }
@@ -45,7 +45,7 @@ export default function MyChildrenPage() {
       <PageHeader
         title="My Children"
         subtitle="Manage and view your linked children profiles"
-        icon={<Users size={24} className="text-[#0033a0]" />}
+        icon={<Users size={24} className="text-[#23346B]" />}
       />
 
       {childrenList.length === 0 ? (
@@ -62,7 +62,7 @@ export default function MyChildrenPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
           {childrenList.map((child: any) => (
             <Card key={child._id} className="overflow-hidden hover:shadow-xl transition-all duration-300 border border-gray-100">
-              <div className="p-6 bg-gradient-to-br from-[#0033a0]/5 to-transparent border-b border-gray-100">
+              <div className="p-6 bg-gradient-to-br from-[#23346B]/5 to-transparent border-b border-gray-100">
                 <div className="flex items-center gap-4">
                   <Avatar src={child.profilePictureUrl} fallback={child.firstName?.charAt(0)} size="lg" className="border-4 border-white shadow-sm" />
                   <div>

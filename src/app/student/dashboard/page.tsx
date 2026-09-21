@@ -232,7 +232,7 @@ export default function StudentDashboard() {
                 String(plan.fee || '').includes(q)
               );
             }).map((plan: any, i: number) => {
-              const colors = ["#0033a0", "#e8470a", "#7b3fa0"];
+              const colors = ["#23346B", "#e8470a", "#0C8044"];
               const planColor = plan.color || colors[i % colors.length];
               
               return (

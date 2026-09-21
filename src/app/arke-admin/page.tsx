@@ -139,7 +139,7 @@ export default function AdminLogin() {
         className="hidden lg:flex lg:w-[52%] relative overflow-hidden flex-col justify-between p-12"
         style={{
           background:
-            "linear-gradient(145deg, #001f6b 0%, #0033a0 40%, #5e1fa0 100%)",
+            "linear-gradient(145deg, #0B132B 0%, #23346B 40%, #0A6C38 100%)",
         }}
       >
         {/* Decorative blobs */}
@@ -147,7 +147,7 @@ export default function AdminLogin() {
           <div
             className="absolute -top-24 -left-24 w-80 h-80 rounded-full opacity-20"
             style={{
-              background: "radial-gradient(circle, #7b3fa0, transparent)",
+              background: "radial-gradient(circle, #0C8044, transparent)",
             }}
           />
           <div
@@ -194,7 +194,7 @@ export default function AdminLogin() {
           <h1 className="text-4xl font-black text-white leading-tight mb-4">
             Manage Your
             <br />
-            <span style={{ color: "#E4B94F" }}>Institution</span> Smartly
+            <span className="text-emerald-400">Institution</span> Smartly
           </h1>
           <p className="text-white/60 text-base leading-relaxed mb-8 max-w-sm">
             Complete control over academics, students, faculty, exams, and
@@ -343,7 +343,7 @@ export default function AdminLogin() {
               disabled={loading}
               className="w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
               style={{
-                background: "linear-gradient(135deg, #0033a0, #7b3fa0)",
+                background: "linear-gradient(135deg, #23346B, #0C8044)",
               }}
             >
               {loading ? (

@@ -962,9 +962,9 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border shadow-sm"
                 style={{
-                  background: effectiveSpotlightId ? 'var(--cr-subtle)' : 'rgba(124,58,237,0.15)',
-                  borderColor: effectiveSpotlightId ? 'var(--cr-border)' : 'rgba(124,58,237,0.4)',
-                  color: effectiveSpotlightId ? 'inherit' : '#8b5cf6'
+                  background: effectiveSpotlightId ? 'var(--cr-subtle)' : 'rgba(12,128,68,0.15)',
+                  borderColor: effectiveSpotlightId ? 'var(--cr-border)' : 'rgba(12,128,68,0.4)',
+                  color: effectiveSpotlightId ? 'inherit' : '#0C8044'
                 }}
               >
                 {effectiveSpotlightId ? <LayoutGrid className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}

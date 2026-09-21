@@ -43,7 +43,7 @@ export default function FreeTrialPage() {
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center p-6 relative overflow-hidden">
         {/* Decorative background */}
-        <div className="absolute top-0 left-0 w-full h-[300px]" style={{ background: "linear-gradient(135deg, #0033a0 0%, #7b3fa0 100%)" }} />
+        <div className="absolute top-0 left-0 w-full h-[300px]" style={{ background: "linear-gradient(135deg, #23346B 0%, #0C8044 100%)" }} />
 
         <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-5 bg-white rounded-3xl shadow-2xl overflow-hidden z-10 relative">
           
@@ -96,7 +96,7 @@ export default function FreeTrialPage() {
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0033a0] focus:border-transparent transition-all font-medium"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#23346B] focus:border-transparent transition-all font-medium"
                       placeholder="e.g. Anjali Singh"
                     />
                   </div>
@@ -115,7 +115,7 @@ export default function FreeTrialPage() {
                         required
                         value={formData.phone}
                         onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0033a0] focus:border-transparent transition-all font-medium"
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#23346B] focus:border-transparent transition-all font-medium"
                         placeholder="+91"
                       />
                     </div>
@@ -129,7 +129,7 @@ export default function FreeTrialPage() {
                       <select
                         value={formData.targetYear}
                         onChange={(e) => setFormData({...formData, targetYear: e.target.value})}
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0033a0] focus:border-transparent transition-all font-medium appearance-none"
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#23346B] focus:border-transparent transition-all font-medium appearance-none"
                       >
                         <option value="2024">NEET 2024</option>
                         <option value="2025">NEET 2025</option>
@@ -151,7 +151,7 @@ export default function FreeTrialPage() {
                       required
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0033a0] focus:border-transparent transition-all font-medium"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#23346B] focus:border-transparent transition-all font-medium"
                       placeholder="you@example.com"
                     />
                   </div>
@@ -164,7 +164,7 @@ export default function FreeTrialPage() {
                   type="submit"
                   disabled={isSubmitting}
                   className="w-full mt-4 flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-white transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-                  style={{ background: "linear-gradient(135deg, #0033a0, #7b3fa0)", boxShadow: "0 8px 25px rgba(0,51,160,0.25)" }}
+                  style={{ background: "linear-gradient(135deg, #23346B, #0C8044)", boxShadow: "0 8px 25px rgba(35,52,107,0.25)" }}
                 >
                   {isSubmitting ? (
                     <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

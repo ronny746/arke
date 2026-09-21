@@ -30,7 +30,7 @@ export function LogoutConfirmModal({ isOpen, onClose, onConfirm }) {
               style={{ boxShadow: "0 24px 60px rgba(0,0,0,0.18)" }}
             >
               {/* Top accent bar */}
-              <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #e8470a, #0033a0)" }} />
+              <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #e8470a, #23346B)" }} />
 
               <div className="p-6 text-center">
                 {/* Icon */}

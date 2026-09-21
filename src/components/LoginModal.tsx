@@ -121,7 +121,7 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup, redirectOnSucces
               </button>
 
               {/* Left Panel */}
-              <div className="w-full md:w-2/5 p-8 text-white relative overflow-hidden hidden md:flex md:flex-col justify-between" style={{ background: "linear-gradient(135deg, #0033a0, #7b3fa0)" }}>
+              <div className="w-full md:w-2/5 p-8 text-white relative overflow-hidden hidden md:flex md:flex-col justify-between" style={{ background: "linear-gradient(135deg, #23346B, #0C8044)" }}>
                 {/* Decorative Pattern */}
                 <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "24px 24px" }} />
                 
@@ -160,14 +160,14 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup, redirectOnSucces
                     <button
                       type="button"
                       onClick={() => setRole('student')}
-                      className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${role === 'student' ? 'bg-white text-[#0033a0] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                      className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${role === 'student' ? 'bg-white text-[#23346B] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                       Student
                     </button>
                     <button
                       type="button"
                       onClick={() => setRole('parent')}
-                      className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${role === 'parent' ? 'bg-white text-[#0033a0] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                      className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${role === 'parent' ? 'bg-white text-[#23346B] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                       Parent
                     </button>
@@ -187,7 +187,7 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup, redirectOnSucces
                             required
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                            className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20 focus:border-[#0033a0] transition-all font-medium disabled:opacity-60"
+                            className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#23346B]/20 focus:border-[#23346B] transition-all font-medium disabled:opacity-60"
                             placeholder="10-digit number"
                           />
                         </div>
@@ -213,7 +213,7 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup, redirectOnSucces
                             type="text"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value.trim())}
-                            className="block w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20 focus:border-[#0033a0] transition-all font-medium text-center tracking-widest uppercase"
+                            className="block w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#23346B]/20 focus:border-[#23346B] transition-all font-medium text-center tracking-widest uppercase"
                             placeholder={role === 'student' && enableRollNumber ? "Enter 6-digit OTP or Roll Number" : "Enter 6-digit OTP"}
                           />
                         </div>
@@ -225,7 +225,7 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup, redirectOnSucces
                       type="submit"
                       disabled={!otp || isLoading}
                       className="w-full py-3.5 rounded-xl font-black text-white text-sm transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:hover:scale-100 shadow-md mt-6 flex items-center justify-center gap-2"
-                      style={{ background: "linear-gradient(135deg, #0033a0, #7b3fa0)" }}
+                      style={{ background: "linear-gradient(135deg, #23346B, #0C8044)" }}
                     >
                       {isLoading ? (
                         <>

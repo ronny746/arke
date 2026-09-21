@@ -10,8 +10,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useDeveloperStore } from '@/store';
 
 const TYPE_COLORS: Record<string, { label: string; color: string; bg: string }> = {
-  hybrid:  { label: 'Hybrid',  color: '#7b3fa0', bg: '#f5f3ff' },
-  offline: { label: 'Offline', color: '#0033a0', bg: '#eef2ff' },
+  hybrid:  { label: 'Hybrid',  color: '#0C8044', bg: '#f5f3ff' },
+  offline: { label: 'Offline', color: '#23346B', bg: '#eef2ff' },
   online:  { label: 'Online',  color: '#059669', bg: '#ecfdf5' },
 };
 
@@ -88,7 +88,7 @@ function BatchModal({ batch, courseId, onClose, onSaved, token }: { batch?: any;
         onClick={e => e.stopPropagation()}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
       >
-        <div className="h-1" style={{ background: 'linear-gradient(90deg, #059669, #0033a0)' }} />
+        <div className="h-1" style={{ background: 'linear-gradient(90deg, #059669, #23346B)' }} />
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#ecfdf5' }}>

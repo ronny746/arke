@@ -67,13 +67,13 @@ export function Sidebar({ title, subtitle, navGroups, user, portalInitial = 'S' 
             />
             <div
               className="hidden w-full h-full items-center justify-center text-white font-bold text-sm"
-              style={{ background: 'linear-gradient(135deg, #0B132B, #C99A2E)' }}
+              style={{ background: 'linear-gradient(135deg, #23346B, #0C8044)' }}
             >
               {portalInitial}
             </div>
           </div>
           <div className="overflow-hidden min-w-0">
-            <p className="font-bold text-sm leading-tight truncate tracking-tight" style={{ color: '#0B132B' }}>
+            <p className="font-bold text-sm leading-tight truncate tracking-tight" style={{ color: '#23346B' }}>
               {title || 'ARKE Scholars'}
             </p>
             {subtitle && <p className="text-[10px] text-slate-400 font-medium truncate">{subtitle}</p>}
@@ -130,7 +130,7 @@ export function Sidebar({ title, subtitle, navGroups, user, portalInitial = 'S' 
             >
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, #0B132B, #C99A2E)' }}
+                style={{ background: 'linear-gradient(135deg, #23346B, #0C8044)' }}
               >
                 {user.profilePictureUrl ? (
                   <img src={user.profilePictureUrl} alt="Avatar" className="w-full h-full object-cover" />

@@ -6,12 +6,11 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, Video, ArrowRight, Shield, Sparkles,
-  BarChart, GraduationCap, CheckCircle2, Star, Trophy, Target,
-  FlaskConical, Atom, HeartPulse, Brain, Award, ChevronRight,
-  ChevronDown, Play, Phone, Mail, MapPin, Menu, X, TrendingUp, FileText, Layers, Users, HelpCircle, Check, Smartphone,
-  Globe2, UserCheck, Compass
+  BarChart, GraduationCap, CheckCircle2, Trophy, Target,
+  Brain, ChevronDown, Play, Menu, X, FileText,
+  Users, Check, Smartphone, UserCheck
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { LoginModal } from "@/components/LoginModal";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import ArkeLogo from "@/components/ArkeLogo";
@@ -101,7 +100,7 @@ export default function LandingPage() {
 
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-white/90">
-            <Link href="/one-on-one" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">
+            <Link href="/one-on-one" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors flex items-center gap-1.5 bg-[#0C8044]/10 px-3 py-1 rounded-full border border-emerald-500/30">
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               1:1 Tutoring
             </Link>
@@ -118,7 +117,7 @@ export default function LandingPage() {
             {user ? (
               <button
                 onClick={handleDashboardRedirect}
-                className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] px-6 py-2.5 text-sm font-bold text-navy shadow-md hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
+                className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-950/20 hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
               >
                 Go to Dashboard
                 <ArrowRight className="h-4 w-4" />
@@ -133,7 +132,7 @@ export default function LandingPage() {
                 </button>
                 <button
                   onClick={() => setIsLoginModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] px-6 py-2.5 text-sm font-bold text-navy shadow-md hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
+                  className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-950/20 hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
                 >
                   Get Started
                   <Sparkles className="h-4 w-4" />
@@ -164,7 +163,7 @@ export default function LandingPage() {
               <Link 
                 href="/one-on-one"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 py-2 px-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30"
+                className="flex items-center gap-2 py-2 px-3 rounded-lg bg-[#0C8044]/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30"
               >
                 <Sparkles className="w-4 h-4 text-emerald-500" />
                 Premium 1:1 Tutoring (India · Dubai · Kuwait)
@@ -216,7 +215,7 @@ export default function LandingPage() {
                 {user ? (
                   <button
                     onClick={() => { setMobileMenuOpen(false); handleDashboardRedirect(); }}
-                    className="w-full text-center rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] py-3 text-sm font-bold text-navy shadow-md"
+                    className="w-full text-center rounded-pill bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] py-3 text-sm font-bold text-white shadow-md shadow-emerald-950/20"
                   >
                     Go to Dashboard
                   </button>
@@ -230,7 +229,7 @@ export default function LandingPage() {
                     </button>
                     <button
                       onClick={() => { setMobileMenuOpen(false); setIsLoginModalOpen(true); }}
-                      className="w-full text-center rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] py-3 text-sm font-bold text-navy shadow-md"
+                      className="w-full text-center rounded-pill bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] py-3 text-sm font-bold text-white shadow-md shadow-emerald-950/20"
                     >
                       Get Started
                     </button>
@@ -248,7 +247,7 @@ export default function LandingPage() {
       </div>
 
       {/* ─── Hero Section ─────────────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-[#070D1F] overflow-hidden pt-6 pb-12 md:pt-10 md:pb-0">
+      <section className="bg-white dark:bg-[#0B132B] overflow-hidden pt-6 pb-12 md:pt-10 md:pb-0">
         <div className="max-w-[70rem] mx-auto px-4">
           <div className="grid items-end gap-8 md:gap-6 md:grid-cols-2">
             {/* Hero Left Text & Actions */}
@@ -262,7 +261,7 @@ export default function LandingPage() {
                 <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black text-foreground md:text-5xl lg:text-6xl tracking-tight">
                   JEE, NEET & Foundation
                 </span>
-                <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] bg-clip-text text-transparent md:text-5xl lg:text-6xl tracking-tight mt-1">
+                <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black bg-gradient-to-r from-[#0C8044] via-[#10B981] to-[#23346B] bg-clip-text text-transparent md:text-5xl lg:text-6xl tracking-tight mt-1">
                   Exam Prep That Works
                 </span>
               </h1>
@@ -274,7 +273,7 @@ export default function LandingPage() {
               <div className="mt-6 md:mt-8 flex flex-wrap items-center justify-center md:justify-start gap-3.5">
                 <button
                   onClick={() => user ? router.push("/student/dashboard") : setIsLoginModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] px-7 py-3.5 text-sm md:text-base font-bold text-navy shadow-lg hover:opacity-90 transition-all duration-200 hover:scale-[1.02]"
+                  className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-7 py-3.5 text-sm md:text-base font-bold text-white shadow-lg shadow-emerald-950/20 hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
                 >
                   {user ? "Explore Courses" : "Get Started"}
                   <ArrowRight className="h-4 w-4" />
@@ -352,7 +351,7 @@ export default function LandingPage() {
             {/* IIT-JEE Card */}
             <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
               <div className="p-3">
-                <div className="overflow-hidden rounded-xl bg-[#F7EFD9] dark:bg-[#121C3B] p-4 flex items-center justify-center">
+                <div className="overflow-hidden rounded-xl bg-[#F0FDF4] dark:bg-[#23346B] p-4 flex items-center justify-center">
                   <Image
                     src="/exam-svgs/iit-jee.svg"
                     alt="IIT-JEE courses"
@@ -396,7 +395,7 @@ export default function LandingPage() {
             {/* NEET Card */}
             <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
               <div className="p-3">
-                <div className="overflow-hidden rounded-xl bg-[#F7EFD9] dark:bg-[#121C3B] p-4 flex items-center justify-center">
+                <div className="overflow-hidden rounded-xl bg-[#F0FDF4] dark:bg-[#23346B] p-4 flex items-center justify-center">
                   <Image
                     src="/exam-svgs/neet.svg"
                     alt="NEET courses"
@@ -440,7 +439,7 @@ export default function LandingPage() {
             {/* Foundation Card */}
             <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
               <div className="p-3">
-                <div className="overflow-hidden rounded-xl bg-[#F7EFD9] dark:bg-[#121C3B] p-4 flex items-center justify-center">
+                <div className="overflow-hidden rounded-xl bg-[#F0FDF4] dark:bg-[#23346B] p-4 flex items-center justify-center">
                   <Image
                     src="/exam-svgs/foundation.svg"
                     alt="Foundation courses"
@@ -586,13 +585,13 @@ export default function LandingPage() {
       </section>
 
       {/* ─── 1:1 Online Tutoring Section (From ARKE Scholars 1on1) ─────────── */}
-      <section id="one-on-one" className="py-16 md:py-24 bg-gradient-to-b from-[#0B132B] via-[#0D1B3E] to-[#0B132B] text-white relative overflow-hidden border-t border-b border-white/10">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <section id="one-on-one" className="py-16 md:py-24 bg-gradient-to-b from-[#23346B] to-[#0C8044] text-white relative overflow-hidden border-t border-b border-white/10">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#0C8044]/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-1.5 text-xs sm:text-sm font-bold text-emerald-400 mb-4 shadow-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-[#0C8044]/10 px-4 py-1.5 text-xs sm:text-sm font-bold text-emerald-400 mb-4 shadow-sm">
               <Sparkles className="w-4 h-4 text-emerald-400" />
               <span>Premium 1:1 Online Tutoring · Classes 6–12 | India · Dubai · Kuwait</span>
             </div>
@@ -610,7 +609,7 @@ export default function LandingPage() {
           {/* 3 Main Pillars */}
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 border border-emerald-500/30">
+              <div className="w-12 h-12 rounded-xl bg-[#0C8044]/20 text-emerald-400 flex items-center justify-center mb-4 border border-emerald-500/30">
                 <UserCheck className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-white">True 1:1 Teaching</h3>
@@ -676,7 +675,7 @@ export default function LandingPage() {
             <div className="mt-8 text-center">
               <Link
                 href="/one-on-one"
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-950/40 hover:scale-[1.02] transition-all"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#0C8044] to-[#0A6C38] px-8 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-950/40 hover:scale-[1.02] transition-all"
               >
                 <span>Explore Full 1:1 Tutoring Program & Book Trial</span>
                 <ArrowRight className="w-4 h-4" />
@@ -821,7 +820,7 @@ export default function LandingPage() {
           <div>
             <button
               onClick={() => setIsLoginModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] px-8 py-4 text-base font-bold text-navy shadow-xl hover:scale-105 transition-transform"
+              className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-8 py-4 text-base font-bold text-white shadow-xl shadow-emerald-950/30 hover:scale-105 transition-transform"
             >
               Start Free Trial Now
               <ArrowRight className="h-5 w-5" />

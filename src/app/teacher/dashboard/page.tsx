@@ -71,8 +71,8 @@ export default function TeacherDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'My Students', value: dashboardData?.totalStudents || 0, change: 'Total assigned students', icon: Users, color: '#1a7a35', bg: '#ecfdf5' },
-          { label: 'Classes Given', value: dashboardData?.totalClasses || 0, change: 'Total scheduled classes', icon: Video, color: '#0033a0', bg: '#eef2ff' },
-          { label: 'Materials Uploaded', value: dashboardData?.materialsUploaded || 0, change: 'Total resources', icon: FileText, color: '#7b3fa0', bg: '#f5f3ff' },
+          { label: 'Classes Given', value: dashboardData?.totalClasses || 0, change: 'Total scheduled classes', icon: Video, color: '#23346B', bg: '#eef2ff' },
+          { label: 'Materials Uploaded', value: dashboardData?.materialsUploaded || 0, change: 'Total resources', icon: FileText, color: '#0C8044', bg: '#f5f3ff' },
           { label: 'Exams Conducted', value: dashboardData?.totalExams || 0, change: 'Total assigned exams', icon: BookOpen, color: '#e8470a', bg: '#fff7ed' },
         ].map((stat, i) => (
           <motion.div
@@ -169,8 +169,8 @@ export default function TeacherDashboard() {
         <h2 className="font-bold text-gray-800 text-sm mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Upload Material', icon: BookOpen, color: '#0033a0', bg: '#eef2ff', to: '/teacher/study-materials' },
-            { label: 'Create Exam', icon: CheckCircle, color: '#7b3fa0', bg: '#f5f3ff', to: '/teacher/exams' },
+            { label: 'Upload Material', icon: BookOpen, color: '#23346B', bg: '#eef2ff', to: '/teacher/study-materials' },
+            { label: 'Create Exam', icon: CheckCircle, color: '#0C8044', bg: '#f5f3ff', to: '/teacher/exams' },
           ].map((action, i) => (
             <button
               key={i}

@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useDeveloperStore } from '@/store';
 
 const EXAM_COLORS: Record<string, string> = {
-  'NEET': '#e8470a', 'JEE': '#0033a0', 'Foundation': '#059669',
+  'NEET': '#e8470a', 'JEE': '#23346B', 'Foundation': '#059669',
 };
 
 const calculateDuration = (start: any, end: any, fallback: string) => {
@@ -127,7 +127,7 @@ export default function AdminCoursesPage() {
           </button>
           <button onClick={() => router.push('/admin/courses/builder')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90 active:scale-95"
-            style={{ background: 'linear-gradient(135deg, #0033a0, #7b3fa0)' }}>
+            style={{ background: 'linear-gradient(135deg, #23346B, #0C8044)' }}>
             <Plus size={16} /> Create Course
           </button>
         </div>
@@ -158,18 +158,18 @@ export default function AdminCoursesPage() {
           <p className="font-semibold text-gray-500">No courses found</p>
           <p className="text-sm text-gray-400 mt-1">Create your first course to get started</p>
           <button onClick={() => router.push('/admin/courses/builder')} className="mt-4 px-5 py-2.5 rounded-xl text-white text-sm font-bold"
-            style={{ background: 'linear-gradient(135deg, #0033a0, #7b3fa0)' }}>+ Create Course</button>
+            style={{ background: 'linear-gradient(135deg, #23346B, #0C8044)' }}>+ Create Course</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((c, i) => {
-            const ec = c.color || '#0033a0';
+            const ec = c.color || '#23346B';
             return (
               <motion.div key={c._id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
                 onClick={() => router.push(`/admin/courses/${c._id}`)}
                 className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer group flex flex-col h-full relative"
                 style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-                <div className="h-1" style={{ background: `linear-gradient(90deg, ${ec}, #0033a0)` }} />
+                <div className="h-1" style={{ background: `linear-gradient(90deg, ${ec}, #23346B)` }} />
                 
                 <div className="absolute top-4 right-4 z-10">
                   <ActionMenu actions={[
@@ -194,7 +194,7 @@ export default function AdminCoursesPage() {
                   
                   <div className="mt-auto grid grid-cols-2 gap-2 mb-4 text-center">
                     <div className="rounded-xl py-2 px-1" style={{ background: '#f8faff' }}>
-                      <Clock size={13} className="mx-auto mb-0.5" style={{ color: '#7b3fa0' }} />
+                      <Clock size={13} className="mx-auto mb-0.5" style={{ color: '#0C8044' }} />
                       <p className="text-xs font-bold text-gray-700">{calculateDuration(c.startDate, c.endDate, c.duration)}</p>
                       <p className="text-[9px] text-gray-400">Duration</p>
                     </div>

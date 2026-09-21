@@ -98,7 +98,7 @@ function EasebuzzPaymentModal({ course, onClose, onAuthError }: { course: any; o
 
           <button onClick={handlePay} disabled={loading}
             className="w-full py-4 rounded-2xl text-white font-black text-base transition-all shadow-xl shadow-blue-600/25 hover:shadow-blue-600/40 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
-            style={{ background: 'linear-gradient(135deg, #0033a0, #4f46e5)' }}>
+            style={{ background: 'linear-gradient(135deg, #23346B, #0C8044)' }}>
             {loading ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
@@ -246,7 +246,7 @@ export default function CourseDetailPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 text-blue-600 animate-spin" /></div>;
   if (!course) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Course not found</div>;
 
-  const color = course.color || '#0033a0';
+  const color = course.color || '#23346B';
 
   return (
     <div className="font-sans pb-20 fade-in">
@@ -258,7 +258,7 @@ export default function CourseDetailPage() {
           
           {/* Left Column: Details */}
           <div className="lg:w-2/3 space-y-6 sm:space-y-8">
-            <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-indigo-900 rounded-3xl p-8 sm:p-10 lg:p-12 shadow-2xl" style={{ backgroundImage: `linear-gradient(135deg, #111827, ${color || '#0033a0'})` }}>
+            <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-indigo-900 rounded-3xl p-8 sm:p-10 lg:p-12 shadow-2xl" style={{ backgroundImage: `linear-gradient(135deg, #111827, ${color || '#23346B'})` }}>
               {/* Decorative elements */}
               <div className="absolute top-0 right-0 p-8 opacity-[0.07] pointer-events-none transform translate-x-1/4 -translate-y-1/4">
                 <BookOpen size={300} className="text-white" />
@@ -348,7 +348,7 @@ export default function CourseDetailPage() {
           {/* Right Column: Pricing & Checkout Card */}
           <div className="lg:w-1/3">
             <div className="sticky top-24 bg-white rounded-3xl border border-gray-100 shadow-2xl shadow-gray-200/50 overflow-hidden">
-              <div className="h-2" style={{ background: `linear-gradient(90deg, ${color}, #0033a0)` }} />
+              <div className="h-2" style={{ background: `linear-gradient(90deg, ${color}, #23346B)` }} />
               <div className="p-6 sm:p-8">
                 
                 <div className="mb-8">
@@ -422,7 +422,7 @@ export default function CourseDetailPage() {
                 ) : (
                   <button onClick={handleBuyClick}
                     className="w-full py-4 rounded-xl text-white font-black text-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xl flex items-center justify-center gap-2 group"
-                    style={{ background: `linear-gradient(135deg, ${color}, #0033a0)`, boxShadow: `0 12px 30px ${color}30` }}>
+                    style={{ background: `linear-gradient(135deg, ${color}, #23346B)`, boxShadow: `0 12px 30px ${color}30` }}>
                     {user ? 'Enroll Now' : 'Login to Enroll'} 
                     <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                   </button>

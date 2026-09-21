@@ -145,7 +145,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
               </button>
 
               {/* Left Panel */}
-              <div className="w-full md:w-2/5 p-8 text-white relative overflow-hidden hidden md:flex md:flex-col justify-between" style={{ background: "linear-gradient(135deg, #0033a0, #7b3fa0)" }}>
+              <div className="w-full md:w-2/5 p-8 text-white relative overflow-hidden hidden md:flex md:flex-col justify-between" style={{ background: "linear-gradient(135deg, #23346B, #0C8044)" }}>
                 {/* Decorative Pattern */}
                 <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "24px 24px" }} />
                 
@@ -176,7 +176,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                 <div className="relative z-10 mt-10">
                   <div className="flex -space-x-2">
                     {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="w-8 h-8 rounded-full border-2 border-[#7b3fa0] bg-gray-200 overflow-hidden">
+                      <div key={i} className="w-8 h-8 rounded-full border-2 border-[#0C8044] bg-gray-200 overflow-hidden">
                         <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} alt="Student" />
                       </div>
                     ))}
@@ -204,7 +204,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                           required
                           value={formData.name}
                           onChange={(e) => setFormData({...formData, name: e.target.value})}
-                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20 focus:border-[#0033a0] transition-all font-medium"
+                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#23346B]/20 focus:border-[#23346B] transition-all font-medium"
                           placeholder="Your full name"
                         />
                       </div>
@@ -223,7 +223,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                             required
                             value={formData.phone}
                             onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})}
-                            className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20 focus:border-[#0033a0] transition-all font-medium disabled:opacity-60"
+                            className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#23346B]/20 focus:border-[#23346B] transition-all font-medium disabled:opacity-60"
                             placeholder="10-digit number"
                           />
                         </div>
@@ -255,7 +255,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                               type="text"
                               value={formData.otp}
                               onChange={(e) => setFormData({...formData, otp: e.target.value.replace(/\D/g, '').slice(0, 6)})}
-                              className="block w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20 focus:border-[#0033a0] transition-all font-medium text-center tracking-widest"
+                              className="block w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#23346B]/20 focus:border-[#23346B] transition-all font-medium text-center tracking-widest"
                               placeholder="Enter 6-digit OTP"
                             />
                           </motion.div>
@@ -275,7 +275,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                           required
                           value={formData.email}
                           onChange={(e) => setFormData({...formData, email: e.target.value})}
-                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20 focus:border-[#0033a0] transition-all font-medium"
+                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#23346B]/20 focus:border-[#23346B] transition-all font-medium"
                           placeholder="you@example.com"
                         />
                       </div>
@@ -293,7 +293,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                             required
                             value={formData.studentClass}
                             onChange={(e) => setFormData({...formData, studentClass: e.target.value})}
-                            className="block w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20 focus:border-[#0033a0] transition-all font-medium appearance-none"
+                            className="block w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#23346B]/20 focus:border-[#23346B] transition-all font-medium appearance-none"
                           >
                             <option value="" disabled>Select</option>
                             <option value="11">Class 11</option>
@@ -308,7 +308,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                         <div className="relative" ref={stateDropdownRef}>
                           <div 
                             onClick={() => setIsStateDropdownOpen(!isStateDropdownOpen)}
-                            className="block w-full pl-9 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20 focus:border-[#0033a0] transition-all font-medium cursor-pointer flex items-center justify-between"
+                            className="block w-full pl-9 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#23346B]/20 focus:border-[#23346B] transition-all font-medium cursor-pointer flex items-center justify-between"
                           >
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                               <MapPin className="w-4 h-4 text-gray-400" />
@@ -334,7 +334,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                                     placeholder="Search state..."
                                     value={stateSearch}
                                     onChange={(e) => setStateSearch(e.target.value)}
-                                    className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-50 border-none rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20"
+                                    className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-50 border-none rounded-lg focus:outline-none focus:ring-2 focus:ring-[#23346B]/20"
                                   />
                                 </div>
                                 <div className="max-h-48 overflow-y-auto">
@@ -349,7 +349,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                                           setIsStateDropdownOpen(false);
                                           setStateSearch("");
                                         }}
-                                        className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors ${formData.state === state ? 'bg-[#0033a0]/5 text-[#0033a0] font-bold' : 'text-gray-700 font-medium'}`}
+                                        className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors ${formData.state === state ? 'bg-[#23346B]/5 text-[#23346B] font-bold' : 'text-gray-700 font-medium'}`}
                                       >
                                         {state}
                                       </div>
@@ -375,7 +375,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                           required
                           value={formData.city}
                           onChange={(e) => setFormData({...formData, city: e.target.value})}
-                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0033a0]/20 focus:border-[#0033a0] transition-all font-medium"
+                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#23346B]/20 focus:border-[#23346B] transition-all font-medium"
                           placeholder="Your city"
                         />
                       </div>
@@ -393,7 +393,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                       />
                       <div 
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-4 p-3 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#0033a0]/40 hover:bg-[#0033a0]/5 transition-all"
+                        className="flex items-center gap-4 p-3 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#23346B]/40 hover:bg-[#23346B]/5 transition-all"
                       >
                         <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                           {formData.photo ? (
@@ -417,7 +417,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin, redirectOnSucces
                       type="submit"
                       disabled={!otpSent || isLoading}
                       className="w-full py-3.5 rounded-xl font-black text-white text-sm transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:hover:scale-100 shadow-md flex items-center justify-center gap-2"
-                      style={{ background: "linear-gradient(135deg, #0033a0, #7b3fa0)" }}
+                      style={{ background: "linear-gradient(135deg, #23346B, #0C8044)" }}
                     >
                       {isLoading ? (
                         <>

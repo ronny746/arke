@@ -141,9 +141,9 @@ export default function OneOnOnePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] dark:bg-[#070D1F] text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/20 selection:text-emerald-600">
+    <div className="min-h-screen bg-[#FDFDFD] dark:bg-[#23346B] text-slate-900 dark:text-slate-100 font-sans selection:bg-[#0C8044]/20 selection:text-emerald-600">
       {/* ─── Navigation Bar ────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-[#0B132B]/95 backdrop-blur-md border-b border-white/10 text-white shadow-lg">
+      <header className="sticky top-0 z-50 bg-[#23346B]/95 backdrop-blur-md border-b border-white/10 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 py-1 group">
             <ArkeLogo variant="light" size="md" badge="1:1 TUTORING" />
@@ -166,7 +166,7 @@ export default function OneOnOnePage() {
             </Link>
             <a
               href="#book-consultation"
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-emerald-900/30 hover:shadow-emerald-500/25 hover:scale-[1.02] transition-all"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#0C8044] to-[#0A6C38] px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-emerald-900/30 hover:shadow-emerald-500/25 hover:scale-[1.02] transition-all"
             >
               <Calendar className="w-4 h-4" />
               Book Free Trial
@@ -183,7 +183,7 @@ export default function OneOnOnePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-4xl mx-auto">
             {/* Top Pill */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/40 px-4 py-1.5 text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-6 shadow-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-[#0C8044]/10 dark:bg-emerald-950/40 px-4 py-1.5 text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-6 shadow-sm">
               <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Premium 1:1 Online Tutoring for Classes 6–12 | India · Dubai · Kuwait</span>
             </div>
@@ -257,7 +257,7 @@ export default function OneOnOnePage() {
       </section>
 
       {/* ─── The ARKE Learning System Section ──────────────────────── */}
-      <section id="system" className="py-20 bg-slate-50/80 dark:bg-[#060B1A] border-b border-slate-200/80 dark:border-slate-800">
+      <section id="system" className="py-20 bg-slate-50/80 dark:bg-[#1E2D5C] border-b border-slate-200/80 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
             <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
@@ -312,7 +312,7 @@ export default function OneOnOnePage() {
       </section>
 
       {/* ─── Academic Coverage Section ─────────────────────────────── */}
-      <section id="coverage" className="py-20 bg-white dark:bg-[#070D1F] border-b border-slate-200/80 dark:border-slate-800">
+      <section id="coverage" className="py-20 bg-white dark:bg-[#23346B] border-b border-slate-200/80 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
             <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
@@ -381,9 +381,9 @@ export default function OneOnOnePage() {
           </div>
 
           {/* Continuous Journey banner */}
-          <div className="mt-8 max-w-5xl mx-auto p-6 rounded-2xl bg-[#0B132B] text-white flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="mt-8 max-w-5xl mx-auto p-6 rounded-2xl bg-[#23346B] text-white flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+              <div className="p-3 rounded-xl bg-[#0C8044]/20 text-emerald-400 border border-emerald-500/30 shrink-0">
                 <GraduationCap className="w-6 h-6" />
               </div>
               <div>
@@ -395,7 +395,7 @@ export default function OneOnOnePage() {
             </div>
             <a
               href="#book-consultation"
-              className="shrink-0 px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition-colors"
+              className="shrink-0 px-5 py-2.5 rounded-full bg-[#0C8044] hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition-colors"
             >
               Get Personalized Roadmap
             </a>
@@ -404,7 +404,7 @@ export default function OneOnOnePage() {
       </section>
 
       {/* ─── Built for Modern Families ─────────────────────────────── */}
-      <section id="benefits" className="py-20 bg-slate-50/80 dark:bg-[#060B1A] border-b border-slate-200/80 dark:border-slate-800">
+      <section id="benefits" className="py-20 bg-slate-50/80 dark:bg-[#1E2D5C] border-b border-slate-200/80 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
             <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
@@ -443,7 +443,7 @@ export default function OneOnOnePage() {
       </section>
 
       {/* ─── Global Classroom: India · Dubai · Kuwait ──────────────── */}
-      <section id="global" className="py-20 bg-white dark:bg-[#070D1F] border-b border-slate-200/80 dark:border-slate-800">
+      <section id="global" className="py-20 bg-white dark:bg-[#23346B] border-b border-slate-200/80 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
             <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
@@ -513,7 +513,7 @@ export default function OneOnOnePage() {
             </div>
 
             <div className="p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-sm">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-[#0C8044]/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-6">
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Real Academic Accountability</h3>
@@ -536,13 +536,13 @@ export default function OneOnOnePage() {
       </section>
 
       {/* ─── Interactive Consultation Booking Form ─────────────────── */}
-      <section id="book-consultation" className="py-20 bg-white dark:bg-[#070D1F]">
+      <section id="book-consultation" className="py-20 bg-white dark:bg-[#23346B]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="p-8 sm:p-12 rounded-3xl bg-[#0B132B] text-white shadow-2xl border border-white/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="p-8 sm:p-12 rounded-3xl bg-[#23346B] text-white shadow-2xl border border-white/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-[#0C8044]/10 rounded-full blur-3xl pointer-events-none" />
 
             <div className="relative z-10 text-center max-w-2xl mx-auto mb-10">
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3.5 py-1 text-xs font-bold mb-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#0C8044]/20 text-emerald-300 border border-emerald-500/30 px-3.5 py-1 text-xs font-bold mb-4">
                 <Sparkles className="w-3.5 h-3.5" />
                 Book Your 1:1 Diagnostic & Consultation
               </div>
@@ -556,7 +556,7 @@ export default function OneOnOnePage() {
 
             {formSubmitted ? (
               <div className="p-8 rounded-2xl bg-white/5 border border-emerald-500/40 text-center max-w-lg mx-auto">
-                <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+                <div className="w-14 h-14 rounded-full bg-[#0C8044]/20 text-emerald-400 flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
                   <Check className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl font-bold text-white">Consultation Request Received!</h3>
@@ -585,7 +585,7 @@ export default function OneOnOnePage() {
                         onClick={() => setSelectedLocation(loc)}
                         className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold border transition-all ${
                           selectedLocation === loc
-                            ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md'
+                            ? 'bg-[#0C8044] text-slate-950 border-emerald-400 shadow-md'
                             : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
                         }`}
                       >
@@ -710,7 +710,7 @@ export default function OneOnOnePage() {
 
                 <button
                   type="submit"
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-base shadow-lg shadow-emerald-950/40 hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-[#0C8044] to-[#0A6C38] text-white font-bold text-base shadow-lg shadow-emerald-950/40 hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
                   Request Free 1:1 Diagnostic Session
@@ -722,7 +722,7 @@ export default function OneOnOnePage() {
       </section>
 
       {/* ─── Footer ───────────────────────────────────────────────── */}
-      <footer className="bg-[#050A17] text-slate-400 py-12 border-t border-white/10 text-xs">
+      <footer className="bg-[#15234B] text-slate-400 py-12 border-t border-white/10 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <ArkeLogo variant="light" size="sm" />

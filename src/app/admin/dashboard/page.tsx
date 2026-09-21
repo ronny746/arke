@@ -8,15 +8,15 @@ import { adminAPI } from '@/api/admin';
 import NeetCountdownCard from '@/components/NeetCountdownCard';
 
 const quickActions = [
-  { label: 'Add Student', icon: Plus, color: '#0033a0', bg: '#eef2ff', to: '/admin/students' },
+  { label: 'Add Student', icon: Plus, color: '#23346B', bg: '#eef2ff', to: '/admin/students' },
   { label: 'Add Teacher', icon: GraduationCap, color: '#059669', bg: '#ecfdf5', to: '/admin/teachers' },
-  { label: 'Create Exam', icon: FileCheck, color: '#7b3fa0', bg: '#f5f3ff', to: '/admin/exams' },
+  { label: 'Create Exam', icon: FileCheck, color: '#0C8044', bg: '#f5f3ff', to: '/admin/exams' },
   { label: 'Question Bank', icon: Database, color: '#e8470a', bg: '#fff7ed', to: '/admin/question-banks' },
   { label: 'Manage Courses', icon: BookOpen, color: '#0284c7', bg: '#eff6ff', to: '/admin/courses' },
   { label: 'Study Materials', icon: FileText, color: '#d97706', bg: '#fffbeb', to: '/admin/study-materials' },
 ];
 
-const typeColor = { student: '#0033a0', material: '#059669', exam: '#7b3fa0', live: '#e8470a', fee: '#d97706' };
+const typeColor = { student: '#23346B', material: '#059669', exam: '#0C8044', live: '#e8470a', fee: '#d97706' };
 const typeBg = { student: '#eef2ff', material: '#ecfdf5', exam: '#f5f3ff', live: '#fff7ed', fee: '#fffbeb' };
 
 export default function AdminDashboard() {
@@ -42,9 +42,9 @@ export default function AdminDashboard() {
   }, []);
 
   const stats = [
-    { label: 'Total Students', value: dashboardData?.overview?.totalStudents?.toString() || '0', change: 'Total Registered', icon: Users, color: '#0033a0', bg: '#eef2ff' },
+    { label: 'Total Students', value: dashboardData?.overview?.totalStudents?.toString() || '0', change: 'Total Registered', icon: Users, color: '#23346B', bg: '#eef2ff' },
     { label: 'Active Teachers', value: dashboardData?.overview?.totalTeachers?.toString() || '0', change: 'Total Registered', icon: GraduationCap, color: '#059669', bg: '#ecfdf5' },
-    { label: 'Live Classes Today', value: dashboardData?.overview?.activeClassesToday?.toString() || '0', change: 'Ongoing', icon: Video, color: '#7b3fa0', bg: '#f5f3ff' },
+    { label: 'Live Classes Today', value: dashboardData?.overview?.activeClassesToday?.toString() || '0', change: 'Ongoing', icon: Video, color: '#0C8044', bg: '#f5f3ff' },
     { label: 'Exams Conducted', value: dashboardData?.overview?.totalExams?.toString() || '0', change: 'Total Created', icon: FileCheck, color: '#e8470a', bg: '#fff7ed' },
   ];
 

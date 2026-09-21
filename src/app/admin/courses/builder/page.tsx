@@ -20,7 +20,7 @@ function CourseBuilderContent() {
 
   const [form, setForm] = useState({
     name: '', subtitle: '', tag: 'NEET 2027', fee: '', actualFee: '', duration: '', startDate: '', endDate: '',
-    badge: '', color: '#0033a0', popular: false, isPublished: true,
+    badge: '', color: '#23346B', popular: false, isPublished: true,
     description: '', features: [''], bestFor: [''],
     access: { liveClasses: true, studyMaterials: true, dpps: true, testSeries: true },
     defaultBatchId: ''
@@ -43,7 +43,7 @@ function CourseBuilderContent() {
         duration: c.duration || '',
         startDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : '', 
         endDate: c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : '',
-        badge: c.badge || '', color: c.color || '#0033a0', popular: c.popular || false, isPublished: c.isPublished ?? true,
+        badge: c.badge || '', color: c.color || '#23346B', popular: c.popular || false, isPublished: c.isPublished ?? true,
               description: c.description || '',
               features: c.features?.length ? c.features : [''],
               bestFor: c.bestFor?.length ? c.bestFor : [''],
@@ -226,7 +226,7 @@ function CourseBuilderContent() {
               </div>
               <button type="submit" disabled={savingBatch || !newBatchName.trim()}
                 className="w-full py-2.5 rounded-xl text-white font-bold text-sm flex justify-center items-center gap-2 disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #0033a0, #7b3fa0)' }}>
+                style={{ background: 'linear-gradient(135deg, #23346B, #0C8044)' }}>
                 {savingBatch ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus size={16} />}
                 Create Batch
               </button>
@@ -248,7 +248,7 @@ function CourseBuilderContent() {
         </div>
         <button onClick={handleSubmit} disabled={loading}
           className="px-6 py-2.5 rounded-xl text-white font-bold text-sm flex items-center gap-2 transition-all shadow-lg hover:opacity-90 active:scale-95 disabled:opacity-70"
-          style={{ background: 'linear-gradient(135deg, #0033a0, #7b3fa0)' }}>
+          style={{ background: 'linear-gradient(135deg, #23346B, #0C8044)' }}>
           {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={16} />}
           {editId ? 'Save Changes' : 'Publish Course'}
         </button>
