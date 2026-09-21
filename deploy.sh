@@ -8,13 +8,14 @@ set -e
 APP_NAME="arkescholar"
 PORT=1220
 HOST="0.0.0.0"
-DOMAIN="arkescholar.com"
+PRIMARY_DOMAIN="arkescholar.com"
+ALL_DOMAINS="arkescholar.com www.arkescholar.com arkescholars.com www.arkescholars.com arke.pro www.arke.pro"
 EMAIL="admin@arkescholar.com"    # Change if required
 
 echo "========================================="
 echo "🚀 Deploying $APP_NAME"
-echo "🌍 Domain : $DOMAIN"
-echo "📦 Port   : $PORT"
+echo "🌍 Domains : $ALL_DOMAINS"
+echo "📦 Port    : $PORT"
 echo "========================================="
 
 # =====================================================
@@ -103,7 +104,7 @@ echo "Creating nginx config..."
 sudo tee "$NGINX_CONF" >/dev/null <<EOF
 server {
     listen 80;
-    server_name $DOMAIN www.$DOMAIN;
+    server_name $ALL_DOMAINS;
 
     client_max_body_size 100M;
 
@@ -158,15 +159,20 @@ if ! command -v certbot >/dev/null 2>&1; then
     sudo apt install certbot python3-certbot-nginx -y
 fi
 
-echo "Generating SSL Certificate..."
+echo "Generating SSL Certificate for all domains..."
 
 sudo certbot \
     --nginx \
-    -d "$DOMAIN" \
-    -d "www.$DOMAIN" \
+    -d arkescholar.com \
+    -d www.arkescholar.com \
+    -d arkescholars.com \
+    -d www.arkescholars.com \
+    -d arke.pro \
+    -d www.arke.pro \
     --agree-tos \
     --redirect \
     --non-interactive \
+    --expand \
     -m "$EMAIL" || echo "⚠ SSL generation skipped."
 
 # =====================================================
