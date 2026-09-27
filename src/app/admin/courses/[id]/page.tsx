@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Pencil, Trash2, X, ArrowLeft, Layers, BookOpen } from 'lucide-react';
+import { Plus, Users, Pencil, Trash2, X, ArrowLeft, Layers, BookOpen, GraduationCap, UserPlus, Mail, Phone, Search, Check, Sparkles, UserCheck } from 'lucide-react';
 import { ActionMenu } from '@/components/ui/index.jsx';
 import { DeleteModal } from '@/components/modals/index.jsx';
 import toast from 'react-hot-toast';
@@ -30,6 +30,215 @@ const calculateDuration = (start: any, end: any, fallback: string) => {
   }
   return fallback || 'N/A';
 };
+
+// ── Assign Faculties Modal ────────────────────────────────────────────────────────
+function AssignFacultiesModal({ 
+  course, 
+  token, 
+  onClose, 
+  onSaved 
+}: { 
+  course: any; 
+  token: string; 
+  onClose: () => void; 
+  onSaved: () => void; 
+}) {
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    course.faculties?.map((f: any) => f._id || f) || []
+  );
+
+  useEffect(() => {
+    fetch('/api/v1/users?role=teacher', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setTeachers(data.data || []);
+        }
+      })
+      .catch(() => toast.error('Failed to load teachers'))
+      .finally(() => setFetching(false));
+  }, [token]);
+
+  const toggleTeacher = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const filteredTeachers = teachers.filter(t => {
+    const full = `${t.firstName || ''} ${t.lastName || ''}`.toLowerCase();
+    const mail = (t.email || '').toLowerCase();
+    const subj = (t.metadata?.subject || t.metadata?.designation || '').toLowerCase();
+    const q = search.toLowerCase();
+    return full.includes(q) || mail.includes(q) || subj.includes(q);
+  });
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/v1/courses/${course._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ faculties: selectedIds })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Failed to update faculties');
+      toast.success('Course faculties updated successfully!');
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Error updating faculties');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 15 }} 
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.94, y: 15 }} 
+        onClick={e => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <div className="h-1.5" style={{ background: 'linear-gradient(90deg, #0B132B, #C99A2E)' }} />
+        
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#0B132B', color: '#C99A2E' }}>
+              <GraduationCap size={20} />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 text-base">Assign Course Faculties</h2>
+              <p className="text-xs text-gray-500">Select faculty members and educators for this course</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+          {/* Search Box */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search faculty by name, email, or subject..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#C99A2E] focus:bg-white text-sm transition-all"
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-gray-500 font-medium px-1">
+            <span>{selectedIds.length} faculty selected</span>
+            {selectedIds.length > 0 && (
+              <button 
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="text-xs text-red-500 hover:underline font-semibold"
+              >
+                Clear Selection
+              </button>
+            )}
+          </div>
+
+          {fetching ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-3">
+              <div className="w-6 h-6 border-2 border-[#0B132B] border-t-[#C99A2E] rounded-full animate-spin" />
+              <p className="text-xs text-gray-400">Loading institute faculties...</p>
+            </div>
+          ) : filteredTeachers.length === 0 ? (
+            <div className="text-center py-10 px-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+              <GraduationCap className="mx-auto text-gray-400 mb-2" size={28} />
+              <p className="text-sm font-semibold text-gray-700">No faculties found</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {search ? 'Try a different search query' : 'Add teachers first in the Teachers section.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {filteredTeachers.map(teacher => {
+                const isSelected = selectedIds.includes(teacher._id);
+                const subject = teacher.metadata?.subject || teacher.metadata?.designation || teacher.metadata?.specialization || 'Educator';
+                return (
+                  <div
+                    key={teacher._id}
+                    onClick={() => toggleTeacher(teacher._id)}
+                    className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                      isSelected 
+                        ? 'bg-[#0B132B]/5 border-[#C99A2E] shadow-sm' 
+                        : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0B132B] to-[#1E293B] text-[#C99A2E] font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                        {teacher.profilePictureUrl ? (
+                          <img src={teacher.profilePictureUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          `${teacher.firstName?.[0] || 'T'}${teacher.lastName?.[0] || ''}`
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-gray-900 text-sm truncate">
+                            {teacher.firstName} {teacher.lastName}
+                          </p>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60 shrink-0">
+                            {subject}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 truncate">{teacher.email}</p>
+                      </div>
+                    </div>
+
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
+                      isSelected 
+                        ? 'bg-[#0B132B] border-[#0B132B] text-[#C99A2E]' 
+                        : 'border-gray-300 bg-white'
+                    }`}>
+                      {isSelected && <Check size={13} strokeWidth={3} />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-100 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={loading}
+            className="px-5 py-2.5 rounded-xl text-white text-sm font-bold flex items-center gap-2 transition-all shadow-md hover:opacity-95 disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #0B132B, #1E293B)' }}
+          >
+            {loading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <UserCheck size={16} className="text-[#C99A2E]" />
+            )}
+            Save Faculties ({selectedIds.length})
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 // ── Create/Edit Batch Modal ─────────────────────────────────────────────────────────
 function BatchModal({ batch, courseId, onClose, onSaved, token }: { batch?: any; courseId: string; onClose: () => void; onSaved: () => void; token: string }) {
@@ -200,6 +409,7 @@ export default function CourseDetailsPage() {
   const [token, setToken] = useState('');
   
   const [showCreate, setShowCreate] = useState(false);
+  const [showAssignFaculties, setShowAssignFaculties] = useState(false);
   const [editBatch, setEditBatch] = useState<any>(null);
   const [deleteBatch, setDeleteBatch] = useState<any>(null);
   const [bulkAssignBatch, setBulkAssignBatch] = useState<any>(null);
@@ -224,10 +434,32 @@ export default function CourseDetailsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const handleRemoveFaculty = async (facultyId: string, facultyName: string) => {
+    if (!confirm(`Are you sure you want to remove ${facultyName} from this course?`)) return;
+    try {
+      const currentIds = (course.faculties || []).map((f: any) => f._id || f);
+      const updatedIds = currentIds.filter((id: string) => id !== facultyId);
+      const res = await fetch(`/api/v1/courses/${courseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ faculties: updatedIds })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${facultyName} removed from course`);
+        fetchData();
+      } else {
+        toast.error(data.message || 'Failed to remove faculty');
+      }
+    } catch {
+      toast.error('Network error while removing faculty');
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6 max-w-7xl mx-auto flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-gray-200 border-t-[#C99A2E] rounded-full animate-spin" />
       </div>
     );
   }
@@ -244,94 +476,234 @@ export default function CourseDetailsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-8">
       {/* Back & Header */}
-      <div className="mb-6">
-        <button onClick={() => router.push('/admin/courses')} className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors mb-4">
-          <ArrowLeft size={16} /> Back to Courses
-        </button>
+      <div>
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <button onClick={() => router.push('/admin/courses')} className="flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+            <ArrowLeft size={16} /> Back to Courses
+          </button>
+          <button 
+            onClick={() => router.push(`/admin/courses/builder?id=${course._id}`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-gray-700 bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-all"
+          >
+            <Pencil size={14} /> Edit Course Details
+          </button>
+        </div>
         
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              {course.tag && <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">{course.tag}</span>}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-sm">
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {course.tag && (
+                <span className="text-[11px] font-black px-3 py-1 rounded-full bg-[#0B132B] text-[#C99A2E]">
+                  {course.tag}
+                </span>
+              )}
+              {course.targetExam && course.targetExam !== 'ALL' && (
+                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                  {course.targetExam}
+                </span>
+              )}
+              {course.targetClass && course.targetClass !== 'ALL' && (
+                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  {course.targetClass}
+                </span>
+              )}
+              {course.medium && course.medium !== 'ALL' && (
+                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                  {course.medium} Medium
+                </span>
+              )}
             </div>
-            <h1 className="text-2xl font-black text-gray-800">{course.name}</h1>
-            <p className="text-sm text-gray-500 mt-2 max-w-2xl">{course.description || 'No description available.'}</p>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">{course.name}</h1>
+            {course.subtitle && <p className="text-sm font-medium text-gray-600 mt-1">{course.subtitle}</p>}
+            <p className="text-sm text-gray-500 mt-3 max-w-3xl leading-relaxed">{course.description || 'No description provided.'}</p>
           </div>
-          <div className="flex flex-col gap-2 min-w-[200px] border-l border-gray-100 pl-6">
+          <div className="flex md:flex-col gap-4 min-w-[200px] border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6">
             <div>
-              <p className="text-[10px] text-gray-400 font-bold uppercase">Duration</p>
-              <p className="text-sm font-semibold text-gray-800">{calculateDuration(course.startDate, course.endDate, course.duration)}</p>
+              <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">Duration</p>
+              <p className="text-base font-bold text-gray-800">{calculateDuration(course.startDate, course.endDate, course.duration)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 font-bold uppercase">Fee</p>
-              <p className="text-sm font-semibold text-gray-800">₹{course.fee?.toLocaleString() || 'N/A'}</p>
+              <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">Course Fee</p>
+              <p className="text-2xl font-black text-gray-900">₹{course.fee?.toLocaleString() || '0'}</p>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Course Faculties Section */}
+      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center font-bold">
+                <GraduationCap size={18} />
+              </div>
+              <h2 className="text-xl font-black text-gray-900">Course Faculties & Mentors</h2>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {course.faculties?.length || 0} assigned educator{(course.faculties?.length || 0) !== 1 ? 's' : ''} for this course
+            </p>
+          </div>
+          <button 
+            onClick={() => setShowAssignFaculties(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-white text-xs shadow-md transition-all hover:opacity-95 active:scale-95"
+            style={{ background: 'linear-gradient(135deg, #0B132B, #1E293B)' }}
+          >
+            <UserPlus size={15} className="text-[#C99A2E]" />
+            Assign / Manage Faculties
+          </button>
+        </div>
+
+        {!course.faculties || course.faculties.length === 0 ? (
+          <div className="text-center py-10 px-4 bg-gray-50/70 rounded-2xl border border-dashed border-gray-200">
+            <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3 text-gray-400">
+              <GraduationCap size={28} />
+            </div>
+            <h3 className="text-sm font-bold text-gray-700">No faculties assigned yet</h3>
+            <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+              Assign top educators to this course so students know who will be teaching them and leading the sessions.
+            </p>
+            <button 
+              onClick={() => setShowAssignFaculties(true)}
+              className="mt-4 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm hover:opacity-95 transition-all"
+              style={{ background: '#0B132B' }}
+            >
+              + Assign First Faculty
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {course.faculties.map((f: any) => {
+              const name = `${f.firstName || ''} ${f.lastName || ''}`.trim() || 'Faculty';
+              const subject = f.metadata?.subject || f.metadata?.designation || f.metadata?.specialization || 'Educator';
+              const bio = f.metadata?.bio || f.metadata?.experience || '';
+              return (
+                <div 
+                  key={f._id}
+                  className="p-5 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 hover:shadow-md transition-all relative group flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0B132B] to-[#1E293B] text-[#C99A2E] font-black text-sm flex items-center justify-center shadow-md overflow-hidden shrink-0">
+                          {f.profilePictureUrl ? (
+                            <img src={f.profilePictureUrl} alt={name} className="w-full h-full object-cover" />
+                          ) : (
+                            `${f.firstName?.[0] || 'T'}${f.lastName?.[0] || ''}`
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-gray-900 text-sm">{name}</h4>
+                          <span className="inline-block mt-0.5 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60">
+                            {subject}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleRemoveFaculty(f._id, name)}
+                        title="Remove from course"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+
+                    {bio && (
+                      <p className="text-xs text-gray-500 line-clamp-2 mt-2 leading-relaxed">
+                        {bio}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-3 mt-3 border-t border-gray-100 flex flex-col gap-1 text-[11px] text-gray-500">
+                    {f.email && (
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Mail size={12} className="text-gray-400 shrink-0" />
+                        <span className="truncate">{f.email}</span>
+                      </div>
+                    )}
+                    {f.phone && (
+                      <div className="flex items-center gap-1.5">
+                        <Phone size={12} className="text-gray-400 shrink-0" />
+                        <span>{f.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Batches Section */}
-      <div className="flex items-center justify-between gap-4 mb-6 mt-10">
-        <div>
-          <h2 className="text-xl font-black text-gray-800">Course Batches</h2>
-          <p className="text-sm text-gray-400 mt-0.5">{batches.length} batch{batches.length !== 1 ? 'es' : ''} in this course</p>
+      <div>
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-xl font-black text-gray-900">Course Batches</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{batches.length} batch{batches.length !== 1 ? 'es' : ''} in this course</p>
+          </div>
+          <button onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-white text-xs transition-all hover:opacity-90 active:scale-95 shadow-sm"
+            style={{ background: '#059669' }}>
+            <Plus size={16} /> Add Batch
+          </button>
         </div>
-        <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90 active:scale-95"
-          style={{ background: '#059669' }}>
-          <Plus size={16} /> Add Batch
-        </button>
+
+        {batches.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
+            <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3"><Layers size={26} className="text-gray-300" /></div>
+            <p className="font-bold text-gray-700 text-sm">No batches created yet</p>
+            <p className="text-xs text-gray-400 mt-1">Students need a batch to enroll in this course.</p>
+            <button onClick={() => setShowCreate(true)} className="mt-4 px-4 py-2 rounded-xl text-white text-xs font-bold"
+              style={{ background: '#059669' }}>+ Add First Batch</button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {batches.map((b, i) => {
+              const ts = TYPE_COLORS[b.type] || TYPE_COLORS.offline;
+              return (
+                <motion.div key={b._id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all"
+                  style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+                  <div className="p-5 relative group">
+                    <div className="absolute top-4 right-4 z-10">
+                      <ActionMenu actions={[
+                        { label: 'Edit', icon: Pencil, onClick: () => setEditBatch(b) },
+                        { label: 'Assign Students', icon: Users, onClick: () => setBulkAssignBatch(b) },
+                        { label: 'Move to Recycle Bin', icon: Trash2, danger: true, onClick: () => setDeleteBatch(b) }
+                      ]} />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-3 pr-8">
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: ts.bg, color: ts.color }}>{ts.label}</span>
+                      {b.section && <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">Sec {b.section}</span>}
+                    </div>
+                    <h3 className="font-bold text-gray-800 text-base mb-1 leading-snug group-hover:text-blue-700 transition-colors pr-6">{b.name}</h3>
+                    {b.description && <p className="text-xs text-gray-500 leading-relaxed mb-4 line-clamp-2">{b.description}</p>}
+                    
+                    <div className="flex items-center gap-2 mb-2 pt-2 border-t border-gray-100">
+                      <Users size={14} className="text-gray-400" />
+                      <p className="text-xs font-semibold text-gray-600">{b.students?.length || 0} students enrolled</p>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {batches.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4"><Layers size={28} className="text-gray-300" /></div>
-          <p className="font-semibold text-gray-500">No batches created yet</p>
-          <p className="text-sm text-gray-400 mt-1">Students need a batch to enroll in this course.</p>
-          <button onClick={() => setShowCreate(true)} className="mt-4 px-5 py-2.5 rounded-xl text-white text-sm font-bold"
-            style={{ background: '#059669' }}>+ Add First Batch</button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {batches.map((b, i) => {
-            const ts = TYPE_COLORS[b.type] || TYPE_COLORS.offline;
-            return (
-              <motion.div key={b._id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all"
-                style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-                <div className="p-5 relative group">
-                  <div className="absolute top-4 right-4 z-10">
-                    <ActionMenu actions={[
-                      { label: 'Edit', icon: Pencil, onClick: () => setEditBatch(b) },
-                      { label: 'Assign Students', icon: Users, onClick: () => setBulkAssignBatch(b) },
-                      { label: 'Move to Recycle Bin', icon: Trash2, danger: true, onClick: () => setDeleteBatch(b) }
-                    ]} />
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mb-3 pr-8">
-                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: ts.bg, color: ts.color }}>{ts.label}</span>
-                    {b.section && <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">Sec {b.section}</span>}
-                  </div>
-                  <h3 className="font-bold text-gray-800 text-base mb-1 leading-snug group-hover:text-blue-700 transition-colors pr-6">{b.name}</h3>
-                  {b.description && <p className="text-xs text-gray-500 leading-relaxed mb-4 line-clamp-2">{b.description}</p>}
-                  
-                  <div className="flex items-center gap-2 mb-5">
-                    <Users size={14} className="text-gray-400" />
-                    <p className="text-xs font-semibold text-gray-600">{b.students?.length || 0} students enrolled</p>
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-1">
-                    <Users size={14} className="text-gray-400" />
-                    <p className="text-xs font-semibold text-gray-600">{b.students?.length || 0} students enrolled</p>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+      {showAssignFaculties && (
+        <AssignFacultiesModal 
+          course={course} 
+          token={token} 
+          onClose={() => setShowAssignFaculties(false)} 
+          onSaved={fetchData} 
+        />
       )}
-
       {showCreate && <BatchModal courseId={courseId} token={token} onClose={() => setShowCreate(false)} onSaved={fetchData} />}
       {editBatch  && <BatchModal batch={editBatch} courseId={courseId} token={token} onClose={() => setEditBatch(null)} onSaved={fetchData} />}
       {deleteBatch && <DeleteConfirm batch={deleteBatch} token={token} onClose={() => setDeleteBatch(null)} onDeleted={fetchData} />}

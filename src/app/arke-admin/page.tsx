@@ -208,13 +208,20 @@ export default function AdminLogin() {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="rkrana6631@gmail.com"
+                    placeholder="geniusattechie@gmail.com"
                     className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-100 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium"
                     required
                   />
                 </div>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <span className="text-[11px] text-gray-400">Quick fill:</span>
+                  <button
+                    type="button"
+                    onClick={() => setEmail('geniusattechie@gmail.com')}
+                    className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-2.5 py-1 rounded-md transition-colors"
+                  >
+                    geniusattechie@gmail.com
+                  </button>
                   <button
                     type="button"
                     onClick={() => setEmail('rkrana6631@gmail.com')}

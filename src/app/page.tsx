@@ -73,6 +73,10 @@ export default function LandingPage() {
       try { setUser(JSON.parse(storedUser)); } catch (e) {}
     }
 
+    if (window.location.search.includes('login=true')) {
+      setIsLoginModalOpen(true);
+    }
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 

@@ -18,7 +18,40 @@ exports.getCourses = async (reqUser, filters = {}) => {
   if (reqUser.role === 'student') {
     query.isPublished = { $ne: false };
   }
-  return await CourseModel.find(query).sort({ createdAt: -1 });
+  if (filters.targetExam && filters.targetExam !== 'ALL') {
+    query.$or = [
+      { targetExam: filters.targetExam },
+      { targetExam: 'ALL' },
+      { targetExam: { $exists: false } },
+      { targetExams: filters.targetExam },
+      { targetExams: 'ALL' }
+    ];
+  }
+  if (filters.targetClass && filters.targetClass !== 'ALL') {
+    query.$and = query.$and || [];
+    query.$and.push({
+      $or: [
+        { targetClass: filters.targetClass },
+        { targetClass: 'ALL' },
+        { targetClass: { $exists: false } },
+        { targetClasses: filters.targetClass },
+        { targetClasses: 'ALL' }
+      ]
+    });
+  }
+  if (filters.medium && filters.medium !== 'ALL') {
+    query.$and = query.$and || [];
+    query.$and.push({
+      $or: [
+        { medium: filters.medium },
+        { medium: 'ALL' },
+        { medium: { $exists: false } }
+      ]
+    });
+  }
+  return await CourseModel.find(query)
+    .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
+    .sort({ createdAt: -1 });
 };
 
 exports.getCourseById = async (id, reqUser) => {
@@ -26,7 +59,7 @@ exports.getCourseById = async (id, reqUser) => {
   if (reqUser && reqUser.role !== 'super_super_admin' && reqUser.role !== 'student') {
     query.instituteId = reqUser.instituteId;
   }
-  return await CourseModel.findOne(query);
+  return await CourseModel.findOne(query).populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role');
 };
 
 exports.updateCourse = async (id, payload, reqUser) => {
@@ -34,7 +67,7 @@ exports.updateCourse = async (id, payload, reqUser) => {
     { _id: id, instituteId: reqUser.instituteId },
     payload,
     { new: true }
-  );
+  ).populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role');
 };
 
 exports.deleteCourse = async (id, reqUser) => {

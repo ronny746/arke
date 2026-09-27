@@ -8,29 +8,33 @@ const validateCourseDateRange = (value, helpers) => {
     return helpers.message('Course start date must be on or before the end date.');
   }
 
-  if (end && !Number.isNaN(end.getTime()) && end < new Date(new Date().setHours(0, 0, 0, 0))) {
-    return helpers.message('Course end date cannot be in the past.');
-  }
-
   return value;
 };
 
 exports.createCourseSchema = Joi.object({
-  name: Joi.string().required(),
-  description: Joi.string().optional().allow(''),
-  tag: Joi.string().optional().allow(''),
+  name: Joi.string().required().messages({
+    'string.empty': 'Course name is required',
+    'any.required': 'Course name is required'
+  }),
+  description: Joi.string().optional().allow('', null),
+  tag: Joi.string().optional().allow('', null),
   fee: Joi.number().optional().allow(null),
   actualFee: Joi.number().optional().allow(null),
-  duration: Joi.string().optional().allow(''),
+  duration: Joi.string().optional().allow('', null),
   startDate: Joi.date().optional().allow(null, ''),
   endDate: Joi.date().optional().allow(null, ''),
-  subtitle: Joi.string().optional().allow(''),
-  features: Joi.array().items(Joi.string()).optional(),
-  bestFor: Joi.array().items(Joi.string()).optional(),
-  color: Joi.string().optional().allow(''),
+  subtitle: Joi.string().optional().allow('', null),
+  features: Joi.array().items(Joi.string().allow('')).optional(),
+  bestFor: Joi.array().items(Joi.string().allow('')).optional(),
+  color: Joi.string().optional().allow('', null),
   isPublished: Joi.boolean().optional(),
-  badge: Joi.string().optional().allow(''),
+  badge: Joi.string().optional().allow('', null),
   popular: Joi.boolean().optional(),
+  targetExam: Joi.string().optional().allow('', 'ALL', null),
+  targetExams: Joi.array().items(Joi.string()).optional(),
+  targetClass: Joi.string().optional().allow('', 'ALL', null),
+  targetClasses: Joi.array().items(Joi.string()).optional(),
+  medium: Joi.string().optional().allow('', 'ALL', null),
   access: Joi.object({
     liveClasses: Joi.boolean().optional(),
     studyMaterials: Joi.boolean().optional(),
@@ -38,25 +42,31 @@ exports.createCourseSchema = Joi.object({
     testSeries: Joi.boolean().optional()
   }).optional(),
   defaultBatchId: Joi.string().optional().allow(null, ''),
+  faculties: Joi.array().items(Joi.string()).optional(),
   isActive: Joi.boolean().optional()
-}).custom(validateCourseDateRange);
+}).unknown(true).custom(validateCourseDateRange);
 
 exports.updateCourseSchema = Joi.object({
   name: Joi.string().optional(),
-  description: Joi.string().optional().allow(''),
-  tag: Joi.string().optional().allow(''),
+  description: Joi.string().optional().allow('', null),
+  tag: Joi.string().optional().allow('', null),
   fee: Joi.number().optional().allow(null),
   actualFee: Joi.number().optional().allow(null),
-  duration: Joi.string().optional().allow(''),
+  duration: Joi.string().optional().allow('', null),
   startDate: Joi.date().optional().allow(null, ''),
   endDate: Joi.date().optional().allow(null, ''),
-  subtitle: Joi.string().optional().allow(''),
-  features: Joi.array().items(Joi.string()).optional(),
-  bestFor: Joi.array().items(Joi.string()).optional(),
-  color: Joi.string().optional().allow(''),
+  subtitle: Joi.string().optional().allow('', null),
+  features: Joi.array().items(Joi.string().allow('')).optional(),
+  bestFor: Joi.array().items(Joi.string().allow('')).optional(),
+  color: Joi.string().optional().allow('', null),
   isPublished: Joi.boolean().optional(),
-  badge: Joi.string().optional().allow(''),
+  badge: Joi.string().optional().allow('', null),
   popular: Joi.boolean().optional(),
+  targetExam: Joi.string().optional().allow('', 'ALL', null),
+  targetExams: Joi.array().items(Joi.string()).optional(),
+  targetClass: Joi.string().optional().allow('', 'ALL', null),
+  targetClasses: Joi.array().items(Joi.string()).optional(),
+  medium: Joi.string().optional().allow('', 'ALL', null),
   access: Joi.object({
     liveClasses: Joi.boolean().optional(),
     studyMaterials: Joi.boolean().optional(),
@@ -64,5 +74,6 @@ exports.updateCourseSchema = Joi.object({
     testSeries: Joi.boolean().optional()
   }).optional(),
   defaultBatchId: Joi.string().optional().allow(null, ''),
+  faculties: Joi.array().items(Joi.string()).optional(),
   isActive: Joi.boolean().optional()
-}).custom(validateCourseDateRange);
+}).unknown(true).custom(validateCourseDateRange);

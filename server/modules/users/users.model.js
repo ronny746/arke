@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
   },
   qrId: { type: String },
   faceId: { type: String },
+  activeSessionId: { type: String },
   metadata: { type: mongoose.Schema.Types.Mixed } // Stores role-specific data like student rollNo, teacher bio
 }, { timestamps: true });
 

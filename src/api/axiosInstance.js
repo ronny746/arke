@@ -48,11 +48,41 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Agar 401 Unauthorized aata hai, toh user ko logout karne ka logic yahan daal sakte hain
+    // Agar 401 Unauthorized aata hai, toh user ko logout karne ka logic
     if (error.response && error.response.status === 401) {
       console.error('Token expired or unauthorized. Please login again.');
-      // localStorage.removeItem('token');
-      // window.location.href = '/login'; // Redirect to login
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('impersonateId');
+
+        const pathname = window.location.pathname;
+        let loginUrl = '/?login=true';
+
+        if (pathname.startsWith('/admin') || pathname.startsWith('/arke-admin')) {
+          loginUrl = '/arke-admin';
+        } else if (pathname.startsWith('/skd-admin')) {
+          loginUrl = '/skd-admin';
+        } else if (pathname.startsWith('/teacher') || pathname.startsWith('/arke-teacher')) {
+          loginUrl = '/arke-teacher';
+        } else if (pathname.startsWith('/skd-teacher')) {
+          loginUrl = '/skd-teacher';
+        } else if (pathname.startsWith('/parent') || pathname.startsWith('/student')) {
+          loginUrl = '/?login=true';
+        }
+
+        const isAlreadyOnLoginPage =
+          pathname === '/arke-admin' ||
+          pathname === '/skd-admin' ||
+          pathname === '/arke-teacher' ||
+          pathname === '/skd-teacher' ||
+          pathname === '/login' ||
+          (pathname === '/' && window.location.search.includes('login=true'));
+
+        if (!isAlreadyOnLoginPage) {
+          window.location.href = loginUrl;
+        }
+      }
     }
     return Promise.reject(error);
   }

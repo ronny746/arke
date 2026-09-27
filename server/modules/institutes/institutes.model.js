@@ -32,4 +32,4 @@ const instituteSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Institute', instituteSchema);
+module.exports = mongoose.models.Institute || mongoose.model('Institute', instituteSchema);

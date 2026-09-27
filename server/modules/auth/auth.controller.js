@@ -42,28 +42,27 @@ exports.changePassword = async (req, res, next) => {
 
 exports.requestOtp = async (req, res, next) => {
     try {
-        const { mobileNumber, isSignup } = req.body;
+        const { mobileNumber } = req.body;
         
         if (!mobileNumber) {
             return errorResponse(res, "Mobile number is required", null, 400);
         }
 
-        const cleanPhone = mobileNumber.replace(/\D/g, '').slice(-10);
-        const user = await User.findOne({ phone: cleanPhone });
-
-        // No longer checking isSignup vs existing user. Just send the OTP.
-
-
-        const result = await sendMobileOTP(mobileNumber);
-
-        if (result.success) {
-            // Save generated OTP to database
-            await OtpModel.create({ phone: cleanPhone, otp: result.otp });
-            
-            return successResponse(res, "OTP sent successfully to mobile number");
-        } else {
-            return errorResponse(res, "Failed to send OTP", null, 500);
+        const cleanPhone = String(mobileNumber).replace(/\D/g, '').slice(-10);
+        if (cleanPhone.length !== 10) {
+            return errorResponse(res, "Please enter a valid 10-digit mobile number", null, 400);
         }
+
+        const result = await sendMobileOTP(cleanPhone);
+        const otp = result.otp || Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Save generated OTP to database
+        await OtpModel.create({ phone: cleanPhone, otp });
+
+        // Always log OTP to server terminal for instant development / testing
+        console.log('\n\n=========================================\n🔥 MOBILE OTP FOR %s IS: %s 🔥\n=========================================\n\n', cleanPhone, otp);
+
+        return successResponse(res, "OTP sent successfully to mobile number", { phone: cleanPhone });
     } catch (err) {
         next(err);
     }
@@ -71,14 +70,14 @@ exports.requestOtp = async (req, res, next) => {
 
 exports.verifyOtp = async (req, res, next) => {
     try {
-        const { phone, otp, isSignup, name, email, studentClass, state, city, role } = req.body;
+        const { phone, otp, isSignup, name, role } = req.body;
         const requestedRole = role || 'student';
 
         if (!phone || !otp) {
             return errorResponse(res, "Phone and OTP are required", null, 400);
         }
 
-        const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+        const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
 
         let user = await User.findOne({ phone: cleanPhone, role: requestedRole });
         let isRollNoBypass = false;
@@ -91,7 +90,6 @@ exports.verifyOtp = async (req, res, next) => {
 
             if (enableRollNumberLogin) {
                 const rollNoStr = String(user.metadata.rollNo).trim();
-                // In-house students don't have "SKD" in their roll number
                 if (!/SKD/i.test(rollNoStr)) {
                     if (String(otp).trim() === rollNoStr) {
                         isRollNoBypass = true;
@@ -114,18 +112,18 @@ exports.verifyOtp = async (req, res, next) => {
                 const defaultInstitute = await Institute.findOne();
                 
                 const userFields = {
-                    firstName: requestedRole === 'parent' ? 'Parent' : 'Student',
-                    lastName: '.',
+                    firstName: requestedRole === 'parent' ? 'Parent' : '',
+                    lastName: '',
                     phone: cleanPhone,
                     role: requestedRole,
                     instituteId: defaultInstitute ? defaultInstitute._id : null,
-                    password: Math.random().toString(36).slice(-8), // random secure password
+                    password: Math.random().toString(36).slice(-8),
                     metadata: {
                         isProfileIncomplete: true
                     }
                 };
                 if (requestedRole !== 'parent') {
-                    userFields.email = `${requestedRole}_${cleanPhone}@skd.com`;
+                    userFields.email = `${requestedRole}_${cleanPhone}@arkescholars.com`;
                 }
                 user = await User.create(userFields);
             }
@@ -134,22 +132,38 @@ exports.verifyOtp = async (req, res, next) => {
             await OtpModel.deleteOne({ _id: otpRecord._id });
         }
 
-        // Generate JWT Token (matching AuthService behavior)
+        // Generate Session ID for single-device verification
+        const sessionId = Math.random().toString(36).substring(2, 15);
+        user.activeSessionId = sessionId;
+        await User.updateOne({ _id: user._id }, { $set: { activeSessionId: sessionId } });
+
+        // Generate JWT Token
         const token = jwt.sign(
-            { userId: user._id, role: user.role, instituteId: user.instituteId }, 
+            { userId: user._id, role: user.role, instituteId: user.instituteId, sessionId }, 
             process.env.JWT_SECRET || 'your_jwt_secret', 
-            { expiresIn: process.env.JWT_ACCESS_EXPIRATION_MINUTES ? `${process.env.JWT_ACCESS_EXPIRATION_MINUTES}m` : '1d' }
+            { expiresIn: '30d' }
+        );
+
+        const isNewUser = Boolean(
+            !user.firstName || 
+            user.firstName === 'Student' || 
+            user.firstName === 'Parent' || 
+            !user.metadata?.targetExam || 
+            user.metadata?.isProfileIncomplete
         );
 
         return successResponse(res, isSignup ? "Registration successful" : "Login successful", {
             token,
+            isNewUser,
             user: {
                 id: user._id,
+                _id: user._id,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
                 phone: user.phone,
-                role: user.role
+                role: user.role,
+                metadata: user.metadata
             }
         });
 
@@ -194,8 +208,8 @@ exports.requestEmailOtp = async (req, res, next) => {
         }
         
         let roleQuery = role;
-        if (role === 'admin') {
-            roleQuery = { $in: ['admin', 'super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'] };
+        if (role === 'admin' || role === 'super_admin') {
+            roleQuery = { $in: ['admin', 'super_admin', 'super_super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'] };
         }
 
         const user = await User.findOne({ email: email.toLowerCase(), role: roleQuery });
@@ -232,8 +246,8 @@ exports.verifyEmailOtp = async (req, res, next) => {
         }
 
         let roleQuery = role;
-        if (role === 'admin') {
-            roleQuery = { $in: ['admin', 'super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'] };
+        if (role === 'admin' || role === 'super_admin') {
+            roleQuery = { $in: ['admin', 'super_admin', 'super_super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'] };
         }
 
         const user = await User.findOne({ email: email.toLowerCase(), role: roleQuery });
@@ -253,7 +267,7 @@ exports.verifyEmailOtp = async (req, res, next) => {
         // Generate JWT
         const sessionId = Math.random().toString(36).substring(2, 15);
         user.activeSessionId = sessionId;
-        await user.save();
+        await User.updateOne({ _id: user._id }, { $set: { activeSessionId: sessionId } });
 
         const token = jwt.sign(
             { 

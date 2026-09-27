@@ -17,4 +17,4 @@ const batchSchema = new mongoose.Schema({
 // Prevent duplicate batch and section for the same institute
 batchSchema.index({ instituteId: 1, name: 1, section: 1 }, { unique: true });
 
-module.exports = mongoose.model('Batch', batchSchema);
+module.exports = mongoose.models.Batch || mongoose.model('Batch', batchSchema);

@@ -17,7 +17,40 @@ router.get('/', async (req, res, next) => {
     if (req.query.instituteId) {
       query.instituteId = req.query.instituteId;
     }
-    const courses = await CourseModel.find(query).sort({ updatedAt: -1, createdAt: -1 });
+    if (req.query.targetExam && req.query.targetExam !== 'ALL') {
+      query.$or = [
+        { targetExam: req.query.targetExam },
+        { targetExam: 'ALL' },
+        { targetExam: { $exists: false } },
+        { targetExams: req.query.targetExam },
+        { targetExams: 'ALL' }
+      ];
+    }
+    if (req.query.targetClass && req.query.targetClass !== 'ALL') {
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { targetClass: req.query.targetClass },
+          { targetClass: 'ALL' },
+          { targetClass: { $exists: false } },
+          { targetClasses: req.query.targetClass },
+          { targetClasses: 'ALL' }
+        ]
+      });
+    }
+    if (req.query.medium && req.query.medium !== 'ALL') {
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { medium: req.query.medium },
+          { medium: 'ALL' },
+          { medium: { $exists: false } }
+        ]
+      });
+    }
+    const courses = await CourseModel.find(query)
+      .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
+      .sort({ updatedAt: -1, createdAt: -1 });
     return res.status(200).json({ success: true, data: courses });
   } catch (error) {
     next(error);
@@ -36,7 +69,7 @@ router.get('/:id', async (req, res, next) => {
         { endDate: null },
         { endDate: { $gt: new Date() } }
       ]
-    });
+    }).populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role');
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
     return res.status(200).json({ success: true, data: course });
   } catch (error) {

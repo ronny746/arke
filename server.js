@@ -10,7 +10,7 @@ const connectDB = require('./server/config/db');
 const mediaService = require('./server/services/mediaService');
 const setupSocketIO = require('./server/socket');
 
-const dev = process.env.NODE_ENV === 'development';
+const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev });
 const handle = nextApp.getRequestHandler();
 

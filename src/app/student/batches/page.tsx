@@ -2,16 +2,62 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Users, LayoutList, BookOpen, Video, PenTool, FileCheck, Star, ChevronRight, TrendingUp } from "lucide-react";
-import { motion } from "framer-motion";
+import Link from "next/link";
+import { 
+  Users, 
+  LayoutList, 
+  BookOpen, 
+  Video, 
+  PenTool, 
+  FileCheck, 
+  Star, 
+  ChevronRight, 
+  TrendingUp, 
+  Compass, 
+  Search, 
+  Sparkles, 
+  ArrowRight, 
+  Clock, 
+  CheckCircle2, 
+  ShieldCheck, 
+  SlidersHorizontal 
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import { studentAPI } from "@/api/index.js";
 
+const EXAM_GOALS = [
+  { id: "NEET", title: "NEET UG", tagline: "Medical Entrance" },
+  { id: "IIT-JEE", title: "IIT JEE", tagline: "Engineering (Mains & Adv)" },
+  { id: "BOARDS-11-12", title: "Class 11 & 12", tagline: "Boards Prep" },
+  { id: "FOUNDATION-9-10", title: "Class 9 & 10", tagline: "Foundation & Olympiad" },
+  { id: "CUET-GOVT", title: "CUET & Govt", tagline: "Central Univ & Aptitude" }
+];
+
 export default function MyBatchesPage() {
   const router = useRouter();
-  const [batches, setBatches] = useState([]);
+  const [user, setUser] = useState<any>(null);
+  const [batches, setBatches] = useState<any[]>([]);
+  const [availableCourses, setAvailableCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingCourses, setLoadingCourses] = useState(true);
 
+  // Filter & Search States
+  const [activeTab, setActiveTab] = useState<'ENROLLED' | 'EXPLORE'>('ENROLLED');
+  const [selectedGoalFilter, setSelectedGoalFilter] = useState<string>('RECOMMENDED');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (stored) {
+      try {
+        const u = JSON.parse(stored);
+        setUser(u);
+      } catch (e) {}
+    }
+  }, []);
+
+  // Fetch Enrolled Batches
   useEffect(() => {
     const fetchBatches = async () => {
       try {
@@ -22,7 +68,7 @@ export default function MyBatchesPage() {
           toast.error(res.data?.message || "Failed to load batches");
         }
       } catch (err) {
-        toast.error("Network error");
+        toast.error("Network error fetching batches");
       } finally {
         setLoading(false);
       }
@@ -30,167 +76,521 @@ export default function MyBatchesPage() {
     fetchBatches();
   }, []);
 
+  // Fetch Public Available Courses for Explore
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoadingCourses(true);
+        const res = await fetch('/api/v1/public/courses');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setAvailableCourses(data.data);
+        }
+      } catch (err) {
+        console.error("Failed to load available courses", err);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+    fetchCourses();
+  }, []);
+
+  // Enrolled course IDs set for quick lookup
+  const enrolledCourseIds = new Set<string>();
+  batches.forEach((b: any) => {
+    const cId = typeof b.courseId === 'object' ? b.courseId?._id : b.courseId;
+    if (cId) enrolledCourseIds.add(cId.toString());
+    if (b._id) enrolledCourseIds.add(b._id.toString());
+  });
+
+  const studentGoal = user?.metadata?.targetExam || 'NEET';
+  const studentClass = user?.metadata?.studentClass || 'Class 11';
+
+  // Filter Available Courses
+  const filteredAvailableCourses = availableCourses.filter((course: any) => {
+    // Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchName = (course.name || '').toLowerCase().includes(q);
+      const matchSub = (course.subtitle || '').toLowerCase().includes(q);
+      const matchExam = (course.targetExam || '').toLowerCase().includes(q);
+      if (!matchName && !matchSub && !matchExam) return false;
+    }
+
+    // Tab Goal Filter
+    if (selectedGoalFilter === 'RECOMMENDED') {
+      return !course.targetExam || course.targetExam === studentGoal || course.targetExam === 'ALL';
+    }
+    if (selectedGoalFilter === 'CLASS') {
+      return !course.targetClass || course.targetClass === studentClass || course.targetClass === 'ALL';
+    }
+    if (selectedGoalFilter !== 'ALL') {
+      return course.targetExam === selectedGoalFilter;
+    }
+    return true;
+  });
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.1 }
+      transition: { staggerChildren: 0.08 }
     }
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 15 },
     show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
   };
 
   return (
-    <div className="animate-fade-in max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <header className="relative overflow-hidden rounded-3xl bg-white dark:bg-surface-800 p-8 md:p-10 border border-surface-200 dark:border-surface-700 shadow-sm">
-        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
-          <LayoutList size={200} />
-        </div>
-        <div className="relative z-10 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-display font-bold text-surface-900 dark:text-white mb-2">
-              My Enrolled Courses
+    <div className="animate-fade-in max-w-7xl mx-auto space-y-8 pb-16">
+      
+      {/* Page Header */}
+      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B132B] via-[#111C3A] to-[#1C2541] p-8 md:p-10 text-white shadow-xl border border-gray-800">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#C99A2E]/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-[#C99A2E] text-[#0B132B]">
+                Academic Hub
+              </span>
+              <span className="text-xs font-semibold text-gray-300">
+                Target: <strong className="text-[#C99A2E]">{studentGoal}</strong> • {studentClass}
+              </span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              My Courses & Batch Explorer
             </h1>
-            <p className="text-surface-500 dark:text-surface-400">
-              Manage your active courses, track progress, and jump directly into your content.
+            <p className="text-sm text-gray-300 max-w-xl font-medium">
+              Access your enrolled classrooms, daily DPPs, and explore specialized preparatory batches for your target goal.
             </p>
           </div>
-          <div className="hidden md:flex items-center gap-3 bg-surface-50 dark:bg-surface-900 px-5 py-3 rounded-2xl border border-surface-200 dark:border-surface-700 shadow-inner">
-            <TrendingUp className="text-accent-500" />
-            <div>
-              <p className="text-xs font-bold text-surface-500 uppercase tracking-wider">Total Active</p>
-              <p className="text-xl font-black text-surface-900 dark:text-white leading-none">{batches.length}</p>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10">
+              <TrendingUp className="text-[#C99A2E]" size={24} />
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Enrolled Batches</p>
+                <p className="text-2xl font-black text-white leading-none mt-0.5">{batches.length}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10">
+              <Compass className="text-emerald-400" size={24} />
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Available Batches</p>
+                <p className="text-2xl font-black text-white leading-none mt-0.5">{availableCourses.length}</p>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-72 bg-surface-100 dark:bg-surface-800 rounded-3xl animate-pulse border border-surface-200 dark:border-surface-700"></div>
-          ))}
-        </div>
-      ) : batches.length === 0 ? (
-        <div className="text-center py-20 bg-white dark:bg-surface-800 rounded-3xl border border-dashed border-surface-200 dark:border-surface-700 shadow-sm">
-          <div className="w-20 h-20 bg-surface-50 dark:bg-surface-900 rounded-full flex items-center justify-center mx-auto mb-4">
-            <LayoutList size={32} className="text-surface-400" />
-          </div>
-          <h3 className="text-xl font-bold text-surface-700 dark:text-surface-300">No active batches</h3>
-          <p className="text-surface-500 mt-2">You are not enrolled in any courses right now.</p>
-          <button onClick={() => window.location.href = '/'} className="mt-6 px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-bold rounded-xl shadow-lg shadow-accent-500/20 transition-all">
-            Browse Courses
+      {/* Main Mode Navigation Tabs (Enrolled vs Explore) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
+        <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-2xl w-fit">
+          <button
+            onClick={() => setActiveTab('ENROLLED')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all ${
+              activeTab === 'ENROLLED'
+                ? 'bg-[#0B132B] text-white shadow-md'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <LayoutList size={16} className={activeTab === 'ENROLLED' ? 'text-[#C99A2E]' : ''} />
+            <span>My Enrolled Courses ({batches.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('EXPLORE')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all ${
+              activeTab === 'EXPLORE'
+                ? 'bg-[#0B132B] text-white shadow-md'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Compass size={16} className={activeTab === 'EXPLORE' ? 'text-[#C99A2E]' : ''} />
+            <span>Explore All Batches</span>
+            <span className="w-2 h-2 rounded-full bg-[#C99A2E] animate-pulse"></span>
           </button>
         </div>
-      ) : (
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {batches.map((batch: any, idx: number) => {
-            const course = batch.courseId || {};
-            const access = course.access || { studyMaterials: true, liveClasses: true, dpps: true, testSeries: true };
-            const isEnded = course.endDate && new Date(course.endDate) < new Date();
 
-            return (
-              <motion.div 
-                key={batch._id} 
-                variants={itemVariants} 
-                className={`group flex flex-col bg-white dark:bg-surface-800 rounded-3xl shadow-xl shadow-surface-500/5 border overflow-hidden transition-all duration-300 ${isEnded ? 'border-red-200 dark:border-red-900/50 opacity-80' : 'border-surface-200 dark:border-surface-700 hover:shadow-2xl hover:border-accent-300 dark:hover:border-accent-500/50'}`}
+        {activeTab === 'EXPLORE' && (
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              placeholder="Search batches, exams, subjects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-gray-200 text-xs sm:text-sm font-medium focus:border-[#0B132B] focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 1: MY ENROLLED COURSES TAB */}
+      {activeTab === 'ENROLLED' && (
+        <div className="space-y-8">
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-72 bg-gray-100 rounded-3xl animate-pulse border border-gray-200"></div>
+              ))}
+            </div>
+          ) : batches.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-300 p-8 space-y-4">
+              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto text-[#C99A2E]">
+                <LayoutList size={32} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-gray-900">No Enrolled Courses Yet</h3>
+                <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto">
+                  You are currently not enrolled in any academic batches. Explore our top recommended batches tailored for <strong>{studentGoal}</strong>.
+                </p>
+              </div>
+              <button 
+                onClick={() => setActiveTab('EXPLORE')} 
+                className="px-6 py-3 bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] font-black text-xs sm:text-sm rounded-xl shadow-lg transition-all"
               >
-                <div className={`h-32 relative p-6 flex flex-col justify-end bg-gradient-to-br ${
-                  isEnded ? 'from-gray-500 to-gray-600 grayscale' :
-                  idx % 3 === 0 ? 'from-blue-500 to-indigo-600' : 
-                  idx % 3 === 1 ? 'from-emerald-500 to-teal-600' : 
-                  'from-violet-500 to-purple-600'
-                }`}>
-                  <div className="absolute top-4 right-4 flex items-center gap-2">
-                    {course.tag && (
-                      <span className="bg-white/90 dark:bg-surface-900/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-surface-700 dark:text-white shadow-sm">
-                        {course.tag}
-                      </span>
-                    )}
-                    <div className="bg-white/90 dark:bg-surface-900/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-surface-700 dark:text-white shadow-sm flex items-center gap-1">
-                      {isEnded ? (
-                        <><span className="w-2 h-2 rounded-full bg-red-500"></span> Ended</>
-                      ) : (
-                        <><span className="w-2 h-2 rounded-full bg-success-500 animate-pulse"></span> {batch.type || 'Online'}</>
-                      )}
+                Explore {studentGoal} Batches Now
+              </button>
+            </div>
+          ) : (
+            <motion.div 
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {batches.map((batch: any, idx: number) => {
+                const course = batch.courseId || {};
+                const access = course.access || { studyMaterials: true, liveClasses: true, dpps: true, testSeries: true };
+                const isEnded = course.endDate && new Date(course.endDate) < new Date();
+                const courseId = course._id || batch.courseId?._id || batch.courseId || batch._id;
+
+                return (
+                  <motion.div 
+                    key={batch._id} 
+                    variants={itemVariants} 
+                    className="flex flex-col bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-xl hover:border-[#0B132B] transition-all duration-300 group"
+                  >
+                    {/* Header Banner */}
+                    <div className="h-32 relative p-6 flex flex-col justify-end bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1E293B] text-white">
+                      <div className="absolute top-4 right-4 flex items-center gap-2">
+                        {course.targetExam && (
+                          <span className="bg-white/15 backdrop-blur px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase text-[#C99A2E] border border-white/20">
+                            {course.targetExam}
+                          </span>
+                        )}
+                        <div className="bg-white/15 backdrop-blur px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white border border-white/20 flex items-center gap-1">
+                          {isEnded ? (
+                            <><span className="w-2 h-2 rounded-full bg-red-400"></span> Concluded</>
+                          ) : (
+                            <><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Active</>
+                          )}
+                        </div>
+                      </div>
+
+                      <h3 className="text-xl font-black text-white relative z-10 leading-tight line-clamp-2 drop-shadow-md">
+                        {course.name || batch.name}
+                      </h3>
                     </div>
-                  </div>
-                  {/* Abstract design elements */}
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-                  <div className="absolute -bottom-4 -left-4 w-24 h-24 bg-black/10 rounded-full blur-xl"></div>
-                  
-                  <h3 className="text-2xl font-bold text-white relative z-10 leading-tight line-clamp-2 drop-shadow-md">
-                    {course.name || batch.name}
-                  </h3>
-                </div>
-                
-                <div className="p-6 flex-1 flex flex-col">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <p className="text-xs font-bold text-surface-400 uppercase tracking-wider mb-1">Batch Name</p>
-                      <p className="text-surface-900 dark:text-white font-semibold flex items-center gap-2">
-                        {batch.name} {batch.section && <span className="text-xs bg-surface-100 dark:bg-surface-700 px-2 py-0.5 rounded">Sec {batch.section}</span>}
-                      </p>
+                    
+                    <div className="p-6 flex-1 flex flex-col justify-between space-y-5">
+                      <div>
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Assigned Batch</p>
+                            <p className="text-gray-900 font-bold text-sm flex items-center gap-2">
+                              {batch.name} {batch.section && <span className="text-[11px] bg-gray-100 px-2 py-0.5 rounded font-semibold">Sec {batch.section}</span>}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Classmates</p>
+                            <p className="text-gray-700 font-bold text-xs flex items-center justify-end gap-1">
+                              <Users size={13} className="text-[#C99A2E]" /> {batch.students?.length || 1}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Quick Action Grid */}
+                        <div className="grid grid-cols-2 gap-2.5 pt-4 border-t border-gray-100">
+                          {access.liveClasses && (
+                            <button onClick={() => router.push('/student/live-classes')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition-colors border border-gray-100">
+                              <Video size={15} className="text-blue-600 shrink-0" />
+                              <span className="text-xs font-bold">Live Classes</span>
+                            </button>
+                          )}
+
+                          {access.studyMaterials && (
+                            <button onClick={() => router.push('/student/study-materials')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition-colors border border-gray-100">
+                              <BookOpen size={15} className="text-purple-600 shrink-0" />
+                              <span className="text-xs font-bold">Materials</span>
+                            </button>
+                          )}
+                          
+                          {access.dpps && (
+                            <button onClick={() => router.push('/student/dpp')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-amber-50 text-gray-700 hover:text-amber-600 transition-colors border border-gray-100">
+                              <PenTool size={15} className="text-amber-600 shrink-0" />
+                              <span className="text-xs font-bold">Daily DPPs</span>
+                            </button>
+                          )}
+                          
+                          {access.testSeries && (
+                            <button onClick={() => router.push('/student/exams')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-emerald-50 text-gray-700 hover:text-emerald-600 transition-colors border border-gray-100">
+                              <FileCheck size={15} className="text-emerald-600 shrink-0" />
+                              <span className="text-xs font-bold">Mock Exams</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* View Overview Link */}
+                      <button
+                        onClick={() => router.push(`/student/course/${courseId}`)}
+                        className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-[#0B132B] hover:text-[#C99A2E] text-gray-800 text-xs font-black transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <span>View Batch Overview & Schedule</span>
+                        <ArrowRight size={13} />
+                      </button>
+
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs font-bold text-surface-400 uppercase tracking-wider mb-1">Classmates</p>
-                      <p className="text-surface-700 dark:text-surface-300 font-semibold flex items-center justify-end gap-1">
-                        <Users size={14} className="text-accent-500" /> {batch.students?.length || 1}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mt-auto pt-6 border-t border-surface-100 dark:border-surface-700/50">
-                    {access.studyMaterials && (
-                      <button onClick={() => router.push('/student/study-materials')} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-primary-50 dark:bg-surface-900/50 dark:hover:bg-primary-900/20 text-surface-700 hover:text-primary-600 dark:text-surface-300 dark:hover:text-primary-400 transition-colors group/btn border border-transparent hover:border-primary-100 dark:hover:border-primary-900/30">
-                        <div className="p-2 rounded-lg bg-white dark:bg-surface-800 shadow-sm group-hover/btn:bg-primary-100 dark:group-hover/btn:bg-primary-900/50 transition-colors">
-                          <BookOpen size={16} className="text-primary-500" />
-                        </div>
-                        <span className="text-xs font-bold">Materials</span>
-                      </button>
-                    )}
-                    
-                    {access.liveClasses && (
-                      <button onClick={() => router.push('/student/live-classes')} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-accent-50 dark:bg-surface-900/50 dark:hover:bg-accent-900/20 text-surface-700 hover:text-accent-600 dark:text-surface-300 dark:hover:text-accent-400 transition-colors group/btn border border-transparent hover:border-accent-100 dark:hover:border-accent-900/30">
-                        <div className="p-2 rounded-lg bg-white dark:bg-surface-800 shadow-sm group-hover/btn:bg-accent-100 dark:group-hover/btn:bg-accent-900/50 transition-colors">
-                          <Video size={16} className="text-accent-500" />
-                        </div>
-                        <span className="text-xs font-bold">Live</span>
-                      </button>
-                    )}
-                    
-                    {access.dpps && (
-                      <button onClick={() => router.push('/student/dpp')} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-orange-50 dark:bg-surface-900/50 dark:hover:bg-orange-900/20 text-surface-700 hover:text-orange-600 dark:text-surface-300 dark:hover:text-orange-400 transition-colors group/btn border border-transparent hover:border-orange-100 dark:hover:border-orange-900/30">
-                        <div className="p-2 rounded-lg bg-white dark:bg-surface-800 shadow-sm group-hover/btn:bg-orange-100 dark:group-hover/btn:bg-orange-900/50 transition-colors">
-                          <PenTool size={16} className="text-orange-500" />
-                        </div>
-                        <span className="text-xs font-bold">DPPs</span>
-                      </button>
-                    )}
-                    
-                    {access.testSeries && (
-                      <button onClick={() => router.push('/student/exams')} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-success-50 dark:bg-surface-900/50 dark:hover:bg-success-900/20 text-surface-700 hover:text-success-600 dark:text-surface-300 dark:hover:text-success-400 transition-colors group/btn border border-transparent hover:border-success-100 dark:hover:border-success-900/30">
-                        <div className="p-2 rounded-lg bg-white dark:bg-surface-800 shadow-sm group-hover/btn:bg-success-100 dark:group-hover/btn:bg-success-900/50 transition-colors">
-                          <FileCheck size={16} className="text-success-500" />
-                        </div>
-                        <span className="text-xs font-bold">Exams</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </motion.div>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
+
+          {/* Quick Explore Teaser inside Enrolled Tab */}
+          <div className="mt-12 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-amber-50 via-white to-blue-50 border border-amber-200/60 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="space-y-1 text-center sm:text-left">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#0B132B] text-[#C99A2E]">
+                Looking for more?
+              </span>
+              <h3 className="text-xl font-black text-[#0B132B]">Explore Other Academic Batches & Test Series</h3>
+              <p className="text-xs text-gray-600 font-medium">
+                Browse our complete catalogue of live crash courses, intensive revision batches, and test series for {studentGoal}.
+              </p>
+            </div>
+            <button
+              onClick={() => setActiveTab('EXPLORE')}
+              className="px-6 py-3 rounded-2xl bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] font-black text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 shrink-0"
+            >
+              <Compass size={16} />
+              <span>Explore All Batches</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
       )}
+
+      {/* SECTION 2: EXPLORE ALL BATCHES TAB */}
+      {activeTab === 'EXPLORE' && (
+        <div className="space-y-6">
+          
+          {/* Filter Pills Bar */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
+            <button
+              onClick={() => setSelectedGoalFilter('RECOMMENDED')}
+              className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all border flex items-center gap-1.5 ${
+                selectedGoalFilter === 'RECOMMENDED'
+                  ? 'bg-[#0B132B] text-[#C99A2E] border-[#0B132B] shadow-md ring-2 ring-[#C99A2E]/30'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <Sparkles size={13} />
+              <span>Recommended ({studentGoal})</span>
+            </button>
+
+            <button
+              onClick={() => setSelectedGoalFilter('CLASS')}
+              className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all border ${
+                selectedGoalFilter === 'CLASS'
+                  ? 'bg-[#0B132B] text-[#C99A2E] border-[#0B132B] shadow-md ring-2 ring-[#C99A2E]/30'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              📚 Same Class ({studentClass})
+            </button>
+
+            <button
+              onClick={() => setSelectedGoalFilter('ALL')}
+              className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all border ${
+                selectedGoalFilter === 'ALL'
+                  ? 'bg-[#0B132B] text-[#C99A2E] border-[#0B132B] shadow-md ring-2 ring-[#C99A2E]/30'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              🌟 All Batches
+            </button>
+
+            <div className="w-px h-6 bg-gray-300 mx-1 shrink-0 hidden sm:block"></div>
+
+            {EXAM_GOALS.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => setSelectedGoalFilter(g.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
+                  selectedGoalFilter === g.id
+                    ? 'bg-[#0B132B] text-[#C99A2E] border-[#0B132B] shadow-md'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {g.title}
+              </button>
+            ))}
+          </div>
+
+          {/* Available Batches Grid */}
+          {loadingCourses ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="h-80 bg-gray-100 rounded-3xl animate-pulse border border-gray-200"></div>
+              ))}
+            </div>
+          ) : filteredAvailableCourses.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-gray-200 p-8 space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center mx-auto">
+                <BookOpen size={26} />
+              </div>
+              <h4 className="font-black text-gray-800 text-base">No batches found for this selection</h4>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                Try clearing your search query or switching to "All Batches" to explore available programs.
+              </p>
+              <button
+                onClick={() => { setSelectedGoalFilter('ALL'); setSearchQuery(''); }}
+                className="px-5 py-2.5 rounded-xl bg-[#0B132B] text-[#C99A2E] text-xs font-black hover:bg-[#1C2541] transition-all"
+              >
+                View All Batches
+              </button>
+            </div>
+          ) : (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {filteredAvailableCourses.map((course: any) => {
+                const cId = course._id || course.id;
+                const isAlreadyEnrolled = enrolledCourseIds.has(cId?.toString());
+                const isGoalMatch = course.targetExam === studentGoal || !course.targetExam || course.targetExam === 'ALL';
+                
+                const discount = course.actualFee && course.fee && course.actualFee > course.fee
+                  ? Math.round(((course.actualFee - course.fee) / course.actualFee) * 100)
+                  : null;
+
+                return (
+                  <motion.div
+                    key={cId}
+                    variants={itemVariants}
+                    className="flex flex-col rounded-3xl overflow-hidden border border-gray-200/80 bg-white transition-all duration-300 shadow-sm hover:shadow-xl hover:border-[#0B132B] group"
+                  >
+                    {/* Header */}
+                    <div className="px-6 pt-6 pb-5 bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1E293B] text-white relative">
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        {isAlreadyEnrolled ? (
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500 text-white flex items-center gap-1 shadow-sm">
+                            <CheckCircle2 size={11} /> Enrolled
+                          </span>
+                        ) : isGoalMatch ? (
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#C99A2E] text-[#0B132B] flex items-center gap-1 shadow-sm">
+                            <Sparkles size={11} /> Goal Match
+                          </span>
+                        ) : null}
+
+                        {course.targetExam && (
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-white/15 border border-white/25 uppercase tracking-wider">
+                            {course.targetExam}
+                          </span>
+                        )}
+                        {course.targetClass && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 border border-white/20">
+                            {course.targetClass}
+                          </span>
+                        )}
+                        {course.badge && (
+                          <span className="ml-auto text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-gray-900">
+                            {course.badge}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="text-white font-black text-lg leading-tight mb-1 line-clamp-2">
+                        {course.name}
+                      </h3>
+                      <p className="text-gray-300 text-xs line-clamp-1">
+                        {course.subtitle || course.description || 'Structured academic preparation batch.'}
+                      </p>
+                    </div>
+
+                    {/* Card Body */}
+                    <div className="flex-1 flex flex-col p-6 justify-between space-y-5">
+                      
+                      {/* Feature Bullets */}
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Curriculum Inclusions</p>
+                        <ul className="space-y-1.5">
+                          {(course.features || [
+                            "Interactive Live Classes & Archives",
+                            "Daily DPPs with Video Solutions",
+                            "All India Test Series (AITS) CBT",
+                            "24/7 Doubt Engine Support"
+                          ]).slice(0, 3).map((f: string, fi: number) => (
+                            <li key={fi} className="flex items-start gap-2 text-xs text-gray-700">
+                              <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                              <span className="leading-tight font-medium line-clamp-1">{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Pricing & Navigation Action */}
+                      <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            {course.actualFee && course.actualFee > (course.fee || 0) && (
+                              <span className="text-xs font-bold text-gray-400 line-through">
+                                ₹{course.actualFee.toLocaleString()}
+                              </span>
+                            )}
+                            <span className="text-xl font-black text-[#0B132B]">
+                              ₹{course.fee?.toLocaleString() || 0}
+                            </span>
+                          </div>
+                          {discount && (
+                            <span className="text-[10px] font-bold text-emerald-700">
+                              Save {discount}%
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => router.push(`/student/course/${cId}`)}
+                          className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all shadow-sm flex items-center gap-1.5 ${
+                            isAlreadyEnrolled
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              : 'bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] group-hover:scale-105'
+                          }`}
+                        >
+                          <span>{isAlreadyEnrolled ? 'Go to Batch' : 'Explore Batch'}</span>
+                          <ArrowRight size={14} />
+                        </button>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
+
+        </div>
+      )}
+
     </div>
   );
 }

@@ -17,6 +17,11 @@ const courseSchema = new mongoose.Schema({
   badge: { type: String },
   popular: { type: Boolean, default: false },
   isPublished: { type: Boolean, default: true },
+  targetExam: { type: String, default: 'ALL' },
+  targetExams: [{ type: String }],
+  targetClass: { type: String, default: 'ALL' },
+  targetClasses: [{ type: String }],
+  medium: { type: String, default: 'ALL' },
   access: {
     liveClasses: { type: Boolean, default: true },
     studyMaterials: { type: Boolean, default: true },
@@ -24,9 +29,10 @@ const courseSchema = new mongoose.Schema({
     testSeries: { type: Boolean, default: true }
   },
   defaultBatchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
+  faculties: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
 courseSchema.index({ instituteId: 1, name: 1 }, { unique: true });
 
-module.exports = mongoose.model('Course', courseSchema);
+module.exports = mongoose.models.Course || mongoose.model('Course', courseSchema);
