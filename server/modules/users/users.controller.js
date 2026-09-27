@@ -10,6 +10,16 @@ exports.create = async (req, res, next) => {
     delete user.password;
     return successResponse(res, 'User created successfully', user, null, 201);
   } catch (error) {
+    // Handle MongoDB duplicate key error gracefully
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      const value = error.keyValue ? Object.values(error.keyValue)[0] : '';
+      const fieldLabel = field === 'email' ? 'Email' : field === 'phone' ? 'Phone number' : field;
+      return res.status(400).json({
+        success: false,
+        message: `${fieldLabel} '${value}' is already registered. Please use a different ${fieldLabel.toLowerCase()}.`
+      });
+    }
     next(error);
   }
 };
