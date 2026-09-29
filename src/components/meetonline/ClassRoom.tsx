@@ -504,16 +504,19 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   };
 
   const toggleMic = async (forceState?: boolean) => {
-    if (roomType === 'live_class' && user.role === 'student') return;
+    if (roomType === 'live_class' && !isHostRole(user.role)) {
+      setMediaError('In Live Broadcast mode, microphone is managed by the host. Raise your hand to speak.');
+      return;
+    }
     const nextState = forceState !== undefined ? forceState : !micEnabled;
     if (nextState) {
       try {
         setMediaError(null);
-        if (audioProducerRef.current) {
+        if (audioProducerRef.current && !audioProducerRef.current.closed) {
           audioProducerRef.current.resume();
         } else {
           if (!sendTransportRef.current || !deviceRef.current?.canProduce('audio')) {
-            throw new Error('The live-class connection is still preparing. Please try again in a moment.');
+            throw new Error('Connection is preparing. Please try again in a moment.');
           }
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           const track = stream.getAudioTracks()[0];
@@ -525,15 +528,15 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
         }
         setMicEnabled(true);
         socketRef.current?.emit('mute-toggle', { roomCode, kind: 'audio', muted: false });
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error starting mic:', err);
-        setMediaError('Microphone could not start. Allow microphone access in the browser and try again.');
+        setMediaError(err?.message || 'Microphone could not start. Please check browser microphone permissions.');
       }
     } else {
       if (audioProducerRef.current) {
         const prodId = audioProducerRef.current.id;
-        audioProducerRef.current.track.stop();
-        audioProducerRef.current.close();
+        try { audioProducerRef.current.track?.stop(); } catch (e) {}
+        try { audioProducerRef.current.close(); } catch (e) {}
         audioProducerRef.current = null;
         socketRef.current?.emit('close-producer', { roomCode, producerId: prodId });
       }
@@ -548,20 +551,25 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   };
 
   const toggleCam = async () => {
-    if (roomType === 'live_class' && user.role === 'student') return;
+    if (roomType === 'live_class' && !isHostRole(user.role)) {
+      setMediaError('In Live Broadcast mode, camera is managed by the host.');
+      return;
+    }
     const nextState = !videoEnabled;
     if (nextState) {
       try {
         setMediaError(null);
-        if (videoProducerRef.current) {
+        if (videoProducerRef.current && !videoProducerRef.current.closed) {
           videoProducerRef.current.track.enabled = true;
           await videoProducerRef.current.resume();
           socketRef.current?.emit('resume-producer', { roomCode, producerId: videoProducerRef.current.id });
         } else {
           if (!sendTransportRef.current || !deviceRef.current?.canProduce('video')) {
-            throw new Error('The live-class connection is still preparing. Please try again in a moment.');
+            throw new Error('Connection is preparing. Please try again in a moment.');
           }
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, frameRate: 30 } });
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
+          });
           const track = stream.getVideoTracks()[0];
           track.onended = () => {
             setVideoEnabled(false);
@@ -573,18 +581,21 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
         }
         setVideoEnabled(true);
         socketRef.current?.emit('mute-toggle', { roomCode, kind: 'video', muted: false });
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error starting video:', err);
-        setMediaError('Camera could not start. Allow camera access in the browser and try again.');
+        setMediaError(err?.message || 'Camera could not start. Please check browser camera permissions.');
       }
     } else {
       if (videoProducerRef.current) {
-        await videoProducerRef.current.pause();
-        // Keep the producer for a smooth re-enable, but disable the physical
-        // track so the video is not shown as still “on” to the class.
-        videoProducerRef.current.track.enabled = false;
-        socketRef.current?.emit('pause-producer', { roomCode, producerId: videoProducerRef.current.id });
+        const prodId = videoProducerRef.current.id;
+        try { videoProducerRef.current.track?.stop(); } catch (e) {}
+        try { videoProducerRef.current.close(); } catch (e) {}
+        videoProducerRef.current = null;
+        socketRef.current?.emit('close-producer', { roomCode, producerId: prodId });
       }
+      if (localStreamRef.current) localStreamRef.current.getVideoTracks().forEach(t => t.stop());
+      const audioTracks = localStreamRef.current ? localStreamRef.current.getAudioTracks() : [];
+      localStreamRef.current = new MediaStream([...audioTracks]);
       setVideoEnabled(false);
       socketRef.current?.emit('mute-toggle', { roomCode, kind: 'video', muted: true });
     }

@@ -99,18 +99,25 @@ const config = {
   // WebRtcTransport Settings
   get webRtcTransportOptions() {
     const listenIp = process.env.MEDIASOUP_LISTEN_IP || '0.0.0.0';
-    let announcedIp = process.env.MEDIASOUP_ANNOUNCED_IP || process.env.SERVER_IP || detectedPublicIp;
+    let announcedIp = process.env.MEDIASOUP_ANNOUNCED_IP || process.env.SERVER_IP;
     
     if (!announcedIp) {
-      if (process.env.NODE_ENV === 'development' || listenIp === '127.0.0.1') {
+      if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV || listenIp === '0.0.0.0' || listenIp === '127.0.0.1') {
         announcedIp = '127.0.0.1';
-    }
+      } else {
+        announcedIp = detectedPublicIp;
+      }
     }
 
     const listenInfos = [
       { protocol: 'udp', ip: listenIp, announcedAddress: announcedIp },
       { protocol: 'tcp', ip: listenIp, announcedAddress: announcedIp }
     ];
+
+    if (announcedIp !== '127.0.0.1' && (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV)) {
+      listenInfos.push({ protocol: 'udp', ip: listenIp, announcedAddress: '127.0.0.1' });
+      listenInfos.push({ protocol: 'tcp', ip: listenIp, announcedAddress: '127.0.0.1' });
+    }
 
     return {
       listenInfos,
