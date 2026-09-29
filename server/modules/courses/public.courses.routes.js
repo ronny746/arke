@@ -60,6 +60,10 @@ router.get('/', async (req, res, next) => {
 // Public route to get a single course by id
 router.get('/:id', async (req, res, next) => {
   try {
+    const mongoose = require('mongoose');
+    if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
     const course = await CourseModel.findOne({ 
       _id: req.params.id, 
       isActive: true, 
@@ -72,6 +76,28 @@ router.get('/:id', async (req, res, next) => {
     }).populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role');
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
     return res.status(200).json({ success: true, data: course });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Public route to get exams for a course
+router.get('/:id/exams', async (req, res, next) => {
+  try {
+    const CourseService = require('./courses.service');
+    // Extract token if present
+    let user = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+        user = decoded;
+      } catch (e) {}
+    }
+    const data = await CourseService.getCourseExams(req.params.id, user);
+    return res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);
   }

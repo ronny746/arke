@@ -13,7 +13,6 @@ import {
   ArrowLeft, 
   X, 
   Loader2, 
-  LogOut, 
   GraduationCap, 
   Layers, 
   FileCheck, 
@@ -25,9 +24,9 @@ import {
   Sparkles, 
   Shield,
   Compass,
-  Check,
-  Globe,
-  SlidersHorizontal
+  AlertCircle,
+  Calendar,
+  PhoneCall
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -45,7 +44,7 @@ const calculateDuration = (start: any, end: any, fallback: string) => {
     }
     return `${diffDays} Day${diffDays !== 1 ? 's' : ''}`;
   }
-  return fallback || 'N/A';
+  return fallback || 'Self-paced / Full Year';
 };
 
 const loadRazorpayScript = () => {
@@ -213,7 +212,7 @@ function RazorpayPaymentModal({ course, onClose, onAuthError }: { course: any; o
 
 export default function StudentCourseDetailPage() {
   const params = useParams();
-  const id = params?.id;
+  const id = params?.id as string;
   const router = useRouter();
 
   const [course, setCourse] = useState<any>(null);
@@ -262,7 +261,8 @@ export default function StudentCourseDetailPage() {
       .then(data => {
         if (data.success && data.data) {
           const isUserEnrolled = data.data.some((batch: any) => 
-            batch.courseId?._id === id || batch.courseId === id
+            (typeof batch.courseId === 'object' ? batch.courseId?._id : batch.courseId) === id ||
+            batch._id === id
           );
           if (isUserEnrolled) {
             setIsEnrolled(true);
@@ -279,6 +279,7 @@ export default function StudentCourseDetailPage() {
 
     const fetchCourse = async () => {
       try {
+        setLoading(true);
         let res = token ? await fetch(`/api/v1/courses/${id}`, { headers: { Authorization: `Bearer ${token}` } }) : null;
         let data = res && res.ok ? await res.json() : null;
         if (!data || !data.success || !data.data) {
@@ -297,6 +298,32 @@ export default function StudentCourseDetailPage() {
 
     fetchCourse();
   }, [id]);
+
+  // Load Real Exams for this Course
+  useEffect(() => {
+    if (!id) return;
+    const token = localStorage.getItem('token');
+    
+    const fetchExams = async () => {
+      try {
+        setLoadingExams(true);
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        
+        const res = await fetch(`/api/v1/public/courses/${id}/exams`, { headers });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setExams(data.data);
+        }
+      } catch (err) {
+        console.error('Failed to load real exams for course:', err);
+      } finally {
+        setLoadingExams(false);
+      }
+    };
+
+    fetchExams();
+  }, [id, activeTab]);
 
   // Load Other Available Courses for Exploration
   useEffect(() => {
@@ -318,25 +345,6 @@ export default function StudentCourseDetailPage() {
     fetchOtherCourses();
   }, []);
 
-  // Load Exams for Test Series Tab
-  useEffect(() => {
-    if (activeTab === 'test-series') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        setLoadingExams(true);
-        fetch('/api/v1/exams', { headers: { Authorization: `Bearer ${token}` } })
-          .then(res => res.json())
-          .then(data => {
-            if (data.success) {
-              setExams(data.data || []);
-            }
-          })
-          .catch(() => {})
-          .finally(() => setLoadingExams(false));
-      }
-    }
-  }, [activeTab]);
-
   const handleAuthError = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -349,7 +357,8 @@ export default function StudentCourseDetailPage() {
   const handleBuyClick = () => {
     const token = localStorage.getItem('token');
     if (!token || !user) {
-      toast.error('Authentication error. Please refresh.');
+      toast.error('Please login to enroll.');
+      router.push('/login');
       return;
     }
     const isIncomplete = 
@@ -364,15 +373,36 @@ export default function StudentCourseDetailPage() {
 
     if (isIncomplete) {
       toast.error('Please complete your profile details before purchasing courses.');
+      router.push('/student/profile');
       return;
     }
     router.push(`/student/checkout/${course._id}`);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 text-[#0B132B] animate-spin" /></div>;
-  if (!course) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Course not found</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#F8FAFC]">
+        <Loader2 className="w-10 h-10 text-[#0B132B] animate-spin mb-3" />
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Loading Course Details...</p>
+      </div>
+    );
+  }
 
-  const color = course.color || '#0B132B';
+  if (!course) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#F8FAFC]">
+        <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mb-4">
+          <BookOpen size={28} />
+        </div>
+        <h2 className="text-xl font-black text-gray-800">Course Not Found</h2>
+        <p className="text-xs text-gray-500 mt-1 max-w-sm">The course you are looking for might have expired or been removed.</p>
+        <button onClick={() => router.push('/student/batches')} className="mt-5 px-5 py-2.5 rounded-xl bg-[#0B132B] text-[#C99A2E] text-xs font-black shadow-md">
+          Browse Available Courses
+        </button>
+      </div>
+    );
+  }
+
   const discountPercent = course.actualFee && course.fee && course.actualFee > course.fee
     ? Math.round(((course.actualFee - course.fee) / course.actualFee) * 100)
     : null;
@@ -380,7 +410,6 @@ export default function StudentCourseDetailPage() {
   // Active preferences
   const targetGoal = course.targetExam || user?.metadata?.targetExam || 'NEET';
   const targetClass = course.targetClass || user?.metadata?.studentClass || 'Class 11';
-  const targetMedium = course.medium || user?.metadata?.medium || 'Hinglish';
 
   // Filter other courses (exclude current course)
   const otherCourses = allCourses.filter(c => (c._id || c.id) !== id);
@@ -395,367 +424,87 @@ export default function StudentCourseDetailPage() {
     return true; // ALL
   });
 
-  // Dynamic Subject calculation
-  const getDynamicSubjects = (c: any) => {
-    if (c?.subjects && Array.isArray(c.subjects) && c.subjects.length > 0) {
-      return c.subjects.map((s: any) => {
-        if (typeof s === 'string') return { name: s, icon: '📖', chapters: 25, dpps: 120, tests: 20 };
-        return {
-          name: s.name || s.title || 'Subject',
-          icon: s.icon || '📖',
-          chapters: s.chapters || 25,
-          dpps: s.dpps || 120,
-          tests: s.tests || 20
-        };
-      });
-    }
+  // Real configured subjects from DB
+  const courseSubjects = Array.isArray(course.subjects) ? course.subjects : [];
 
-    const exam = (c?.targetExam || '').toUpperCase();
-    const name = (c?.name || '').toUpperCase();
-    const cls = (c?.targetClass || '').toUpperCase();
+  // Real configured FAQs from DB
+  const courseFaqs = Array.isArray(course.faqs) ? course.faqs : [];
 
-    if (exam.includes('NEET') || name.includes('NEET') || name.includes('MEDICAL') || cls.includes('BIOLOGY')) {
-      return [
-        { name: 'Physics', icon: '⚡', chapters: 28, dpps: 140, tests: 24 },
-        { name: 'Chemistry', icon: '🧪', chapters: 30, dpps: 150, tests: 26 },
-        { name: 'Botany', icon: '🌿', chapters: 22, dpps: 110, tests: 18 },
-        { name: 'Zoology', icon: '🧬', chapters: 20, dpps: 100, tests: 18 },
-      ];
-    }
+  // Real features or calculated deliverables
+  const access = course.access || { liveClasses: true, studyMaterials: true, dpps: true, testSeries: true };
+  const deliverables = [];
 
-    if (exam.includes('JEE') || name.includes('JEE') || name.includes('IIT') || name.includes('ENGINEERING') || cls.includes('MATH')) {
-      return [
-        { name: 'Physics', icon: '⚡', chapters: 32, dpps: 160, tests: 28 },
-        { name: 'Chemistry', icon: '🧪', chapters: 30, dpps: 150, tests: 26 },
-        { name: 'Mathematics', icon: '📐', chapters: 34, dpps: 170, tests: 30 },
-      ];
-    }
-
-    if (exam.includes('CUET') || name.includes('CUET') || name.includes('COMMERCE')) {
-      return [
-        { name: 'General Test', icon: '🧩', chapters: 20, dpps: 100, tests: 15 },
-        { name: 'Language & English', icon: '📚', chapters: 18, dpps: 90, tests: 15 },
-        { name: 'Accountancy & Commerce', icon: '📊', chapters: 24, dpps: 120, tests: 20 },
-        { name: 'Economics & Business', icon: '📈', chapters: 22, dpps: 110, tests: 18 },
-      ];
-    }
-
-    if (exam.includes('UPSC') || exam.includes('SSC') || name.includes('GOVT') || name.includes('CIVIL')) {
-      return [
-        { name: 'General Studies I', icon: '🏛️', chapters: 35, dpps: 175, tests: 30 },
-        { name: 'Polity & Governance', icon: '⚖️', chapters: 25, dpps: 125, tests: 20 },
-        { name: 'Aptitude & CSAT', icon: '🔢', chapters: 20, dpps: 100, tests: 15 },
-        { name: 'Current Affairs & GK', icon: '🌐', chapters: 30, dpps: 150, tests: 25 },
-      ];
-    }
-
-    if (exam.includes('FOUNDATION') || cls.includes('9') || cls.includes('10') || cls.includes('8')) {
-      return [
-        { name: 'Physics & Chem', icon: '🔬', chapters: 20, dpps: 100, tests: 15 },
-        { name: 'Mathematics', icon: '📐', chapters: 22, dpps: 110, tests: 18 },
-        { name: 'Biology', icon: '🌿', chapters: 18, dpps: 90, tests: 14 },
-        { name: 'Mental Ability (MAT)', icon: '🧠', chapters: 16, dpps: 80, tests: 12 },
-      ];
-    }
-
-    return [
-      { name: 'Core Concepts & Theory', icon: '📖', chapters: 25, dpps: 120, tests: 20 },
-      { name: 'Problem Solving & DPPs', icon: '📝', chapters: 20, dpps: 100, tests: 15 },
-      { name: 'Mock Tests & Revision', icon: '🎯', chapters: 15, dpps: 75, tests: 25 },
-    ];
-  };
-
-  const defaultSubjects = getDynamicSubjects(course);
-
-  // Dynamic Syllabus Roadmap calculation
-  const getDynamicSyllabus = (c: any): Record<string, string[]> => {
-    if (c?.syllabus && typeof c.syllabus === 'object' && Object.keys(c.syllabus).length > 0) {
-      return c.syllabus;
-    }
-
-    return {
-      'Physics': [
-        'Units, Dimensions & Physical Measurements',
-        'Kinematics: Motion in 1D & 2D',
-        'Laws of Motion & Friction',
-        'Work, Energy and Power',
-        'Rotational Mechanics & System of Particles',
-        'Gravitation & Planetary Dynamics',
-        'Thermodynamics & Kinetic Theory of Gases',
-        'Electrostatics & Capacitance',
-        'Current Electricity & Magnetism',
-        'Ray & Wave Optics',
-        'Modern Physics & Semiconductors'
-      ],
-      'Chemistry': [
-        'Some Basic Concepts of Chemistry & Stoichiometry',
-        'Atomic Structure & Quantum Numbers',
-        'Periodic Table & Chemical Bonding',
-        'Chemical Thermodynamics & Energetics',
-        'Equilibrium: Physical & Ionic',
-        'Organic Chemistry: Principles & Mechanisms',
-        'Coordination Compounds & d-Block Elements',
-        'Electrochemistry & Chemical Kinetics'
-      ],
-      'Mathematics': [
-        'Sets, Relations and Functions',
-        'Complex Numbers & Quadratic Equations',
-        'Matrices and Determinants',
-        'Permutations, Combinations & Probability',
-        'Calculus: Limits, Continuity & Differentiability',
-        'Definite & Indefinite Integrals',
-        'Vectors & 3D Analytical Geometry',
-        'Coordinate Geometry: Conic Sections'
-      ],
-      'Botany': [
-        'Cell: The Unit of Life & Cell Division',
-        'Plant Kingdom & Morphology of Flowering Plants',
-        'Photosynthesis in Higher Plants & Respiration',
-        'Plant Growth, Hormones & Regulators',
-        'Genetics: Molecular Basis of Inheritance',
-        'Ecology, Ecosystems & Environmental Issues'
-      ],
-      'Zoology': [
-        'Animal Kingdom & Structural Organisation',
-        'Human Physiology: Digestion, Breathing & Circulation',
-        'Excretory System, Locomotion & Movement',
-        'Neural Control & Endocrine Coordination',
-        'Human Reproduction & Health',
-        'Evolution & Human Health and Diseases'
-      ],
-      'General Test': [
-        'General Mental Ability & Logical Reasoning',
-        'Numerical Ability & Quantitative Aptitude',
-        'Basic Mathematical Concepts',
-        'General Knowledge & Current Events',
-        'Analytical & Diagrammatic Reasoning'
-      ],
-      'Language & English': [
-        'Reading Comprehension & Passages',
-        'Vocabulary, Synonyms & Antonyms',
-        'Grammar & Sentence Correction',
-        'Idioms, Phrases & Verbal Ability'
-      ],
-      'Accountancy & Commerce': [
-        'Accounting for Partnership Firms',
-        'Company Accounts & Issue of Shares',
-        'Financial Statement Analysis',
-        'Cash Flow Statement & Ratios'
-      ],
-      'Economics & Business': [
-        'Microeconomics: Consumer Behavior & Demand',
-        'Macroeconomics: National Income & Money',
-        'Business Environment & Management Principles',
-        'Financial Markets & Marketing Management'
-      ],
-      'General Studies I': [
-        'Indian History & National Movement',
-        'Indian & World Geography',
-        'Indian Polity, Constitution & Governance',
-        'Economic & Social Development',
-        'General Science & Environment'
-      ],
-      'Polity & Governance': [
-        'Preamble & Fundamental Rights',
-        'Union & State Executive and Legislature',
-        'Judiciary & Constitutional Bodies',
-        'Local Self Government & Panchayati Raj'
-      ],
-      'Aptitude & CSAT': [
-        'Comprehension & Interpersonal Skills',
-        'Logical Reasoning & Analytical Ability',
-        'Decision Making & Problem Solving',
-        'Basic Numeracy & Data Interpretation'
-      ],
-      'Current Affairs & GK': [
-        'National & International Importance',
-        'Government Schemes & Policies',
-        'Science & Technology Developments',
-        'Economic Surveys & Budget Highlights'
-      ],
-      'Physics & Chem': [
-        'Motion, Force & Gravitation',
-        'Work, Energy & Power',
-        'Matter in Our Surroundings & Chemical Reactions',
-        'Acids, Bases & Metals'
-      ],
-      'Biology': [
-        'Cell Biology & Tissues',
-        'Diversity in Living Organisms',
-        'Why Do We Fall Ill?',
-        'Natural Resources & Food Improvement'
-      ],
-      'Mental Ability (MAT)': [
-        'Verbal & Non-Verbal Series',
-        'Coding-Decoding & Blood Relations',
-        'Venn Diagrams & Syllogism',
-        'Puzzles, Seating & Direction Sense'
-      ],
-      'Core Concepts & Theory': [
-        'Fundamental Principles & Foundations',
-        'Advanced Problem Solving Techniques',
-        'Core Theoretical Frameworks',
-        'Applied Case Studies & Practice'
-      ],
-      'Problem Solving & DPPs': [
-        'Daily Problem Sets - Part 1',
-        'Daily Problem Sets - Part 2',
-        'Previous Year Questions Analysis',
-        'High-Yield Exam Pattern MCQs'
-      ],
-      'Mock Tests & Revision': [
-        'Chapter-wise Revision Summaries',
-        'Formula Sheets & Quick Guides',
-        'Part Tests & Cumulative Review',
-        'Full Syllabus Mock Exams'
-      ]
-    };
-  };
-
-  const syllabusChapters = getDynamicSyllabus(course);
-
-  // Dynamic FAQs calculation
-  const getDynamicFaqs = (c: any) => {
-    if (c?.faqs && Array.isArray(c.faqs) && c.faqs.length > 0) {
-      return c.faqs;
-    }
-
-    const courseName = c?.name || 'this batch';
-    const exam = c?.targetExam || 'Competitive Exams';
-    const cls = c?.targetClass || 'Class 11 & 12';
-    const fee = c?.fee ? `₹${c.fee.toLocaleString()}` : 'the course fee';
-    const startDateStr = c?.startDate 
-      ? new Date(c.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-      : 'upon enrollment';
-
-    return [
-      {
-        q: `Who can enroll in ${courseName} and what are the eligibility criteria?`,
-        a: `This batch is specifically tailored for ${cls} students preparing for ${exam}. All concepts are covered comprehensively from basic fundamentals up to exam level.`
-      },
-      {
-        q: 'How can I access live lectures, recorded videos, and class notes?',
-        a: `Classes start ${startDateStr}. Once enrolled, all live streams, HD recordings, daily downloadable PDF notes, and DPPs are immediately accessible under your Classroom portal.`
-      },
-      {
-        q: 'Will Daily Practice Problems (DPP) with video solutions be provided?',
-        a: 'Yes! After every single lecture, a curated DPP set containing high-yield MCQs is provided with complete step-by-step video solutions and instant performance analysis.'
-      },
-      {
-        q: 'How does the Doubt Engine work during and after classes?',
-        a: 'Students can ask doubts live during sessions, or upload questions 24/7 on the dedicated Doubt Resolution Portal for fast responses from verified subject experts.'
-      },
-      {
-        q: `What is the schedule and pattern of Mock Tests included in ${fee}?`,
-        a: `The batch includes regular bi-weekly chapter tests, part tests, and full-syllabus All India Mock Tests matching the exact ${exam} computer-based interface with detailed rank analytics.`
-      },
-      {
-        q: 'Until when will the batch recordings and materials remain valid?',
-        a: `Batch recordings and study materials will remain active and accessible in your library throughout your active academic session.`
-      }
-    ];
-  };
-
-  const batchFaqs = getDynamicFaqs(course);
-
-  // Dynamic Curriculum Deliverables calculation
-  const getDynamicDeliverables = (c: any) => {
-    const access = c?.access || {};
-    const deliverables = [];
-
+  if (access.liveClasses !== false) {
     deliverables.push({
       icon: <Video size={20} />,
-      title: access.liveClasses !== false ? 'Live & HD Recorded Lectures' : 'HD Recorded Video Library',
-      desc: access.liveClasses !== false 
-        ? 'Interactive live sessions with top faculties + 24/7 unlimited access to HD class archives.'
-        : 'Structured high-definition video lectures accessible anytime for self-paced learning.'
+      title: 'Live & HD Recorded Lectures',
+      desc: 'Interactive live sessions with top faculties and unlimited access to recorded video archives.'
     });
+  }
 
-    if (access.dpps !== false) {
-      deliverables.push({
-        icon: <FileCheck size={20} />,
-        title: 'Daily DPPs with Video Solutions',
-        desc: 'Daily practice problem sets after every lecture with step-by-step video hints.'
-      });
-    }
-
-    if (access.testSeries !== false) {
-      deliverables.push({
-        icon: <Trophy size={20} />,
-        title: 'All India Test Series (AITS)',
-        desc: `Exam simulation mock tests strictly matching ${c?.targetExam || 'official'} pattern with All India Rank & analytics.`
-      });
-    }
-
-    if (access.studyMaterials !== false) {
-      deliverables.push({
-        icon: <BookOpen size={20} />,
-        title: 'Class Notes & Revision Sheets',
-        desc: 'Teacher handwritten annotations, chapter-wise formula summaries, and downloadable PDF modules.'
-      });
-    }
-
+  if (access.dpps !== false) {
     deliverables.push({
-      icon: <MessageSquare size={20} />,
-      title: '24/7 Smart Doubt Engine',
-      desc: 'Dedicated subject experts resolve your doubts with fast turnaround times and video explanations.'
+      icon: <FileCheck size={20} />,
+      title: 'Daily DPPs & Practice Sets',
+      desc: 'Daily practice problem sets with complete step-by-step solutions.'
     });
+  }
 
+  if (access.testSeries !== false) {
     deliverables.push({
-      icon: <GraduationCap size={20} />,
-      title: 'Personalized Strategy & Mentorship',
-      desc: 'Regular time management workshops, test performance audits, and rank booster strategy sessions.'
+      icon: <Trophy size={20} />,
+      title: 'Real Online Test Series',
+      desc: `Computer-based mock tests strictly matching ${course.targetExam || 'official'} exam pattern.`
     });
+  }
 
-    return deliverables;
-  };
+  if (access.studyMaterials !== false) {
+    deliverables.push({
+      icon: <BookOpen size={20} />,
+      title: 'Class Notes & Study Modules',
+      desc: 'Annotated handwritten notes, chapter summaries, and downloadable PDF modules.'
+    });
+  }
 
-  const batchDeliverables = getDynamicDeliverables(course);
+  deliverables.push({
+    icon: <MessageSquare size={20} />,
+    title: 'Dedicated Doubt Resolution',
+    desc: 'Ask doubts anytime on the portal and receive verified solutions from expert mentors.'
+  });
 
-  // Dynamic Features List
-  const dynamicFeatures = (course.features && course.features.length > 0)
-    ? course.features
-    : [
-        `Complete ${course.targetExam || 'Exam'} syllabus coverage from scratch to advanced level`,
-        `Interactive Live Classes & 24/7 HD Recorded Video Library`,
-        `Daily Practice Problems (DPPs) with step-by-step Video Solutions`,
-        `All India Mock Test Series (AITS) matching NTA Computer-Based Test pattern`,
-        `Handwritten Class Notes & PDF Formula Revision Modules`,
-        `24/7 Dedicated Subject Specialist Doubt Resolution Engine`
-      ];
+  deliverables.push({
+    icon: <GraduationCap size={20} />,
+    title: 'Faculty Mentorship & Guidance',
+    desc: 'Regular strategy sessions, test performance audits, and study roadmaps.'
+  });
 
-  // Dynamic Best For
-  const dynamicBestFor = (course.bestFor && course.bestFor.length > 0)
-    ? course.bestFor
-    : [
-        `Aspirants preparing for ${course.targetExam || 'Competitive Exams'}`,
-        `Students of ${course.targetClass || 'Class 11 / 12 & Droppers'}`,
-        `${course.medium || 'Hinglish/English'} Medium Students`
-      ];
+  const dynamicFeatures = (course.features && course.features.length > 0) ? course.features : [];
+  const dynamicBestFor = (course.bestFor && course.bestFor.length > 0) ? course.bestFor : [];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans pb-24 text-gray-900">
       
       {/* Top Breadcrumb & Actions Bar */}
       <div className="bg-[#0B132B] text-white border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button 
-              onClick={() => router.push('/student/dashboard')}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
+              onClick={() => router.push('/student/batches')}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors shrink-0"
+              title="Back"
             >
               <ArrowLeft size={18} />
             </button>
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
-              <Link href="/student/dashboard" className="hover:text-[#C99A2E] transition-colors">Dashboard</Link>
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 truncate">
+              <Link href="/student/dashboard" className="hover:text-[#C99A2E] transition-colors shrink-0">Dashboard</Link>
               <span>/</span>
-              <span className="text-[#C99A2E]">{course.targetExam || 'Courses'}</span>
+              <Link href="/student/batches" className="hover:text-[#C99A2E] transition-colors shrink-0">Courses</Link>
               <span>/</span>
-              <span className="text-gray-200 truncate max-w-[200px]">{course.name}</span>
+              <span className="text-gray-200 truncate">{course.name}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             {isEnrolled ? (
               <span className="px-3.5 py-1.5 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
                 <CheckCircle2 size={14} /> Enrolled Student
@@ -763,36 +512,38 @@ export default function StudentCourseDetailPage() {
             ) : (
               <button
                 onClick={handleBuyClick}
-                className="px-4 py-2 rounded-xl text-xs font-black bg-[#C99A2E] text-[#0B132B] hover:bg-[#b58724] transition-all shadow-md"
+                className="px-4 py-2 rounded-xl text-xs font-black bg-[#C99A2E] text-[#0B132B] hover:bg-[#b58724] transition-all shadow-md flex items-center gap-1.5"
               >
-                Enroll Now • ₹{course.fee?.toLocaleString() || 0}
+                <span>Enroll Now</span>
+                <span>•</span>
+                <span>₹{course.fee?.toLocaleString() || 0}</span>
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Physics Wallah Style Hero Header */}
+      {/* Hero Header */}
       <section className="bg-gradient-to-r from-[#0B132B] via-[#111C3A] to-[#1C2541] text-white pt-8 pb-10 border-b border-gray-800 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#C99A2E]/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#C99A2E]/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-4 max-w-3xl">
               
               {/* Badges Bar */}
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
                 {course.targetExam && (
                   <span className="px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-[#C99A2E] text-[#0B132B] shadow-sm">
                     {course.targetExam}
                   </span>
                 )}
-                {course.targetClass && (
+                {course.targetClass && course.targetClass !== 'ALL' && (
                   <span className="px-3 py-1 rounded-lg text-xs font-bold bg-white/15 text-white backdrop-blur-md border border-white/20">
                     {course.targetClass}
                   </span>
                 )}
-                {course.medium && (
+                {course.medium && course.medium !== 'ALL' && (
                   <span className="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-gray-200 border border-white/15">
                     {course.medium} Medium
                   </span>
@@ -804,13 +555,13 @@ export default function StudentCourseDetailPage() {
                 )}
                 {isEnrolled && (
                   <span className="px-3 py-1 rounded-lg text-xs font-black bg-emerald-500 text-white shadow-sm flex items-center gap-1">
-                    <CheckCircle2 size={13} /> Enrolled
+                    <CheckCircle2 size={13} /> Active Enrolled
                   </span>
                 )}
               </div>
 
               {/* Title & Subtitle */}
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
                 {course.name}
               </h1>
 
@@ -821,20 +572,20 @@ export default function StudentCourseDetailPage() {
               )}
 
               {/* Quick Metadata Bar */}
-              <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-gray-300 font-medium">
+              <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-gray-300 font-medium">
                 <div className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
                   <Clock size={14} className="text-[#C99A2E]" />
                   <span>Duration: <strong className="text-white">{calculateDuration(course.startDate, course.endDate, course.duration)}</strong></span>
                 </div>
                 {course.startDate && (
                   <div className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
-                    <Sparkles size={14} className="text-[#C99A2E]" />
+                    <Calendar size={14} className="text-[#C99A2E]" />
                     <span>Starts: <strong className="text-white">{new Date(course.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong></span>
                   </div>
                 )}
                 <div className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
                   <Video size={14} className="text-[#C99A2E]" />
-                  <span>Live & Recorded Lectures</span>
+                  <span>Interactive Learning</span>
                 </div>
               </div>
 
@@ -844,8 +595,8 @@ export default function StudentCourseDetailPage() {
             {isEnrolled && (
               <div className="lg:self-center shrink-0">
                 <button
-                  onClick={() => router.push(`/student/batches`)}
-                  className="px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm transition-all shadow-lg flex items-center gap-2"
+                  onClick={() => router.push('/student/batches')}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm transition-all shadow-lg flex items-center justify-center gap-2"
                 >
                   <Play size={18} fill="currentColor" />
                   <span>Go to My Classroom</span>
@@ -856,52 +607,49 @@ export default function StudentCourseDetailPage() {
         </div>
       </section>
 
-      {/* Physics Wallah Sticky Navigation Tabs */}
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+      {/* Sticky Navigation Tabs */}
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <nav className="flex items-center space-x-2 sm:space-x-8 overflow-x-auto no-scrollbar">
+          <nav className="flex items-center space-x-1 sm:space-x-6 overflow-x-auto no-scrollbar py-1">
             <button
               onClick={() => setActiveTab('description')}
-              className={`py-4 px-2 sm:px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              className={`py-3.5 px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'description'
                   ? 'border-[#0B132B] text-[#0B132B]'
                   : 'border-transparent text-gray-500 hover:text-gray-900'
               }`}
             >
               <BookOpen size={16} className={activeTab === 'description' ? 'text-[#C99A2E]' : ''} />
-              <span>Overview & Description</span>
+              <span>Overview</span>
             </button>
 
             <button
               onClick={() => setActiveTab('classroom')}
-              className={`py-4 px-2 sm:px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              className={`py-3.5 px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'classroom'
                   ? 'border-[#0B132B] text-[#0B132B]'
                   : 'border-transparent text-gray-500 hover:text-gray-900'
               }`}
             >
               <Layers size={16} className={activeTab === 'classroom' ? 'text-[#C99A2E]' : ''} />
-              <span>Classroom / Subjects</span>
+              <span>Subjects ({courseSubjects.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('test-series')}
-              className={`py-4 px-2 sm:px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              className={`py-3.5 px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'test-series'
                   ? 'border-[#0B132B] text-[#0B132B]'
                   : 'border-transparent text-gray-500 hover:text-gray-900'
               }`}
             >
               <FileCheck size={16} className={activeTab === 'test-series' ? 'text-[#C99A2E]' : ''} />
-              <span>Test Series / Exams</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800">
-                NTA Pattern
-              </span>
+              <span>Test Series / Exams ({exams.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('faculties')}
-              className={`py-4 px-2 sm:px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              className={`py-3.5 px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'faculties'
                   ? 'border-[#0B132B] text-[#0B132B]'
                   : 'border-transparent text-gray-500 hover:text-gray-900'
@@ -913,14 +661,14 @@ export default function StudentCourseDetailPage() {
 
             <button
               onClick={() => setActiveTab('faqs')}
-              className={`py-4 px-2 sm:px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              className={`py-3.5 px-3 text-xs sm:text-sm font-black border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'faqs'
                   ? 'border-[#0B132B] text-[#0B132B]'
                   : 'border-transparent text-gray-500 hover:text-gray-900'
               }`}
             >
               <HelpCircle size={16} className={activeTab === 'faqs' ? 'text-[#C99A2E]' : ''} />
-              <span>FAQs & Support</span>
+              <span>FAQs ({courseFaqs.length})</span>
             </button>
           </nav>
         </div>
@@ -937,31 +685,31 @@ export default function StudentCourseDetailPage() {
             {activeTab === 'description' && (
               <div className="space-y-6 animate-fadeIn">
                 {/* About Box */}
-                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
                   <h2 className="text-xl font-black text-[#0B132B] mb-4 flex items-center gap-2.5">
-                    <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
-                    About This Batch
+                    <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block" />
+                    About This Course
                   </h2>
                   <p className="text-gray-700 text-sm sm:text-base leading-relaxed font-medium whitespace-pre-wrap">
-                    {course.description || "The ultimate preparation program carefully designed by top educators to help you achieve top ranks with comprehensive concept coverage, daily problem solving, and rigorous mock tests."}
+                    {course.description || "Comprehensive concept coverage, daily problem solving, verified doubt clearance, and rigorous mock test series designed by top faculty educators to help you master the exam syllabus."}
                   </p>
                 </div>
 
-                {/* Batch Highlights Grid */}
-                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
+                {/* Batch Deliverables Grid */}
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
                   <h2 className="text-xl font-black text-[#0B132B] mb-6 flex items-center gap-2.5">
-                    <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
+                    <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block" />
                     Key Batch Deliverables
                   </h2>
                   <div className="grid sm:grid-cols-2 gap-4">
-                    {batchDeliverables.map((item: any, idx: number) => (
+                    {deliverables.map((item: any, idx: number) => (
                       <div key={idx} className="p-4 rounded-2xl bg-gray-50 border border-gray-200/60 flex items-start gap-3.5">
                         <div className="w-10 h-10 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center shrink-0">
                           {item.icon}
                         </div>
                         <div>
                           <h4 className="font-black text-gray-900 text-sm">{item.title}</h4>
-                          <p className="text-xs text-gray-600 mt-0.5">{item.desc}</p>
+                          <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">{item.desc}</p>
                         </div>
                       </div>
                     ))}
@@ -970,9 +718,9 @@ export default function StudentCourseDetailPage() {
 
                 {/* Features List */}
                 {dynamicFeatures.length > 0 && (
-                  <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
+                  <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
                     <h2 className="text-xl font-black text-[#0B132B] mb-6 flex items-center gap-2.5">
-                      <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
+                      <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block" />
                       What You Will Get
                     </h2>
                     <div className="grid sm:grid-cols-2 gap-3.5">
@@ -988,10 +736,10 @@ export default function StudentCourseDetailPage() {
 
                 {/* Best Suited For */}
                 {dynamicBestFor.length > 0 && (
-                  <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
+                  <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
                     <h2 className="text-xl font-black text-[#0B132B] mb-5 flex items-center gap-2.5">
-                      <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
-                      Best Suited For
+                      <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block" />
+                      Target Audience
                     </h2>
                     <div className="flex flex-wrap gap-2.5">
                       {dynamicBestFor.map((bf: string, idx: number) => (
@@ -1005,76 +753,120 @@ export default function StudentCourseDetailPage() {
               </div>
             )}
 
-            {/* TAB 2: CLASSROOM */}
+            {/* TAB 2: CLASSROOM / SUBJECTS */}
             {activeTab === 'classroom' && (
               <div className="space-y-6 animate-fadeIn">
-                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
-                  <h2 className="text-xl font-black text-[#0B132B] mb-2 flex items-center gap-2.5">
-                    <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
-                    Batch Classroom & Syllabus Roadmap
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-500 mb-6 font-medium">
-                    Structured topic roadmap, daily DPP schedules, and lecture archives for this batch.
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                    {defaultSubjects.map((subject: any) => (
-                      <div key={subject.name} className="p-5 rounded-2xl bg-gray-50 border border-gray-200/80">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-black text-gray-900 text-base flex items-center gap-2">
-                            <span>{subject.icon}</span>
-                            <span>{subject.name}</span>
-                          </h4>
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#0B132B] text-[#C99A2E]">
-                            Core Subject
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 font-medium">{subject.chapters || 25}+ Structured Chapters • {subject.dpps || 120}+ DPP Sets</p>
-                      </div>
-                    ))}
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                      <h2 className="text-xl font-black text-[#0B132B] flex items-center gap-2.5">
+                        <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block" />
+                        Subjects & Syllabus Breakdown
+                      </h2>
+                      <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">
+                        Topic roadmaps, lecture structure, and DPP allocations configured for this batch.
+                      </p>
+                    </div>
                   </div>
 
-                  {isEnrolled ? (
-                    <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-3">
-                      <CheckCircle2 size={32} className="mx-auto text-emerald-600" />
-                      <h4 className="font-black text-emerald-950 text-base">You are an active enrolled student!</h4>
-                      <p className="text-xs text-emerald-800">Access all live class streams, video recordings, DPPs and notes inside your student batch portal.</p>
-                      <button
-                        onClick={() => router.push('/student/batches')}
-                        className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-md"
-                      >
-                        Open Classroom Portal
-                      </button>
+                  {courseSubjects.length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-gray-50 border border-gray-200 text-center space-y-2">
+                      <Layers size={36} className="mx-auto text-gray-400 mb-1" />
+                      <h4 className="font-bold text-gray-800 text-base">Curriculum Details Coming Soon</h4>
+                      <p className="text-xs text-gray-500 max-w-md mx-auto">
+                        The subject chapters and syllabus milestones for this batch are being finalized by the academic team.
+                      </p>
                     </div>
                   ) : (
-                    <div className="p-6 rounded-2xl bg-gray-50 border border-gray-200 text-center space-y-3">
-                      <Layers size={32} className="mx-auto text-gray-400" />
-                      <h4 className="font-black text-gray-800 text-base">Enroll to Unlock Full Classroom</h4>
-                      <p className="text-xs text-gray-500 max-w-md mx-auto">Get full access to live lecture streams, daily DPP downloads, annotated PDF notes, and revision modules.</p>
-                      <button
-                        onClick={handleBuyClick}
-                        className="px-6 py-2.5 rounded-xl bg-[#0B132B] text-[#C99A2E] font-bold text-xs hover:bg-[#1C2541] transition-all shadow-md"
-                      >
-                        Enroll in Batch Now
-                      </button>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {courseSubjects.map((subject: any, sIdx: number) => (
+                          <div key={sIdx} className="p-5 rounded-2xl bg-gray-50 border border-gray-200/80 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-black text-gray-900 text-base flex items-center gap-2">
+                                  <span>{subject.icon || '📖'}</span>
+                                  <span>{subject.name}</span>
+                                </h4>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0B132B] text-[#C99A2E]">
+                                  Subject
+                                </span>
+                              </div>
+
+                              <div className="space-y-1.5 text-xs text-gray-600 font-medium mb-3">
+                                {subject.chaptersCount ? (
+                                  <p>📚 <strong>{subject.chaptersCount}</strong> Structured Chapters</p>
+                                ) : null}
+                                {subject.dppsCount ? (
+                                  <p>📝 <strong>{subject.dppsCount}</strong> Daily DPP Sets</p>
+                                ) : null}
+                                {subject.testsCount ? (
+                                  <p>🎯 <strong>{subject.testsCount}</strong> Chapter/Part Tests</p>
+                                ) : null}
+                              </div>
+
+                              {subject.topics && subject.topics.length > 0 && (
+                                <div className="pt-2 border-t border-gray-200/60">
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Syllabus Highlights</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {subject.topics.map((topic: string, tIdx: number) => (
+                                      <span key={tIdx} className="text-[11px] px-2 py-0.5 rounded-md bg-white border border-gray-200 text-gray-700 font-medium">
+                                        {topic}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
+
+                  <div className="mt-8 pt-6 border-t border-gray-200">
+                    {isEnrolled ? (
+                      <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-3">
+                        <CheckCircle2 size={32} className="mx-auto text-emerald-600" />
+                        <h4 className="font-black text-emerald-950 text-base">You are enrolled in this batch!</h4>
+                        <p className="text-xs text-emerald-800">Access all live class streams, video recordings, DPPs and notes inside your classroom portal.</p>
+                        <button
+                          onClick={() => router.push('/student/batches')}
+                          className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-md"
+                        >
+                          Open Classroom Portal
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-6 rounded-2xl bg-gray-50 border border-gray-200 text-center space-y-3">
+                        <Layers size={32} className="mx-auto text-gray-400" />
+                        <h4 className="font-black text-gray-800 text-base">Enroll to Access Full Classroom</h4>
+                        <p className="text-xs text-gray-500 max-w-md mx-auto">Get full access to live lecture streams, daily DPP downloads, annotated PDF notes, and subject recordings.</p>
+                        <button
+                          onClick={handleBuyClick}
+                          className="px-6 py-2.5 rounded-xl bg-[#0B132B] text-[#C99A2E] font-bold text-xs hover:bg-[#1C2541] transition-all shadow-md"
+                        >
+                          Enroll in Batch Now
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* TAB 3: TEST SERIES */}
+            {/* TAB 3: REAL TEST SERIES & ONLINE EXAMS */}
             {activeTab === 'test-series' && (
               <div className="space-y-6 animate-fadeIn">
-                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
                       <h2 className="text-xl font-black text-[#0B132B] flex items-center gap-2.5">
-                        <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
-                        Mock Tests & All India Test Series (AITS)
+                        <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block" />
+                        Real Online Mock Exams & Test Series
                       </h2>
                       <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">
-                        Full NTA Computer Based Test (CBT) simulator with instant All India Rank and AI analysis.
+                        Real computer-based exam simulator with instant All India Rank and AI analysis.
                       </p>
                     </div>
 
@@ -1086,65 +878,79 @@ export default function StudentCourseDetailPage() {
                   {loadingExams ? (
                     <div className="py-12 flex flex-col items-center justify-center">
                       <Loader2 className="w-8 h-8 text-[#0B132B] animate-spin mb-2" />
-                      <p className="text-xs text-gray-500 font-semibold">Loading test series schedule...</p>
+                      <p className="text-xs text-gray-500 font-semibold">Loading real test schedule...</p>
                     </div>
-                  ) : exams.length > 0 ? (
-                    <div className="space-y-3.5">
-                      {exams.map((exam, idx) => (
-                        <div 
-                          key={exam._id || idx}
-                          className="p-5 rounded-2xl bg-gradient-to-r from-gray-50 to-white border border-gray-200/80 hover:border-gray-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                        >
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[#0B132B] text-[#C99A2E]">
-                                {exam.pattern || course.targetExam || 'CBT TEST'}
-                              </span>
-                              <span className="text-xs font-bold text-gray-500">Test #{idx + 1}</span>
-                            </div>
-                            <h4 className="font-black text-gray-900 text-base">{exam.title || exam.name || `Mock Exam ${idx + 1}`}</h4>
-                            <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 font-medium">
-                              <span>⏱ {exam.duration || 180} Mins</span>
-                              <span>•</span>
-                              <span>📊 {exam.totalMarks || 300} Total Marks</span>
-                              <span>•</span>
-                              <span>❓ {exam.questionsCount || 75} Questions</span>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => router.push(`/student/exams/${exam._id || ''}`)}
-                            className="px-5 py-2.5 rounded-xl bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] font-black text-xs transition-all shadow flex items-center justify-center gap-1.5 self-start sm:self-center"
-                          >
-                            <span>Attempt Test</span>
-                            <ArrowRight size={14} />
-                          </button>
-                        </div>
-                      ))}
+                  ) : exams.length === 0 ? (
+                    <div className="py-10 px-4 rounded-2xl bg-gray-50 border border-gray-200 text-center space-y-2">
+                      <FileCheck size={36} className="mx-auto text-gray-400 mb-1" />
+                      <h4 className="font-bold text-gray-800 text-base">No Mock Exams Scheduled Yet</h4>
+                      <p className="text-xs text-gray-500 max-w-md mx-auto">
+                        Online tests and part test series for this course will appear here once scheduled by the faculties.
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-3.5">
-                      {[
-                        { title: `${course.targetExam || 'NEET/JEE'} Part Test 01 - Mechanics & Foundations`, duration: 180, marks: 300, q: 75 },
-                        { title: `${course.targetExam || 'NEET/JEE'} Part Test 02 - Electrodynamics & Chemical Bonding`, duration: 180, marks: 300, q: 75 },
-                        { title: `${course.targetExam || 'NEET/JEE'} Full Syllabus All India Grand Mock Test`, duration: 180, marks: 720, q: 200 }
-                      ].map((item, idx) => (
-                        <div key={idx} className="p-5 rounded-2xl bg-gray-50 border border-gray-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-[#0B132B] text-[#C99A2E]">
-                              SCHEDULED #{idx + 1}
-                            </span>
-                            <h4 className="font-bold text-gray-900 text-sm sm:text-base mt-1">{item.title}</h4>
-                            <p className="text-xs text-gray-500 mt-0.5">⏱ {item.duration} Mins • 📊 {item.marks} Marks • ❓ {item.q} Questions</p>
-                          </div>
-                          <button
-                            onClick={handleBuyClick}
-                            className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs"
+                      {exams.map((exam, idx) => {
+                        const isCompleted = exam.submissionStatus === 'SUBMITTED' || exam.submissionStatus === 'AUTO_SUBMITTED';
+                        const isInProgress = exam.submissionStatus === 'IN_PROGRESS';
+                        
+                        return (
+                          <div 
+                            key={exam._id || idx}
+                            className="p-5 rounded-2xl bg-gradient-to-r from-gray-50 to-white border border-gray-200/80 hover:border-gray-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                           >
-                            {isEnrolled ? 'View Schedule' : 'Unlock with Batch'}
-                          </button>
-                        </div>
-                      ))}
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[#0B132B] text-[#C99A2E]">
+                                  {exam.status || 'PUBLISHED'}
+                                </span>
+                                <span className="text-xs font-bold text-gray-500">Test #{idx + 1}</span>
+                              </div>
+                              <h4 className="font-black text-gray-900 text-base">{exam.title}</h4>
+                              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-medium">
+                                <span>⏱ {exam.settings?.durationMinutes || 180} Mins</span>
+                                <span>•</span>
+                                <span>📊 {exam.totalMarks || 300} Total Marks</span>
+                                <span>•</span>
+                                <span>❓ {exam.totalQuestions || 0} Questions</span>
+                                {exam.score !== null && exam.score !== undefined && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="font-bold text-emerald-600">Score: {exam.score}/{exam.totalMarks}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {isEnrolled ? (
+                              isCompleted ? (
+                                <button
+                                  onClick={() => router.push(`/student/exams/${exam._id}/analysis`)}
+                                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 self-start sm:self-center"
+                                >
+                                  <span>View Analysis</span>
+                                  <ArrowRight size={14} />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => router.push(`/student/exams/${exam._id}/play`)}
+                                  className="px-5 py-2.5 rounded-xl bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] font-black text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 self-start sm:self-center"
+                                >
+                                  <span>{isInProgress ? 'Resume Test' : 'Attempt Test'}</span>
+                                  <ArrowRight size={14} />
+                                </button>
+                              )
+                            ) : (
+                              <button
+                                onClick={handleBuyClick}
+                                className="px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs transition-all self-start sm:self-center"
+                              >
+                                Unlock with Batch
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1154,21 +960,21 @@ export default function StudentCourseDetailPage() {
             {/* TAB 4: FACULTIES */}
             {activeTab === 'faculties' && (
               <div className="space-y-6 animate-fadeIn">
-                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
                   <h2 className="text-xl font-black text-[#0B132B] mb-2 flex items-center gap-2.5">
-                    <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
+                    <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block" />
                     Faculty Mentors Roster
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-500 font-medium mb-6">
-                    Learn from India's top educators with decades of mentoring experience in JEE/NEET.
+                    Learn from experienced educators dedicated to student excellence.
                   </p>
 
-                  {course.faculties?.length > 0 ? (
+                  {course.faculties && course.faculties.length > 0 ? (
                     <div className="grid sm:grid-cols-2 gap-5">
                       {course.faculties.map((f: any) => {
                         const name = `${f.firstName || ''} ${f.lastName || ''}`.trim() || 'Educator';
                         const subject = f.metadata?.subject || f.metadata?.designation || 'Faculty Mentor';
-                        const bio = f.metadata?.bio || f.metadata?.experience || 'Master Educator specialized in competitive exam preparation.';
+                        const bio = f.metadata?.bio || f.metadata?.experience || 'Master Educator specialized in competitive entrance preparation.';
                         
                         return (
                           <div key={f._id} className="p-6 rounded-3xl bg-gradient-to-br from-gray-50 to-white border border-gray-200/80 hover:border-gray-300 hover:shadow-md transition-all flex flex-col justify-between">
@@ -1205,7 +1011,7 @@ export default function StudentCourseDetailPage() {
                       <GraduationCap size={40} className="mx-auto text-gray-400 mb-2" />
                       <h4 className="font-bold text-gray-800 text-base">Top Academic Mentors</h4>
                       <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
-                        This batch is delivered by experienced senior faculty members with proven results.
+                        This batch is delivered by experienced faculty members.
                       </p>
                     </div>
                   )}
@@ -1216,47 +1022,57 @@ export default function StudentCourseDetailPage() {
             {/* TAB 5: FAQS */}
             {activeTab === 'faqs' && (
               <div className="space-y-6 animate-fadeIn">
-                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
                   <h2 className="text-xl font-black text-[#0B132B] mb-2 flex items-center gap-2.5">
-                    <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
+                    <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block" />
                     Frequently Asked Questions
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-500 font-medium mb-6">
-                    Find quick answers about batch access, test schedules, and DPPs.
+                    Find quick answers about batch access, curriculum, test schedules, and DPPs.
                   </p>
 
-                  <div className="space-y-3">
-                    {batchFaqs.map((faq: any, idx: number) => {
-                      const isOpen = openFaq === idx;
-                      return (
-                        <div key={idx} className="border border-gray-200/80 rounded-2xl overflow-hidden">
-                          <button
-                            onClick={() => setOpenFaq(isOpen ? null : idx)}
-                            className="w-full p-4 sm:p-5 text-left font-black text-gray-900 text-sm sm:text-base flex items-center justify-between gap-4 bg-gray-50/50 hover:bg-gray-50 transition-colors"
-                          >
-                            <span>{faq.q}</span>
-                            <ChevronDown size={18} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                          </button>
-                          
-                          <AnimatePresence initial={false}>
-                            {isOpen && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="p-4 sm:p-5 pt-0 text-xs sm:text-sm text-gray-600 font-medium leading-relaxed bg-gray-50/50 border-t border-gray-100">
-                                  {faq.a}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {courseFaqs.length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-gray-50 border border-gray-200 text-center space-y-3">
+                      <HelpCircle size={36} className="mx-auto text-gray-400" />
+                      <h4 className="font-bold text-gray-800 text-base">Have Questions?</h4>
+                      <p className="text-xs text-gray-500 max-w-md mx-auto">
+                        Our student support counselors are available to answer your batch questions and admission inquiries.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {courseFaqs.map((faq: any, idx: number) => {
+                        const isOpen = openFaq === idx;
+                        return (
+                          <div key={idx} className="border border-gray-200/80 rounded-2xl overflow-hidden">
+                            <button
+                              onClick={() => setOpenFaq(isOpen ? null : idx)}
+                              className="w-full p-4 sm:p-5 text-left font-black text-gray-900 text-sm sm:text-base flex items-center justify-between gap-4 bg-gray-50/50 hover:bg-gray-50 transition-colors"
+                            >
+                              <span>{faq.question}</span>
+                              <ChevronDown size={18} className={`text-gray-500 transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            
+                            <AnimatePresence initial={false}>
+                              {isOpen && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="p-4 sm:p-5 pt-0 text-xs sm:text-sm text-gray-600 font-medium leading-relaxed bg-gray-50/50 border-t border-gray-100 whitespace-pre-wrap">
+                                    {faq.answer}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1273,7 +1089,7 @@ export default function StudentCourseDetailPage() {
                 {/* Pricing Block */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Batch Tuition Fee</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tuition Fee</span>
                     {discountPercent && (
                       <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                         {discountPercent}% OFF
@@ -1283,11 +1099,11 @@ export default function StudentCourseDetailPage() {
 
                   <div className="flex items-baseline gap-2.5 mt-1">
                     {course.actualFee && (
-                      <span className="text-2xl font-bold text-gray-400 line-through">
+                      <span className="text-xl sm:text-2xl font-bold text-gray-400 line-through">
                         ₹{course.actualFee.toLocaleString()}
                       </span>
                     )}
-                    <span className="text-4xl font-black text-gray-900">
+                    <span className="text-3xl sm:text-4xl font-black text-gray-900">
                       ₹{course.fee?.toLocaleString() || 0}
                     </span>
                     <span className="text-xs font-semibold text-gray-500">/ full course</span>
@@ -1337,26 +1153,34 @@ export default function StudentCourseDetailPage() {
                   <p className="text-xs font-black uppercase tracking-wider text-gray-500">This Batch Includes</p>
                   
                   <div className="space-y-2.5 text-xs font-semibold text-gray-700">
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                      <span>Daily Interactive Live Lectures</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                      <span>Daily DPPs with Video Solutions</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                      <span>NTA Pattern Mock Test Series & AIR</span>
-                    </div>
+                    {access.liveClasses !== false && (
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                        <span>Interactive Live & Recorded Lectures</span>
+                      </div>
+                    )}
+                    {access.dpps !== false && (
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                        <span>Daily Practice Problems (DPPs)</span>
+                      </div>
+                    )}
+                    {access.testSeries !== false && (
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                        <span>Real Online Exam Mock Series</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2.5">
                       <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
                       <span>24x7 Verified Doubt Assistance</span>
                     </div>
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                      <span>Comprehensive Class Notes (PDF)</span>
-                    </div>
+                    {access.studyMaterials !== false && (
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                        <span>Comprehensive Class Notes & PDFs</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1373,12 +1197,12 @@ export default function StudentCourseDetailPage() {
 
         </div>
 
-        {/* EXPLORE OTHER COURSES FOR THIS PREFERENCE SECTION */}
+        {/* EXPLORE OTHER COURSES SECTION */}
         <section className="mt-16 pt-12 border-t border-gray-200">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-[#0B132B] text-[#C99A2E] flex items-center gap-1.5 shadow-sm">
+                <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-[#0B132B] text-[#C99A2E] flex items-center gap-1.5 shadow-xs">
                   <Compass size={14} /> Recommended Batches
                 </span>
                 <span className="text-xs font-bold text-gray-500">
@@ -1468,13 +1292,13 @@ export default function StudentCourseDetailPage() {
                 return (
                   <div
                     key={cId}
-                    className="flex flex-col rounded-3xl overflow-hidden border border-gray-200/80 bg-white transition-all duration-300 shadow-sm hover:shadow-xl hover:border-[#0B132B] group"
+                    className="flex flex-col rounded-3xl overflow-hidden border border-gray-200/80 bg-white transition-all duration-300 shadow-xs hover:shadow-xl hover:border-[#0B132B] group"
                   >
                     {/* Header Banner */}
                     <div className="px-6 pt-6 pb-5 bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1E293B] text-white relative">
                       <div className="flex items-center gap-2 mb-3 flex-wrap">
                         {isGoalMatch && (
-                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#C99A2E] text-[#0B132B] flex items-center gap-1 shadow-sm">
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#C99A2E] text-[#0B132B] flex items-center gap-1 shadow-xs">
                             <Sparkles size={11} /> Preference Match
                           </span>
                         )}
@@ -1512,8 +1336,8 @@ export default function StudentCourseDetailPage() {
                         <ul className="space-y-1.5">
                           {(otherCourse.features || [
                             "Interactive Live Classes & HD Recordings",
-                            "Daily DPPs with Video Solutions",
-                            "All India Test Series (AITS) CBT",
+                            "Daily DPPs with Solutions",
+                            "Real Online Exam Test Series",
                             "24/7 Verified Doubt Assistance"
                           ]).slice(0, 3).map((f: string, fi: number) => (
                             <li key={fi} className="flex items-start gap-2 text-xs text-gray-700">
@@ -1549,7 +1373,7 @@ export default function StudentCourseDetailPage() {
                             router.push(`/student/course/${cId}`);
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
-                          className="px-4 py-2.5 rounded-xl bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] font-black text-xs transition-all shadow-sm flex items-center gap-1.5 group-hover:scale-105"
+                          className="px-4 py-2.5 rounded-xl bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] font-black text-xs transition-all shadow-xs flex items-center gap-1.5 group-hover:scale-105"
                         >
                           <span>Explore Batch</span>
                           <ArrowRight size={14} />

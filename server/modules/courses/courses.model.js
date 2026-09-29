@@ -30,6 +30,19 @@ const courseSchema = new mongoose.Schema({
   },
   defaultBatchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
   faculties: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  subjects: [{
+    name: { type: String, required: true },
+    icon: { type: String, default: '📖' },
+    chaptersCount: { type: Number, default: 0 },
+    dppsCount: { type: Number, default: 0 },
+    testsCount: { type: Number, default: 0 },
+    description: { type: String },
+    topics: [{ type: String }]
+  }],
+  faqs: [{
+    question: { type: String, required: true },
+    answer: { type: String, required: true }
+  }],
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

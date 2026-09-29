@@ -57,3 +57,13 @@ exports.enrollCourse = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getCourseExams = async (req, res, next) => {
+  try {
+    const data = await CourseService.getCourseExams(req.params.id, req.user);
+    return successResponse(res, 'Course exams retrieved successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+

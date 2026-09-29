@@ -43,6 +43,21 @@ exports.createCourseSchema = Joi.object({
   }).optional(),
   defaultBatchId: Joi.string().optional().allow(null, ''),
   faculties: Joi.array().items(Joi.string()).optional(),
+  subjects: Joi.array().items(Joi.object({
+    _id: Joi.string().optional(),
+    name: Joi.string().required(),
+    icon: Joi.string().optional().allow('', null),
+    chaptersCount: Joi.number().optional().allow(null),
+    dppsCount: Joi.number().optional().allow(null),
+    testsCount: Joi.number().optional().allow(null),
+    description: Joi.string().optional().allow('', null),
+    topics: Joi.array().items(Joi.string().allow('')).optional()
+  })).optional(),
+  faqs: Joi.array().items(Joi.object({
+    _id: Joi.string().optional(),
+    question: Joi.string().required(),
+    answer: Joi.string().required()
+  })).optional(),
   isActive: Joi.boolean().optional()
 }).unknown(true).custom(validateCourseDateRange);
 
@@ -75,5 +90,20 @@ exports.updateCourseSchema = Joi.object({
   }).optional(),
   defaultBatchId: Joi.string().optional().allow(null, ''),
   faculties: Joi.array().items(Joi.string()).optional(),
+  subjects: Joi.array().items(Joi.object({
+    _id: Joi.string().optional(),
+    name: Joi.string().required(),
+    icon: Joi.string().optional().allow('', null),
+    chaptersCount: Joi.number().optional().allow(null),
+    dppsCount: Joi.number().optional().allow(null),
+    testsCount: Joi.number().optional().allow(null),
+    description: Joi.string().optional().allow('', null),
+    topics: Joi.array().items(Joi.string().allow('')).optional()
+  })).optional(),
+  faqs: Joi.array().items(Joi.object({
+    _id: Joi.string().optional(),
+    question: Joi.string().required(),
+    answer: Joi.string().required()
+  })).optional(),
   isActive: Joi.boolean().optional()
 }).unknown(true).custom(validateCourseDateRange);

@@ -164,3 +164,55 @@ exports.enrollCourse = async (id, reqUser, payload) => {
 
   return { success: true, message: 'Enrolled successfully', transactionId: paymentTransaction.transactionId };
 };
+
+exports.getCourseExams = async (id, reqUser) => {
+  const mongoose = require('mongoose');
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) return [];
+  const course = await CourseModel.findById(id);
+  if (!course) return [];
+
+  const batches = await BatchModel.find({ courseId: course._id }).select('_id');
+  const batchIds = batches.map(b => b._id);
+  if (course.defaultBatchId && !batchIds.some(bid => bid.toString() === course.defaultBatchId.toString())) {
+    batchIds.push(course.defaultBatchId);
+  }
+
+  const Exam = require('../exams/exam.model');
+  const query = {
+    $or: [
+      { assignedBatches: { $in: batchIds } },
+      { courseId: course._id }
+    ]
+  };
+
+  // If student or public request, only return published/completed exams
+  if (!reqUser || reqUser.role === 'student' || reqUser.role === 'parent') {
+    query.status = { $in: ['PUBLISHED', 'COMPLETED'] };
+  }
+
+  const exams = await Exam.find(query)
+    .populate('assignedBatches', 'name section')
+    .sort({ 'settings.startTime': 1, createdAt: -1 });
+
+  // If reqUser is student, attach submission status
+  let studentSubmissions = [];
+  if (reqUser && (reqUser.role === 'student' || reqUser.userId)) {
+    try {
+      const ExamSubmission = require('../exams/exam-submission.model');
+      const studentId = reqUser.userId || reqUser.id || reqUser._id;
+      studentSubmissions = await ExamSubmission.find({ student: studentId, exam: { $in: exams.map(e => e._id) } });
+    } catch (e) {
+      console.error('Error fetching student submissions:', e);
+    }
+  }
+
+  return exams.map(exam => {
+    const sub = studentSubmissions.find(s => s.exam.toString() === exam._id.toString());
+    return {
+      ...exam.toObject(),
+      submissionStatus: sub ? sub.status : 'NOT_STARTED',
+      score: sub ? sub.score : null
+    };
+  });
+};
+

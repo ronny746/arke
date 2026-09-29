@@ -40,6 +40,11 @@ router.delete(
   CourseController.deleteCourse
 );
 
+router.get(
+  '/:id/exams',
+  CourseController.getCourseExams
+);
+
 router.post(
   '/:id/enroll',
   rbacMiddleware.requireRole([ROLES.STUDENT]),

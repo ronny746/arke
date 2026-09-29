@@ -405,6 +405,7 @@ export default function CourseDetailsPage() {
   const { isDeveloperMode } = useDeveloperStore();
   const [course, setCourse] = useState<any>(null);
   const [batches, setBatches] = useState<any[]>([]);
+  const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState('');
   
@@ -420,15 +421,18 @@ export default function CourseDetailsPage() {
     if (!token || !courseId) return;
     setLoading(true);
     try {
-      const [cRes, bRes] = await Promise.all([
+      const [cRes, bRes, eRes] = await Promise.all([
         fetch(`/api/v1/courses/${courseId}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/v1/batches?courseId=${courseId}`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`/api/v1/batches?courseId=${courseId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/v1/courses/${courseId}/exams`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       const cData = await cRes.json();
       const bData = await bRes.json();
+      const eData = await eRes.json();
       
       if (cData.success) setCourse(cData.data);
       if (bData.success) setBatches(bData.data || []);
+      if (eData.success && Array.isArray(eData.data)) setExams(eData.data);
     } catch { toast.error('Network error'); } finally { setLoading(false); }
   }, [token, courseId]);
 
@@ -635,6 +639,216 @@ export default function CourseDetailsPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Course Subjects & Curriculum */}
+      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center font-bold">
+                <Layers size={18} />
+              </div>
+              <h2 className="text-xl font-black text-gray-900">Course Subjects & Curriculum</h2>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {course.subjects?.length || 0} configured subject{(course.subjects?.length || 0) !== 1 ? 's' : ''} for this course
+            </p>
+          </div>
+          <button 
+            onClick={() => router.push(`/admin/courses/builder?id=${course._id}`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all self-start sm:self-auto"
+          >
+            <Pencil size={14} /> Manage Subjects
+          </button>
+        </div>
+
+        {!course.subjects || course.subjects.length === 0 ? (
+          <div className="text-center py-8 px-4 bg-gray-50/70 rounded-2xl border border-dashed border-gray-200">
+            <Layers className="mx-auto text-gray-400 mb-2" size={28} />
+            <h3 className="text-sm font-bold text-gray-700">No subjects configured yet</h3>
+            <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+              Add subjects and syllabus chapters in the course builder so students can view their detailed curriculum.
+            </p>
+            <button 
+              onClick={() => router.push(`/admin/courses/builder?id=${course._id}`)}
+              className="mt-3 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm hover:opacity-95 transition-all"
+              style={{ background: '#0B132B' }}
+            >
+              + Configure Subjects
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {course.subjects.map((sub: any, sIdx: number) => (
+              <div key={sIdx} className="p-5 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 hover:shadow-md transition-all flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <span className="text-xl">{sub.icon || '📖'}</span>
+                    <h4 className="font-bold text-gray-900 text-base">{sub.name}</h4>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-medium mb-3">
+                    <span className="px-2 py-0.5 rounded-md bg-white border border-gray-200 font-bold text-gray-700">
+                      {sub.chaptersCount || 0} Chapters
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-white border border-gray-200 font-bold text-gray-700">
+                      {sub.dppsCount || 0} DPPs
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-white border border-gray-200 font-bold text-gray-700">
+                      {sub.testsCount || 0} Tests
+                    </span>
+                  </div>
+
+                  {sub.topics?.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Key Topics</p>
+                      <div className="flex flex-wrap gap-1">
+                        {sub.topics.slice(0, 4).map((top: string, tIdx: number) => (
+                          <span key={tIdx} className="text-[11px] px-2 py-0.5 rounded-md bg-white border border-gray-200/80 text-gray-600">
+                            {top}
+                          </span>
+                        ))}
+                        {sub.topics.length > 4 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded text-gray-400 font-semibold">
+                            +{sub.topics.length - 4} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Real Linked Online Exams & Test Series */}
+      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center font-bold">
+                <FileCheck size={18} />
+              </div>
+              <h2 className="text-xl font-black text-gray-900">Linked Online Exams / Test Series</h2>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {exams.length} real online exam{(exams.length !== 1 ? 's' : '')} assigned to this course's batches
+            </p>
+          </div>
+          <button 
+            onClick={() => router.push('/admin/exams/create')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-all hover:opacity-95 self-start sm:self-auto"
+            style={{ background: '#0B132B' }}
+          >
+            <Plus size={14} className="text-[#C99A2E]" /> Create New Exam
+          </button>
+        </div>
+
+        {exams.length === 0 ? (
+          <div className="text-center py-8 px-4 bg-gray-50/70 rounded-2xl border border-dashed border-gray-200">
+            <FileCheck className="mx-auto text-gray-400 mb-2" size={28} />
+            <h3 className="text-sm font-bold text-gray-700">No real exams linked to this course yet</h3>
+            <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+              Create exams in the Online Exams module and assign them to this course's batches. They will automatically be available to students in the Test Series tab.
+            </p>
+            <button 
+              onClick={() => router.push('/admin/exams/create')}
+              className="mt-3 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm hover:opacity-95 transition-all"
+              style={{ background: '#0B132B' }}
+            >
+              + Create Exam in Exam Module
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {exams.map((exam: any) => (
+              <div key={exam._id} className="p-5 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 hover:shadow-md transition-all flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#0B132B] text-[#C99A2E]">
+                      {exam.status || 'PUBLISHED'}
+                    </span>
+                    <span className="text-[11px] font-semibold text-gray-500">
+                      {exam.settings?.durationMinutes || 180} mins
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-gray-900 text-base leading-snug mb-2">{exam.title}</h4>
+                  
+                  <div className="space-y-1 text-xs text-gray-600 font-medium">
+                    <p>📊 Total Marks: <strong className="text-gray-900">{exam.totalMarks || 300}</strong></p>
+                    <p>❓ Questions: <strong className="text-gray-900">{exam.totalQuestions || 0}</strong></p>
+                    {exam.settings?.startTime && (
+                      <p className="text-[11px] text-gray-400 pt-1">
+                        Starts: {new Date(exam.settings.startTime).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-gray-500">
+                    {exam.assignedBatches?.length || 0} batch{(exam.assignedBatches?.length || 0) !== 1 ? 'es' : ''} assigned
+                  </span>
+                  <button
+                    onClick={() => router.push(`/admin/exams/${exam._id}/edit`)}
+                    className="px-3 py-1 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  >
+                    Edit Exam
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Course FAQs Section */}
+      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center font-bold">
+                <HelpCircle size={18} />
+              </div>
+              <h2 className="text-xl font-black text-gray-900">Course FAQs</h2>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {course.faqs?.length || 0} FAQ item{(course.faqs?.length || 0) !== 1 ? 's' : ''} shown to students
+            </p>
+          </div>
+          <button 
+            onClick={() => router.push(`/admin/courses/builder?id=${course._id}`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all self-start sm:self-auto"
+          >
+            <Pencil size={14} /> Manage FAQs
+          </button>
+        </div>
+
+        {!course.faqs || course.faqs.length === 0 ? (
+          <div className="text-center py-8 px-4 bg-gray-50/70 rounded-2xl border border-dashed border-gray-200">
+            <HelpCircle className="mx-auto text-gray-400 mb-2" size={28} />
+            <h3 className="text-sm font-bold text-gray-700">No FAQs configured yet</h3>
+            <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+              Add clear FAQs in the course builder to address student queries regarding batch access and recordings.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {course.faqs.map((faq: any, fIdx: number) => (
+              <div key={fIdx} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 space-y-1.5">
+                <h4 className="font-bold text-gray-900 text-sm flex items-start gap-2">
+                  <span className="text-[#C99A2E] font-black">Q.</span>
+                  <span>{faq.question}</span>
+                </h4>
+                <p className="text-xs text-gray-600 pl-4 font-medium leading-relaxed">
+                  {faq.answer}
+                </p>
+              </div>
+            ))}
           </div>
         )}
       </div>
