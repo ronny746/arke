@@ -268,7 +268,7 @@ export default function AdminCoursesPage() {
                     )}
                   </div>
 
-                  <h3 className="font-black text-[#0B132B] text-lg mb-1 leading-snug group-hover:text-blue-700 transition-colors">{c.name}</h3>
+                  <h3 className="font-bold text-[#0B132B] text-base sm:text-lg mb-1 leading-snug group-hover:text-[#059669] transition-colors">{c.name}</h3>
                   {c.subtitle && <p className="text-xs text-gray-500 font-medium mb-3 line-clamp-1">{c.subtitle}</p>}
                   {c.description && <p className="text-xs text-gray-400 leading-relaxed mb-4 line-clamp-2">{c.description}</p>}
                   

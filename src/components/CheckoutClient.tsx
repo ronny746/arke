@@ -27,6 +27,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginModal } from '@/components/LoginModal';
+import ArkeLogo from '@/components/ArkeLogo';
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -266,7 +267,7 @@ export default function CheckoutClient() {
           </button>
 
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/arke_logo.png" alt="ARKE Scholars" width={120} height={40} className="h-8 w-auto object-contain" priority />
+            <ArkeLogo variant="light" size="sm" />
           </Link>
 
           <div className="flex items-center gap-2 text-xs font-semibold text-[#C99A2E] bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">

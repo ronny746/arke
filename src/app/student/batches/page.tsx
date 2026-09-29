@@ -140,7 +140,7 @@ export default function MyBatchesPage() {
 
   const itemVariants = {
     hidden: { opacity: 0, y: 15 },
-    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+    show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
   };
 
   return (
@@ -275,26 +275,34 @@ export default function MyBatchesPage() {
                   <motion.div 
                     key={batch._id} 
                     variants={itemVariants} 
-                    className="flex flex-col bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-xl hover:border-[#0B132B] transition-all duration-300 group"
+                    className="flex flex-col bg-white rounded-3xl shadow-sm border border-gray-200/90 overflow-hidden hover:shadow-xl hover:border-[#059669]/40 hover:-translate-y-0.5 transition-all duration-300 group"
                   >
                     {/* Header Banner */}
-                    <div className="h-32 relative p-6 flex flex-col justify-end bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1E293B] text-white">
-                      <div className="absolute top-4 right-4 flex items-center gap-2">
-                        {course.targetExam && (
-                          <span className="bg-white/15 backdrop-blur px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase text-[#C99A2E] border border-white/20">
-                            {course.targetExam}
-                          </span>
-                        )}
-                        <div className="bg-white/15 backdrop-blur px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white border border-white/20 flex items-center gap-1">
+                    <div className="p-6 bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1C2541] text-white relative flex flex-col justify-between space-y-3">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {course.targetExam && (
+                            <span className="bg-[#C99A2E] text-[#0B132B] px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs">
+                              {course.targetExam}
+                            </span>
+                          )}
+                          {course.targetClass && (
+                            <span className="bg-white/15 backdrop-blur px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white/90 border border-white/20">
+                              {course.targetClass}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="bg-white/10 backdrop-blur px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white border border-white/20 flex items-center gap-1">
                           {isEnded ? (
                             <><span className="w-2 h-2 rounded-full bg-red-400"></span> Concluded</>
                           ) : (
-                            <><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Active</>
+                            <><span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span> Active</>
                           )}
                         </div>
                       </div>
 
-                      <h3 className="text-xl font-black text-white relative z-10 leading-tight line-clamp-2 drop-shadow-md">
+                      <h3 className="text-base sm:text-lg font-bold text-white leading-snug line-clamp-2">
                         {course.name || batch.name}
                       </h3>
                     </div>
@@ -305,13 +313,13 @@ export default function MyBatchesPage() {
                           <div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Assigned Batch</p>
                             <p className="text-gray-900 font-bold text-sm flex items-center gap-2">
-                              {batch.name} {batch.section && <span className="text-[11px] bg-gray-100 px-2 py-0.5 rounded font-semibold">Sec {batch.section}</span>}
+                              {batch.name} {batch.section && <span className="text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold">Sec {batch.section}</span>}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Classmates</p>
-                            <p className="text-gray-700 font-bold text-xs flex items-center justify-end gap-1">
-                              <Users size={13} className="text-[#C99A2E]" /> {batch.students?.length || 1}
+                            <p className="text-gray-800 font-bold text-xs flex items-center justify-end gap-1">
+                              <Users size={14} className="text-[#059669]" /> {batch.students?.length || 1} Enrolled
                             </p>
                           </div>
                         </div>
@@ -319,29 +327,29 @@ export default function MyBatchesPage() {
                         {/* Quick Action Grid */}
                         <div className="grid grid-cols-2 gap-2.5 pt-4 border-t border-gray-100">
                           {access.liveClasses && (
-                            <button onClick={() => router.push('/student/live-classes')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition-colors border border-gray-100">
-                              <Video size={15} className="text-blue-600 shrink-0" />
+                            <button onClick={() => router.push('/student/live-classes')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-emerald-50 text-gray-700 hover:text-[#059669] transition-all border border-gray-200/70 font-semibold">
+                              <Video size={15} className="text-[#059669] shrink-0" />
                               <span className="text-xs font-bold">Live Classes</span>
                             </button>
                           )}
 
                           {access.studyMaterials && (
-                            <button onClick={() => router.push('/student/study-materials')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition-colors border border-gray-100">
+                            <button onClick={() => router.push('/student/study-materials')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-purple-50 text-gray-700 hover:text-purple-700 transition-all border border-gray-200/70 font-semibold">
                               <BookOpen size={15} className="text-purple-600 shrink-0" />
                               <span className="text-xs font-bold">Materials</span>
                             </button>
                           )}
                           
                           {access.dpps && (
-                            <button onClick={() => router.push('/student/dpp')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-amber-50 text-gray-700 hover:text-amber-600 transition-colors border border-gray-100">
+                            <button onClick={() => router.push('/student/dpp')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-amber-50 text-gray-700 hover:text-amber-700 transition-all border border-gray-200/70 font-semibold">
                               <PenTool size={15} className="text-amber-600 shrink-0" />
                               <span className="text-xs font-bold">Daily DPPs</span>
                             </button>
                           )}
                           
                           {access.testSeries && (
-                            <button onClick={() => router.push('/student/exams')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-emerald-50 text-gray-700 hover:text-emerald-600 transition-colors border border-gray-100">
-                              <FileCheck size={15} className="text-emerald-600 shrink-0" />
+                            <button onClick={() => router.push('/student/exams')} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 transition-all border border-gray-200/70 font-semibold">
+                              <FileCheck size={15} className="text-blue-600 shrink-0" />
                               <span className="text-xs font-bold">Mock Exams</span>
                             </button>
                           )}
@@ -351,10 +359,11 @@ export default function MyBatchesPage() {
                       {/* View Overview Link */}
                       <button
                         onClick={() => router.push(`/student/course/${courseId}`)}
-                        className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-[#0B132B] hover:text-[#C99A2E] text-gray-800 text-xs font-black transition-all flex items-center justify-center gap-1.5"
+                        className="w-full py-3 rounded-xl text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 hover:opacity-95"
+                        style={{ background: '#059669' }}
                       >
                         <span>View Batch Overview & Schedule</span>
-                        <ArrowRight size={13} />
+                        <ArrowRight size={14} />
                       </button>
 
                     </div>
@@ -487,13 +496,13 @@ export default function MyBatchesPage() {
                   <motion.div
                     key={cId}
                     variants={itemVariants}
-                    className="flex flex-col rounded-3xl overflow-hidden border border-gray-200/80 bg-white transition-all duration-300 shadow-sm hover:shadow-xl hover:border-[#0B132B] group"
+                    className="flex flex-col rounded-3xl overflow-hidden border border-gray-200/90 bg-white transition-all duration-300 shadow-sm hover:shadow-xl hover:border-[#059669]/40 hover:-translate-y-0.5 group"
                   >
                     {/* Header */}
-                    <div className="px-6 pt-6 pb-5 bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1E293B] text-white relative">
-                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <div className="p-6 bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1C2541] text-white relative space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {isAlreadyEnrolled ? (
-                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500 text-white flex items-center gap-1 shadow-sm">
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#10B981] text-white flex items-center gap-1 shadow-sm">
                             <CheckCircle2 size={11} /> Enrolled
                           </span>
                         ) : isGoalMatch ? (
@@ -503,12 +512,12 @@ export default function MyBatchesPage() {
                         ) : null}
 
                         {course.targetExam && (
-                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-white/15 border border-white/25 uppercase tracking-wider">
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-white/15 border border-white/25 uppercase tracking-wider text-white">
                             {course.targetExam}
                           </span>
                         )}
                         {course.targetClass && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 border border-white/20">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 border border-white/20 text-white/90">
                             {course.targetClass}
                           </span>
                         )}
@@ -519,12 +528,14 @@ export default function MyBatchesPage() {
                         )}
                       </div>
 
-                      <h3 className="text-white font-black text-lg leading-tight mb-1 line-clamp-2">
+                      <h3 className="text-white font-bold text-base sm:text-lg leading-snug line-clamp-2">
                         {course.name}
                       </h3>
-                      <p className="text-gray-300 text-xs line-clamp-1">
-                        {course.subtitle || course.description || 'Structured academic preparation batch.'}
-                      </p>
+                      {course.subtitle && (
+                        <p className="text-gray-300 text-xs font-medium line-clamp-1">
+                          {course.subtitle}
+                        </p>
+                      )}
                     </div>
 
                     {/* Card Body */}
@@ -532,7 +543,7 @@ export default function MyBatchesPage() {
                       
                       {/* Feature Bullets */}
                       <div className="space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Curriculum Inclusions</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Curriculum Inclusions</p>
                         <ul className="space-y-1.5">
                           {(course.features || [
                             "Interactive Live Classes & Archives",
@@ -541,7 +552,7 @@ export default function MyBatchesPage() {
                             "24/7 Doubt Engine Support"
                           ]).slice(0, 3).map((f: string, fi: number) => (
                             <li key={fi} className="flex items-start gap-2 text-xs text-gray-700">
-                              <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                              <CheckCircle2 size={14} className="text-[#059669] shrink-0 mt-0.5" />
                               <span className="leading-tight font-medium line-clamp-1">{f}</span>
                             </li>
                           ))}
@@ -570,10 +581,10 @@ export default function MyBatchesPage() {
 
                         <button
                           onClick={() => router.push(`/student/course/${cId}`)}
-                          className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all shadow-sm flex items-center gap-1.5 ${
+                          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 ${
                             isAlreadyEnrolled
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                              : 'bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] group-hover:scale-105'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-black'
+                              : 'bg-[#059669] hover:bg-[#047857] text-white shadow-md'
                           }`}
                         >
                           <span>{isAlreadyEnrolled ? 'Go to Batch' : 'Explore Batch'}</span>
