@@ -31,4 +31,10 @@ router.put(
   LiveClassesController.endLiveClass
 );
 
+router.post(
+  '/:id/sync-zoom',
+  rbacMiddleware.requireRole([ROLES.TEACHER, ROLES.ADMIN_ACADOPS, ROLES.SUPER_ADMIN]),
+  LiveClassesController.syncZoomData
+);
+
 module.exports = router;

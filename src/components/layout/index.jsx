@@ -233,7 +233,7 @@ export function Topbar({ title, actions, breadcrumbs, user, onProfileClick }) {
 }
 
 // ─── PageHeader ───────────────────────────────────────────────────────────────
-export function PageHeader({ title, subtitle, breadcrumbs, actions, onBack, className }) {
+export function PageHeader({ title, subtitle = null, breadcrumbs = null, actions = null, onBack = null, className = '' }) {
   return (
     <div className={cn('page-header', className)}>
       <div className="flex items-start gap-2.5">

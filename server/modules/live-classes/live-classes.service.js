@@ -33,28 +33,46 @@ exports.startLiveClass = async (reqOrUser, payload) => {
     reqUser = reqOrUser;
   }
 
-  const { classScheduleId, topic, duration, platform, meetingLink, meetingPassword } = payload;
+  const { classScheduleId, topic, duration, platform = 'zoom', meetingLink, meetingPassword } = payload;
 
   let finalMeetingLink = meetingLink;
   let finalMeetingPassword = meetingPassword;
   let finalStartUrl = null;
   let finalMeetingId = null;
 
-  if (platform === 'zoom') {
-    try {
-      const meetingTopic = topic || `Live Class for ${reqUser.userId}`;
-      const meetingDuration = duration || 60; // default 60 mins
-      const startTime = new Date().toISOString(); // starting now
-      
-      const zoomMeeting = await ZoomService.createMeeting(meetingTopic, startTime, meetingDuration);
-      finalMeetingLink = zoomMeeting.joinUrl;
-      finalStartUrl = zoomMeeting.startUrl;
-      finalMeetingPassword = zoomMeeting.password;
-      finalMeetingId = zoomMeeting.meetingId;
-    } catch (err) {
-      throw new Error('Failed to create Zoom Meeting: ' + err.message);
+  const targetPlatform = platform || 'zoom';
+
+  if (targetPlatform === 'zoom') {
+    if (process.env.ZOOM_CLIENT_ID && process.env.ZOOM_ACCOUNT_ID && process.env.ZOOM_CLIENT_SECRET) {
+      try {
+        const meetingTopic = topic || `Live Class for ${reqUser.userId}`;
+        const meetingDuration = duration || 60; // default 60 mins
+        const startTime = new Date().toISOString(); // starting now
+        
+        const zoomMeeting = await ZoomService.createMeeting(meetingTopic, startTime, meetingDuration);
+        finalMeetingLink = zoomMeeting.joinUrl;
+        finalStartUrl = zoomMeeting.startUrl;
+        finalMeetingPassword = zoomMeeting.password;
+        finalMeetingId = String(zoomMeeting.meetingId);
+      } catch (err) {
+        console.error('[ZOOM] Error starting meeting:', err.message);
+        throw new Error('Failed to create Zoom Meeting: ' + err.message);
+      }
+    } else if (meetingLink) {
+      // Manual Zoom meeting link provided
+      finalMeetingLink = meetingLink;
+      finalStartUrl = meetingLink;
+      finalMeetingId = meetingLink.split('/j/')[1]?.split('?')[0] || Math.random().toString(36).substring(2, 10);
+      finalMeetingPassword = meetingPassword || '';
+    } else {
+      // Fallback Zoom meeting room for testing when credentials are missing
+      const dummyId = Math.floor(10000000000 + Math.random() * 90000000000).toString();
+      finalMeetingId = dummyId;
+      finalMeetingLink = `https://zoom.us/j/${dummyId}`;
+      finalStartUrl = `https://zoom.us/s/${dummyId}`;
+      finalMeetingPassword = '123456';
     }
-  } else if (platform === 'custom') {
+  } else if (targetPlatform === 'custom') {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     let frontendUrl = process.env.FRONTEND_URL;
     if (!frontendUrl && req) {
@@ -68,7 +86,7 @@ exports.startLiveClass = async (reqOrUser, payload) => {
     finalStartUrl = finalMeetingLink;
     finalMeetingId = roomCode;
   } else if (!finalMeetingLink) {
-    throw new Error('Meeting link is required for custom platform');
+    throw new Error('Meeting link is required');
   }
 
   const schedule = await ClassSchedule.findById(classScheduleId);
@@ -232,25 +250,80 @@ exports.endLiveClass = async (id, reqUser, payload = {}) => {
   if (!liveClass) throw new Error('Live class not found or unauthorized');
 
   let participantsData = [];
-  if (liveClass.meetingId) {
+  let recordingUrl = payload && payload.recordingUrl ? payload.recordingUrl : liveClass.recordingUrl;
+
+  if (liveClass.meetingId && process.env.ZOOM_CLIENT_ID) {
     try {
       const zoomParticipants = await ZoomService.getMeetingParticipants(liveClass.meetingId);
+      if (Array.isArray(zoomParticipants) && zoomParticipants.length > 0) {
+        participantsData = zoomParticipants.map(zp => ({
+          zoomUserId: zp.id,
+          name: zp.name,
+          userEmail: zp.user_email,
+          joinTime: zp.join_time ? new Date(zp.join_time) : null,
+          leaveTime: zp.leave_time ? new Date(zp.leave_time) : null,
+          duration: zp.duration
+        }));
+      }
+    } catch (e) {
+      console.error('[ZOOM] Failed to fetch participants on endLiveClass:', e.message);
+    }
+
+    try {
+      const zoomRecordings = await ZoomService.getMeetingRecordings(liveClass.meetingId);
+      if (zoomRecordings) {
+        const cloudUrl = zoomRecordings.share_url || zoomRecordings.recording_files?.find(f => f.file_type === 'MP4')?.download_url;
+        if (cloudUrl) recordingUrl = cloudUrl;
+      }
+    } catch (e) {
+      console.error('[ZOOM] Failed to fetch recordings on endLiveClass:', e.message);
+    }
+  }
+
+  liveClass.status = 'COMPLETED';
+  if (recordingUrl) liveClass.recordingUrl = recordingUrl;
+  if (participantsData.length > 0) liveClass.participants = participantsData;
+
+  await liveClass.save();
+  return liveClass;
+};
+
+exports.syncZoomData = async (id) => {
+  const liveClass = await LiveClass.findById(id);
+  if (!liveClass) throw new Error('Live class not found');
+  if (!liveClass.meetingId) throw new Error('No Zoom Meeting ID found for this class');
+
+  let participantsData = [];
+  let recordingUrl = liveClass.recordingUrl || null;
+
+  try {
+    const zoomParticipants = await ZoomService.getMeetingParticipants(liveClass.meetingId);
+    if (Array.isArray(zoomParticipants) && zoomParticipants.length > 0) {
       participantsData = zoomParticipants.map(zp => ({
         zoomUserId: zp.id,
         name: zp.name,
         userEmail: zp.user_email,
         joinTime: zp.join_time ? new Date(zp.join_time) : null,
         leaveTime: zp.leave_time ? new Date(zp.leave_time) : null,
-        duration: zp.duration // duration is typically in seconds in Zoom API
+        duration: zp.duration
       }));
-    } catch (e) {
-      console.error('[ZOOM] Failed to fetch participants on endLiveClass:', e.message);
     }
+  } catch (e) {
+    console.error('[ZOOM Sync] Error fetching participants:', e.message);
   }
 
-  liveClass.status = 'COMPLETED';
-  if (payload && payload.recordingUrl) liveClass.recordingUrl = payload.recordingUrl;
+  try {
+    const zoomRecordings = await ZoomService.getMeetingRecordings(liveClass.meetingId);
+    if (zoomRecordings) {
+      const cloudUrl = zoomRecordings.share_url || zoomRecordings.recording_files?.find(f => f.file_type === 'MP4')?.download_url;
+      if (cloudUrl) recordingUrl = cloudUrl;
+    }
+  } catch (e) {
+    console.error('[ZOOM Sync] Error fetching recordings:', e.message);
+  }
+
   if (participantsData.length > 0) liveClass.participants = participantsData;
+  if (recordingUrl) liveClass.recordingUrl = recordingUrl;
 
   await liveClass.save();
   return liveClass;

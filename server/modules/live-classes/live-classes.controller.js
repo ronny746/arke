@@ -35,3 +35,12 @@ exports.endLiveClass = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.syncZoomData = async (req, res, next) => {
+  try {
+    const data = await LiveClassesService.syncZoomData(req.params.id);
+    return successResponse(res, 'Zoom class data synced successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};

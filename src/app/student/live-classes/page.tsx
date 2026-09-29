@@ -82,13 +82,19 @@ export default function StudentLiveClassesPage() {
   }, []);
 
   const handleJoinClass = (liveClass) => {
-    if (liveClass.meetingLink && liveClass.meetingLink.includes('/class/')) {
-      const roomCode = liveClass.meetingLink.split('/class/')[1];
-      router.push(`/class/${roomCode}`);
-    } else if (liveClass.meetingLink) {
-      window.open(liveClass.meetingLink, '_blank');
-    } else {
+    const link = liveClass.meetingLink || liveClass.startUrl;
+    if (!link) {
       toast.error("No meeting link available");
+      return;
+    }
+
+    if (link.includes('zoom.us') || (!link.includes('/class/') && link.startsWith('http'))) {
+      window.open(link, '_blank');
+    } else if (link.includes('/class/')) {
+      const roomCode = link.split('/class/')[1]?.split(/[?#]/)[0];
+      router.push(`/class/${roomCode}`);
+    } else {
+      window.open(link, '_blank');
     }
   };
 

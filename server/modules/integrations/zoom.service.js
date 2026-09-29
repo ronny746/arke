@@ -94,7 +94,37 @@ class ZoomService {
       return response.data.participants || [];
     } catch (error) {
       console.error('[ZOOM] Error fetching participants:', error.response?.data || error.message);
-      throw new Error('Failed to fetch Zoom meeting participants');
+      return [];
+    }
+  }
+
+  async getMeetingRecordings(meetingId) {
+    try {
+      const token = await this.getAccessToken();
+      const response = await axios.get(`https://api.zoom.us/v2/meetings/${meetingId}/recordings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[ZOOM] Error fetching recordings:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  async getMeetingDetails(meetingId) {
+    try {
+      const token = await this.getAccessToken();
+      const response = await axios.get(`https://api.zoom.us/v2/meetings/${meetingId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[ZOOM] Error fetching meeting details:', error.response?.data || error.message);
+      return null;
     }
   }
 }

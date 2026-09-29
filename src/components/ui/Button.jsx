@@ -1,8 +1,8 @@
 import { cn } from '../../utils/helpers';
 
 export function Button({
-  children, variant = 'primary', size = 'md',
-  icon: Icon, iconRight: IconRight, loading = false, className, ...props
+  children = null, variant = 'primary', size = 'md',
+  icon: Icon = null, iconRight: IconRight = null, loading = false, className = '', ...props
 }) {
   const variants = {
     primary: 'btn-primary', secondary: 'btn-secondary', accent: 'btn-accent',

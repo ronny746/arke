@@ -44,6 +44,15 @@ export default function ClassRoomPage() {
               return [codeFromField, codeFromMeetingId, codeFromLink].includes(roomCode?.toUpperCase());
             });
             if (cls) {
+              const zoomUrl = (userObj.role === 'teacher' || userObj.role?.includes('admin')) 
+                ? (cls.startUrl || cls.meetingLink) 
+                : (cls.meetingLink || cls.startUrl);
+              
+              if (zoomUrl && (zoomUrl.includes('zoom.us') || (zoomUrl.startsWith('http') && !zoomUrl.includes('/class/')))) {
+                window.location.href = zoomUrl;
+                return;
+              }
+
               const batch = cls.classScheduleId?.batchId?.name || cls.batchName || '';
               const subject = cls.classScheduleId?.subjectId?.name || '';
               setBatchName(subject ? `${subject} — ${batch}` : (batch || 'Live Class'));

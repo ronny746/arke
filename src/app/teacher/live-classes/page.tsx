@@ -16,6 +16,10 @@ const getLiveClassUrl = (liveClass, preferHostUrl = false) => {
   const primaryUrl = preferHostUrl ? liveClass?.startUrl || liveClass?.meetingLink : liveClass?.meetingLink || liveClass?.startUrl;
   if (!primaryUrl) return null;
 
+  if (primaryUrl.includes('zoom.us')) {
+    return primaryUrl;
+  }
+
   if (primaryUrl.includes('/class/')) {
     const roomCode = primaryUrl.split('/class/')[1]?.split(/[?#]/)[0];
     return roomCode ? `/class/${roomCode}` : primaryUrl;
@@ -157,8 +161,8 @@ export default function TeacherLiveClassesPage() {
 
   const handleStartClass = async (scheduleId) => {
     try {
-      const res = await teacherAPI.createLiveClass({ classScheduleId: scheduleId, platform: 'custom' });
-      toast.success("Live class started!");
+      const res = await teacherAPI.createLiveClass({ classScheduleId: scheduleId, platform: 'zoom' });
+      toast.success("Zoom Live Class started!");
       const startUrl = getLiveClassUrl(res.data?.data, true);
       if (startUrl) {
         window.open(startUrl, '_blank');

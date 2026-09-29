@@ -17,6 +17,10 @@ const getLiveClassUrl = (liveClass, preferHostUrl = false) => {
   const primaryUrl = preferHostUrl ? liveClass?.startUrl || liveClass?.meetingLink : liveClass?.meetingLink || liveClass?.startUrl;
   if (!primaryUrl) return null;
 
+  if (primaryUrl.includes('zoom.us')) {
+    return primaryUrl;
+  }
+
   if (primaryUrl.includes('/class/')) {
     const roomCode = primaryUrl.split('/class/')[1]?.split(/[?#]/)[0];
     return roomCode ? `/class/${roomCode}` : primaryUrl;
@@ -154,8 +158,8 @@ export default function LiveClassesPage() {
 
   const handleStartClass = async (scheduleId) => {
     try {
-      const res = await adminAPI.createLiveClass({ classScheduleId: scheduleId, platform: 'custom' });
-      toast.success("Live class started!");
+      const res = await adminAPI.createLiveClass({ classScheduleId: scheduleId, platform: 'zoom' });
+      toast.success("Zoom Live class started!");
       const startUrl = getLiveClassUrl(res.data?.data, true);
       if (startUrl) {
         window.open(startUrl, '_blank');
@@ -313,7 +317,7 @@ export default function LiveClassesPage() {
   const handleSaveCell = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
+      const payload: any = {
         batchId: selectedBatchId,
         teacherId: cellData.teacherId,
         dayOfWeek: cellData.dayOfWeek,
@@ -555,9 +559,9 @@ export default function LiveClassesPage() {
                   <button
                     key={day}
                     type="button"
-                    onClick={() => setSelectedDayFilter(idx)}
+                    onClick={() => setSelectedDayFilter(String(idx))}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                      selectedDayFilter === idx
+                      String(selectedDayFilter) === String(idx)
                         ? 'bg-primary-600 text-white shadow-sm shadow-primary-900/30'
                         : 'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'
                     }`}
