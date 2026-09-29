@@ -12,7 +12,7 @@ if (!process.env.MEDIASOUP_ANNOUNCED_IP && !process.env.SERVER_IP && process.env
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         const ip = data.trim();
-        if (ip && /^[\d\.]+\$/.test(ip)) {
+        if (ip && /^[\d.]+$/.test(ip)) {
           detectedPublicIp = ip;
           console.log(`[Mediasoup] Auto-detected public IP: ${detectedPublicIp}`);
         }
@@ -99,14 +99,12 @@ const config = {
   // WebRtcTransport Settings
   get webRtcTransportOptions() {
     const listenIp = process.env.MEDIASOUP_LISTEN_IP || '0.0.0.0';
-    let announcedIp = process.env.MEDIASOUP_ANNOUNCED_IP || process.env.SERVER_IP;
+    let announcedIp = process.env.MEDIASOUP_ANNOUNCED_IP || process.env.SERVER_IP || detectedPublicIp;
     
     if (!announcedIp) {
       if (process.env.NODE_ENV === 'development' || listenIp === '127.0.0.1') {
         announcedIp = '127.0.0.1';
-      } else {
-        announcedIp = '200.141.15.18';
-      }
+    }
     }
 
     const listenInfos = [

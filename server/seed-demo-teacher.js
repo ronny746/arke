@@ -20,6 +20,9 @@ const DEMO = {
   batchName: 'Demo Live Batch',
   batchSection: 'A',
   subjectName: 'Interactive Whiteboard',
+  studentPhone: '9000000002',
+  studentEmail: 'demo.student@arkescholars.com',
+  studentPassword: 'Student@123',
 };
 
 async function findOrCreateInstitute() {
@@ -71,7 +74,41 @@ async function findOrCreateTeacher(institute) {
   return teacher;
 }
 
-async function findOrCreateClassData(institute, teacher) {
+async function findOrCreateStudent(institute) {
+  const byPhone = await User.findOne({ phone: DEMO.studentPhone }).select('+password');
+  const byEmail = await User.findOne({ email: DEMO.studentEmail }).select('+password');
+
+  if (byPhone && byEmail && byPhone.id !== byEmail.id) {
+    throw new Error('Demo student phone and email belong to different accounts. Resolve them before seeding.');
+  }
+
+  const student = byPhone || byEmail || new User({
+    phone: DEMO.studentPhone,
+    email: DEMO.studentEmail,
+    password: DEMO.studentPassword,
+    role: 'student',
+  });
+
+  student.instituteId = institute._id;
+  student.firstName = 'Demo';
+  student.lastName = 'Student';
+  student.phone = DEMO.studentPhone;
+  student.email = DEMO.studentEmail;
+  student.role = 'student';
+  student.isActive = true;
+  student.metadata = {
+    ...(student.metadata || {}),
+    targetExam: 'NEET',
+    studentClass: 'Demo Live Batch',
+    section: 'A',
+    isProfileIncomplete: false,
+  };
+  student.password = DEMO.studentPassword;
+  await student.save();
+  return student;
+}
+
+async function findOrCreateClassData(institute, teacher, student) {
   let batch = await Batch.findOne({
     instituteId: institute._id,
     name: DEMO.batchName,
@@ -96,6 +133,9 @@ async function findOrCreateClassData(institute, teacher) {
     );
     batch.isActive = true;
   }
+  batch.students = Array.from(new Set([...(batch.students || []).map(String), String(student._id)])).map(
+    (id) => new mongoose.Types.ObjectId(id)
+  );
   await batch.save();
 
   let subject = await Subject.findOne({
@@ -157,11 +197,14 @@ async function main() {
 
     const institute = await findOrCreateInstitute();
     const teacher = await findOrCreateTeacher(institute);
-    const { batch, subject, schedule } = await findOrCreateClassData(institute, teacher);
+    const student = await findOrCreateStudent(institute);
+    const { batch, subject, schedule } = await findOrCreateClassData(institute, teacher, student);
 
     console.log('Demo teacher seed completed.');
     console.log(`Teacher login (web): ${DEMO.email} / ${DEMO.password}`);
     console.log(`Teacher login (app): ${DEMO.phone} / OTP 123456`);
+    console.log(`Student login (web): ${DEMO.studentEmail} / ${DEMO.studentPassword}`);
+    console.log(`Student login (app): ${DEMO.studentPhone} / OTP 123456`);
     console.log(`Demo class: ${batch.name} ${batch.section} — ${subject.name}`);
     console.log(`Class schedule id: ${schedule._id}`);
   } finally {

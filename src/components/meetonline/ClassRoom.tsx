@@ -103,6 +103,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const [floatingReactions, setFloatingReactions] = useState<{id: number; emoji: string; x: number}[]>([]);
   const reactionIdRef = useRef(0);
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [whiteboardStrokes, setWhiteboardStrokes] = useState<WhiteboardStroke[]>([]);
   const [appShare, setAppShare] = useState<{ code: string; expiresAt: number; connected: boolean } | null>(null);
   const [showAppShareModal, setShowAppShareModal] = useState(false);
@@ -195,12 +196,16 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
     });
 
     socket.on('peer-mute-toggled', ({ peerId, kind, muted }) => {
-      setPeers(prev => prev.map(p => {
+      setPeers(prev => {
+        const next = prev.map(p => {
         if (p.peerId === peerId) {
           return kind === 'audio' ? { ...p, isMuted: muted } : { ...p, isCamOff: muted };
         }
         return p;
-      }));
+        });
+        peersRef.current = next;
+        return next;
+      });
     });
 
     socket.on('peer-speaking', ({ peerId, speaking }) => {
@@ -250,6 +255,13 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
       setWhiteboardStrokes((current) => [...current, stroke].slice(-1200));
     });
     socket.on('app-whiteboard-clear', () => setWhiteboardStrokes([]));
+    socket.on('app-share-started', ({ expiresAt }: { expiresAt: number }) => {
+      // Every participant needs the dedicated pad layout, not only the host
+      // who clicked “Share with app”. The host's callback below fills in the
+      // code while students intentionally receive no pairing secret.
+      setWhiteboardStrokes([]);
+      setAppShare((current) => current ?? { code: '', expiresAt, connected: false });
+    });
     socket.on('app-share-status', ({ connected }: { connected: boolean }) => {
       setAppShare((current) => current ? { ...current, connected } : current);
     });
@@ -493,22 +505,27 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
     const nextState = forceState !== undefined ? forceState : !micEnabled;
     if (nextState) {
       try {
+        setMediaError(null);
         if (audioProducerRef.current) {
           audioProducerRef.current.resume();
         } else {
+          if (!sendTransportRef.current || !deviceRef.current?.canProduce('audio')) {
+            throw new Error('The live-class connection is still preparing. Please try again in a moment.');
+          }
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           const track = stream.getAudioTracks()[0];
           if (localStreamRef.current) localStreamRef.current.getAudioTracks().forEach(t => t.stop());
           const videoTracks = localStreamRef.current ? localStreamRef.current.getVideoTracks() : [];
           localStreamRef.current = new MediaStream([track, ...videoTracks]);
           startSpeakerDetection(localStreamRef.current);
-          if (sendTransportRef.current && deviceRef.current?.canProduce('audio')) {
-            audioProducerRef.current = await sendTransportRef.current.produce({ track, appData: { label: 'audio' } });
-          }
+          audioProducerRef.current = await sendTransportRef.current.produce({ track, appData: { label: 'audio' } });
         }
         setMicEnabled(true);
         socketRef.current?.emit('mute-toggle', { roomCode, kind: 'audio', muted: false });
-      } catch (err) { console.error('Error starting mic:', err); }
+      } catch (err) {
+        console.error('Error starting mic:', err);
+        setMediaError('Microphone could not start. Allow microphone access in the browser and try again.');
+      }
     } else {
       if (audioProducerRef.current) {
         const prodId = audioProducerRef.current.id;
@@ -532,24 +549,37 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
     const nextState = !videoEnabled;
     if (nextState) {
       try {
+        setMediaError(null);
         if (videoProducerRef.current) {
+          videoProducerRef.current.track.enabled = true;
           await videoProducerRef.current.resume();
           socketRef.current?.emit('resume-producer', { roomCode, producerId: videoProducerRef.current.id });
         } else {
+          if (!sendTransportRef.current || !deviceRef.current?.canProduce('video')) {
+            throw new Error('The live-class connection is still preparing. Please try again in a moment.');
+          }
           const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, frameRate: 30 } });
           const track = stream.getVideoTracks()[0];
+          track.onended = () => {
+            setVideoEnabled(false);
+            socketRef.current?.emit('mute-toggle', { roomCode, kind: 'video', muted: true });
+          };
           const audioTracks = localStreamRef.current ? localStreamRef.current.getAudioTracks() : [];
           localStreamRef.current = new MediaStream([track, ...audioTracks]);
-          if (sendTransportRef.current && deviceRef.current?.canProduce('video')) {
-            videoProducerRef.current = await sendTransportRef.current.produce({ track, appData: { label: 'video' } });
-          }
+          videoProducerRef.current = await sendTransportRef.current.produce({ track, appData: { label: 'video' } });
         }
         setVideoEnabled(true);
         socketRef.current?.emit('mute-toggle', { roomCode, kind: 'video', muted: false });
-      } catch (err) { console.error('Error starting video:', err); }
+      } catch (err) {
+        console.error('Error starting video:', err);
+        setMediaError('Camera could not start. Allow camera access in the browser and try again.');
+      }
     } else {
       if (videoProducerRef.current) {
         await videoProducerRef.current.pause();
+        // Keep the producer for a smooth re-enable, but disable the physical
+        // track so the video is not shown as still “on” to the class.
+        videoProducerRef.current.track.enabled = false;
         socketRef.current?.emit('pause-producer', { roomCode, producerId: videoProducerRef.current.id });
       }
       setVideoEnabled(false);
@@ -736,7 +766,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const renderTile = (tile: any, isThumbnail = false) => {
     if (!tile) return null;
     const { peerId, username, role, isMuted, isCamOff, isSpeaking, stream, isLocal, isScreen } = tile;
-    const hasLiveVideoTrack = stream ? stream.getVideoTracks().some((t: any) => t.readyState === 'live') : false;
+    const hasLiveVideoTrack = stream ? stream.getVideoTracks().some((t: any) => t.readyState === 'live' && t.enabled) : false;
     const showVideo = hasLiveVideoTrack && (isScreen || !isCamOff);
     const initials = username.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
     const displayName = isLocal ? `${username} (You)` : username;
@@ -922,6 +952,12 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
           </button>
         </div>
       )}
+      {mediaError && (
+        <div className="flex items-center justify-between gap-3 bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-lg z-50">
+          <span>{mediaError}</span>
+          <button type="button" onClick={() => setMediaError(null)} className="rounded p-1 hover:bg-white/15" aria-label="Dismiss media error"><X className="h-4 w-4" /></button>
+        </div>
+      )}
       {appShare && isHost && showAppShareModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
           <div role="dialog" aria-modal="true" aria-labelledby="app-share-title" className="w-full max-w-md rounded-3xl border border-emerald-200 bg-white p-6 shadow-2xl">
@@ -947,7 +983,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
               <span className={`h-2 w-2 rounded-full ${appShare.connected ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
               {appShare.connected ? 'App connected — writing is live for everyone.' : 'Waiting for the teacher app to connect…'}
             </div>
-            <p className="mt-3 text-xs text-slate-500">The code expires in five minutes and only pairs with this live class.</p>
+            <p className="mt-3 text-xs text-slate-500">The code is valid for 30 minutes and only pairs with this live class.</p>
             <button type="button" onClick={() => setShowAppShareModal(false)} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">Continue to class</button>
           </div>
         </div>
@@ -1085,6 +1121,56 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                 {isHost ? 'Students will appear here when they join' : 'The live broadcast will begin shortly...'}
               </p>
             </div>
+          ) : appShare ? (
+            /* App whiteboard mode: the writing is never painted over a face.
+               It becomes the primary lesson surface, while the teacher stays
+               visible in a dedicated camera panel for every student. */
+            <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 md:gap-4">
+              <section className="relative flex-1 min-h-[300px] overflow-hidden rounded-2xl border bg-white shadow-sm"
+                style={{ borderColor: '#cbd5e1' }}>
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    backgroundImage: 'linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(90deg, #e2e8f0 1px, transparent 1px)',
+                    backgroundSize: '28px 28px',
+                  }}
+                />
+                <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 text-slate-800">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><BookOpen className="h-4 w-4" /></div>
+                    <div>
+                      <p className="text-sm font-bold">Live writing pad</p>
+                      <p className="text-[11px] font-medium text-slate-500">Teacher is writing from the companion app</p>
+                    </div>
+                  </div>
+                  <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${appShare.connected ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${appShare.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                    {appShare.connected ? 'LIVE' : 'Connecting'}
+                  </span>
+                </div>
+                <SharedWhiteboard strokes={whiteboardStrokes} />
+                {whiteboardStrokes.length === 0 && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center px-6 pt-12 text-center text-slate-500 pointer-events-none">
+                    <BookOpen className="mb-3 h-10 w-10 text-emerald-600" />
+                    <h3 className="font-bold text-slate-900">Writing pad is ready</h3>
+                    <p className="mt-1 max-w-sm text-sm">Everything the teacher writes on the phone or iPad appears here live.</p>
+                  </div>
+                )}
+              </section>
+
+              <aside className="flex h-44 shrink-0 flex-col overflow-hidden rounded-2xl border bg-slate-950 shadow-sm md:h-auto md:w-64"
+                style={{ borderColor: 'var(--cr-border)' }}>
+                <div className="flex items-center gap-2 border-b border-white/10 bg-slate-900 px-3 py-2 text-xs font-bold text-white">
+                  <Video className="h-3.5 w-3.5 text-emerald-400" /> Teacher camera
+                </div>
+                <div className="relative min-h-0 flex-1">
+                  {teacherTile ? renderTile(teacherTile) : (
+                    <div className="flex h-full items-center justify-center px-4 text-center text-sm text-slate-400">Teacher camera will appear here.</div>
+                  )}
+                </div>
+              </aside>
+            </div>
           ) : effectiveSpotlightId && spotlightTile ? (
             /* Spotlight Mode: Main Stage (Screen Share or Spotlighted User) + Collapsible Strip */
             <div className="flex-1 flex flex-col md:flex-row gap-3 min-h-0 relative">
@@ -1162,18 +1248,6 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                       {renderTile(t, true)}
                     </div>
                   ))}
-                </div>
-              )}
-            </div>
-          ) : appShare ? (
-            <div className="flex-1 min-h-0 relative rounded-2xl overflow-hidden border shadow-sm"
-              style={{ background: '#ffffff', borderColor: 'var(--cr-border)' }}>
-              <SharedWhiteboard strokes={whiteboardStrokes} />
-              {whiteboardStrokes.length === 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-6">
-                  <BookOpen className="w-10 h-10 text-emerald-600 mb-3" />
-                  <h3 className="font-bold text-slate-900">App whiteboard is ready</h3>
-                  <p className="mt-1 text-sm text-slate-500">Your writing from the paired device appears here for the class.</p>
                 </div>
               )}
             </div>

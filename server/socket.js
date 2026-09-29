@@ -323,6 +323,9 @@ module.exports = function setupSocketIO(server) {
         socket.id,
         getTeacherShareKey(info),
       );
+      io.to(session.roomCode).emit('app-share-started', {
+        expiresAt: session.expiresAt,
+      });
       callback({
         code: session.code,
         expiresAt: session.expiresAt,
