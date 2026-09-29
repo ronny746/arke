@@ -13,6 +13,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { LoginModal } from "@/components/LoginModal";
 import { BannerCarousel } from "@/components/BannerCarousel";
+import { CounsellingBanner } from "@/components/CounsellingBanner";
 
 // ─── Mentor Data ─────────────────────────────────────────────────────────────
 const MENTORS = [
@@ -94,7 +95,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20 selection:text-primary">
       {/* ─── Top Contact Info Bar ────────────────────────────────────────── */}
-      <div className="bg-[#0B132B] text-white/90 text-xs py-2 px-4 border-b border-white/10 hidden sm:block">
+      <div className="bg-[#0B132B] text-white/90 text-xs py-2 px-4 border-b border-white/10 block">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-6">
             <a href="tel:+917607151617" className="flex items-center gap-1.5 hover:text-[#E4B94F] transition-colors">
@@ -331,6 +332,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ─── Free Counselling Session Banner ─────────────────────────────── */}
+      <CounsellingBanner />
 
       {/* ─── Key Stats Bar ────────────────────────────────────────────────── */}
       <section className="bg-card py-8 md:pb-6 md:pt-0 border-y md:border-y-0 border-border">
