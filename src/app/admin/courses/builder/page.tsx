@@ -29,7 +29,7 @@ import {
   ListPlus,
   Info
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { adminAPI } from '@/api/index.js';
 
 const EXAM_OPTIONS = [
   { id: 'ALL', label: 'All Exams (Global)', tagline: 'Visible to all students' },
@@ -131,6 +131,8 @@ function CourseBuilderContent() {
     }>
   });
 
+  const [dbSubjects, setDbSubjects] = useState<any[]>([]);
+
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
 
   useEffect(() => {
@@ -143,6 +145,13 @@ function CourseBuilderContent() {
         .then(r => r.json())
         .then(data => { if (data.success) setAllTeachers(data.data || []); })
         .catch(() => {});
+
+      // Fetch dynamic database subjects
+      adminAPI.getSubjects()
+        .then(res => {
+          if (res.data?.data) setDbSubjects(res.data.data);
+        })
+        .catch(console.error);
     }
 
     if (editId && t) {
@@ -271,6 +280,21 @@ function CourseBuilderContent() {
   };
 
   const applyPresetSubjects = (goal: string) => {
+    if (dbSubjects && dbSubjects.length > 0) {
+      const mapped = dbSubjects.map((s: any) => ({
+        name: s.name,
+        icon: s.icon || '📖',
+        chaptersCount: s.chaptersCount || 20,
+        dppsCount: s.dppsCount || 100,
+        testsCount: s.testsCount || 15,
+        description: s.description || '',
+        topics: Array.isArray(s.topics) ? s.topics : []
+      }));
+      set('subjects', mapped);
+      toast.success(`Loaded ${dbSubjects.length} dynamic subjects from database`);
+      return;
+    }
+
     const presets = PRESET_SUBJECTS[goal] || PRESET_SUBJECTS['NEET'];
     if (!presets) return;
     const mapped = presets.map(p => ({
@@ -523,8 +547,7 @@ function CourseBuilderContent() {
           </div>
         </div>
         <button onClick={handleSubmit} disabled={loading}
-          className="px-4 sm:px-6 py-2.5 rounded-xl text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md hover:opacity-90 active:scale-95 disabled:opacity-70"
-          style={{ background: 'linear-gradient(135deg, #0B132B 0%, #1A2752 50%, #C99A2E 100%)' }}>
+          className="px-4 sm:px-6 py-2.5 rounded-xl text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md hover:bg-[#047857] active:scale-95 disabled:opacity-70 bg-[#059669]">
           {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={16} />}
           <span>{editId ? 'Save Changes' : 'Publish Course'}</span>
         </button>
@@ -757,11 +780,17 @@ function CourseBuilderContent() {
                           </select>
                           <input
                             type="text"
+                            list="db-subjects-list"
                             value={sub.name}
                             onChange={e => updateSubject(idx, 'name', e.target.value)}
                             placeholder="Subject Name (e.g. Physics)"
                             className="flex-1 px-3.5 py-2 rounded-xl border border-gray-200 bg-white font-bold text-sm text-gray-900 focus:outline-none focus:border-[#0B132B]"
                           />
+                          <datalist id="db-subjects-list">
+                            {dbSubjects.map((dbs: any) => (
+                              <option key={dbs._id} value={dbs.name} />
+                            ))}
+                          </datalist>
                         </div>
                         <button
                           type="button"

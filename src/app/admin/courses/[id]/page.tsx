@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Pencil, Trash2, X, ArrowLeft, Layers, BookOpen, GraduationCap, UserPlus, Mail, Phone, Search, Check, Sparkles, UserCheck } from 'lucide-react';
+import { Plus, Users, Pencil, Trash2, X, ArrowLeft, Layers, BookOpen, GraduationCap, UserPlus, Mail, Phone, Search, Check, Sparkles, UserCheck, FileCheck, HelpCircle } from 'lucide-react';
 import { ActionMenu } from '@/components/ui/index.jsx';
 import { DeleteModal } from '@/components/modals/index.jsx';
 import toast from 'react-hot-toast';
 import { useRouter, useParams } from 'next/navigation';
 import { useDeveloperStore } from '@/store';
+import { adminAPI } from '@/api/index.js';
 
 const TYPE_COLORS: Record<string, { label: string; color: string; bg: string }> = {
   hybrid:  { label: 'Hybrid',  color: '#7b3fa0', bg: '#f5f3ff' },
@@ -396,6 +397,452 @@ function DeleteConfirm({ batch, onClose, onDeleted, token }: { batch: any; onClo
   );
 }
 
+// ── Manage Subjects Modal ──────────────────────────────────────────────────────────
+const SUBJECT_ICONS = ['📖', '⚡', '🧪', '📐', '🌿', '🧬', '🔬', '🏛️', '⚖️', '📊', '📈', '🧠', '🧩', '🎯', '📚'];
+
+const PRESET_SUBJECTS: Record<string, Array<{ name: string; icon: string; chaptersCount: number; dppsCount: number; testsCount: number; topics: string[] }>> = {
+  'NEET': [
+    { name: 'Physics', icon: '⚡', chaptersCount: 28, dppsCount: 140, testsCount: 24, topics: ['Mechanics', 'Thermodynamics', 'Electrodynamics', 'Modern Physics', 'Optics'] },
+    { name: 'Chemistry', icon: '🧪', chaptersCount: 30, dppsCount: 150, testsCount: 26, topics: ['Physical Chemistry', 'Organic Reactions', 'Inorganic & Periodicity', 'Coordination Compounds'] },
+    { name: 'Botany', icon: '🌿', chaptersCount: 22, dppsCount: 110, testsCount: 18, topics: ['Plant Physiology', 'Genetics', 'Ecology', 'Cell Biology', 'Plant Diversity'] },
+    { name: 'Zoology', icon: '🧬', chaptersCount: 20, dppsCount: 100, testsCount: 18, topics: ['Human Physiology', 'Biomolecules', 'Animal Kingdom', 'Evolution & Health'] },
+  ],
+  'IIT-JEE': [
+    { name: 'Physics', icon: '⚡', chaptersCount: 32, dppsCount: 160, testsCount: 28, topics: ['Kinematics & Dynamics', 'Rotation', 'Electromagnetism', 'Optics & Waves'] },
+    { name: 'Chemistry', icon: '🧪', chaptersCount: 30, dppsCount: 150, testsCount: 26, topics: ['Physical Equilibrium', 'Organic Mechanisms', 'Inorganic Chemistry', 'Electrochemistry'] },
+    { name: 'Mathematics', icon: '📐', chaptersCount: 34, dppsCount: 170, testsCount: 30, topics: ['Calculus', 'Algebra & Vectors', 'Coordinate Geometry', 'Trigonometry'] },
+  ],
+  'CUET-GOVT': [
+    { name: 'General Test', icon: '🧩', chaptersCount: 20, dppsCount: 100, testsCount: 15, topics: ['General Knowledge', 'Current Affairs', 'Logical Reasoning', 'Numerical Ability'] },
+    { name: 'Language & English', icon: '📚', chaptersCount: 18, dppsCount: 90, testsCount: 15, topics: ['Reading Comprehension', 'Grammar', 'Vocabulary', 'Verbal Ability'] },
+    { name: 'Accountancy & Commerce', icon: '📊', chaptersCount: 24, dppsCount: 120, testsCount: 20, topics: ['Financial Statements', 'Partnership', 'Company Accounts', 'Business Studies'] },
+  ]
+};
+
+function ManageSubjectsModal({ 
+  course, 
+  token, 
+  onClose, 
+  onSaved 
+}: { 
+  course: any; 
+  token: string; 
+  onClose: () => void; 
+  onSaved: () => void; 
+}) {
+  const [loading, setLoading] = useState(false);
+  const [dbSubjects, setDbSubjects] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<Array<{
+    name: string;
+    icon: string;
+    chaptersCount: number | '';
+    dppsCount: number | '';
+    testsCount: number | '';
+    description: string;
+    topics: string[];
+  }>>(
+    course.subjects?.map((s: any) => ({
+      name: s.name || '',
+      icon: s.icon || '📖',
+      chaptersCount: s.chaptersCount ?? '',
+      dppsCount: s.dppsCount ?? '',
+      testsCount: s.testsCount ?? '',
+      description: s.description || '',
+      topics: Array.isArray(s.topics) ? s.topics : []
+    })) || []
+  );
+
+  useEffect(() => {
+    adminAPI.getSubjects()
+      .then(res => {
+        if (res.data?.data) setDbSubjects(res.data.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const addSubject = (preset?: any) => {
+    setSubjects(prev => [
+      ...prev,
+      {
+        name: preset?.name || '',
+        icon: preset?.icon || '📖',
+        chaptersCount: preset?.chaptersCount ?? '',
+        dppsCount: preset?.dppsCount ?? '',
+        testsCount: preset?.testsCount ?? '',
+        description: preset?.description || '',
+        topics: Array.isArray(preset?.topics) ? preset.topics : []
+      }
+    ]);
+  };
+
+  const loadPreset = (targetKey: string) => {
+    const presets = PRESET_SUBJECTS[targetKey] || PRESET_SUBJECTS['NEET'];
+    const mapped = presets.map(p => ({
+      name: p.name,
+      icon: p.icon,
+      chaptersCount: p.chaptersCount,
+      dppsCount: p.dppsCount,
+      testsCount: p.testsCount,
+      description: '',
+      topics: p.topics || []
+    }));
+    setSubjects(mapped);
+    toast.success(`Loaded ${mapped.length} preset subjects for ${targetKey}`);
+  };
+
+  const loadDbSubjects = () => {
+    if (dbSubjects.length === 0) {
+      toast.error('No database subjects found. Loading standard presets...');
+      loadPreset('NEET');
+      return;
+    }
+    const mapped = dbSubjects.map(s => ({
+      name: s.name,
+      icon: s.icon || '📖',
+      chaptersCount: s.chaptersCount || 20,
+      dppsCount: s.dppsCount || 100,
+      testsCount: s.testsCount || 15,
+      description: s.description || '',
+      topics: Array.isArray(s.topics) ? s.topics : []
+    }));
+    setSubjects(mapped);
+    toast.success(`Loaded ${mapped.length} dynamic subjects from database`);
+  };
+
+  const updateSubject = (idx: number, field: string, value: any) => {
+    setSubjects(prev => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], [field]: value };
+      return copy;
+    });
+  };
+
+  const removeSubject = (idx: number) => {
+    setSubjects(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const addTopic = (subIdx: number, topicText: string) => {
+    if (!topicText.trim()) return;
+    setSubjects(prev => {
+      const copy = [...prev];
+      const currentTopics = copy[subIdx].topics || [];
+      if (!currentTopics.includes(topicText.trim())) {
+        copy[subIdx] = { ...copy[subIdx], topics: [...currentTopics, topicText.trim()] };
+      }
+      return copy;
+    });
+  };
+
+  const removeTopic = (subIdx: number, topicIdx: number) => {
+    setSubjects(prev => {
+      const copy = [...prev];
+      const currentTopics = [...(copy[subIdx].topics || [])];
+      currentTopics.splice(topicIdx, 1);
+      copy[subIdx] = { ...copy[subIdx], topics: currentTopics };
+      return copy;
+    });
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const cleanedSubjects = subjects.map(s => ({
+        ...s,
+        chaptersCount: Number(s.chaptersCount) || 0,
+        dppsCount: Number(s.dppsCount) || 0,
+        testsCount: Number(s.testsCount) || 0
+      }));
+
+      const res = await fetch(`/api/v1/courses/${course._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subjects: cleanedSubjects })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Failed to update subjects');
+      toast.success('Course subjects curriculum updated successfully!');
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Error updating subjects');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.94, y: 15 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <div className="h-1.5" style={{ background: 'linear-gradient(90deg, #0B132B, #059669)' }} />
+
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#0B132B] text-[#C99A2E] shadow-sm">
+              <Layers size={20} />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 text-base">Manage Course Subjects & Curriculum</h2>
+              <p className="text-xs text-gray-500">Configure classroom subjects, syllabus chapters, DPPs, and key topics</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Content Body */}
+        <div className="p-6 space-y-5 flex-1 overflow-y-auto">
+          {/* Quick Presets Bar */}
+          <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                <Sparkles size={14} className="text-amber-500" /> Quick Curriculum Templates & Dynamic Database Sync
+              </span>
+              <span className="text-[10px] text-emerald-700 font-semibold">{dbSubjects.length} subjects in DB</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => loadPreset('NEET')}
+                className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-emerald-800 text-xs font-bold hover:bg-emerald-100/60 transition-all shadow-xs"
+              >
+                ⚡ NEET (Phys, Chem, Bot, Zoo)
+              </button>
+              <button
+                type="button"
+                onClick={() => loadPreset('IIT-JEE')}
+                className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-emerald-800 text-xs font-bold hover:bg-emerald-100/60 transition-all shadow-xs"
+              >
+                📐 IIT-JEE (Phys, Chem, Math)
+              </button>
+              <button
+                type="button"
+                onClick={() => loadPreset('CUET-GOVT')}
+                className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-emerald-800 text-xs font-bold hover:bg-emerald-100/60 transition-all shadow-xs"
+              >
+                📊 CUET (Gen Test, Lang, Commerce)
+              </button>
+              {dbSubjects.length > 0 && (
+                <button
+                  type="button"
+                  onClick={loadDbSubjects}
+                  className="px-3 py-1.5 rounded-xl bg-[#0B132B] text-[#C99A2E] text-xs font-bold hover:bg-[#1C2541] transition-all shadow-xs"
+                >
+                  🌐 Sync Dynamic DB Subjects ({dbSubjects.length})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Datalist for Subject Autocomplete */}
+          <datalist id="db-subjects-modal-list">
+            {dbSubjects.map((dbs: any) => (
+              <option key={dbs._id} value={dbs.name} />
+            ))}
+          </datalist>
+
+          {/* Subjects Editor List */}
+          {subjects.length === 0 ? (
+            <div className="text-center py-12 px-4 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+              <Layers className="mx-auto text-gray-400 mb-2" size={32} />
+              <p className="text-sm font-bold text-gray-700">No subjects added yet</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+                Click "+ Add New Subject" or select a preset template above to build the subject syllabus.
+              </p>
+              <button
+                type="button"
+                onClick={() => addSubject()}
+                className="mt-3 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm hover:opacity-95 transition-all"
+                style={{ background: '#059669' }}
+              >
+                + Add New Subject
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {subjects.map((sub, idx) => (
+                <div key={idx} className="p-5 rounded-2xl bg-gray-50/80 border border-gray-200 hover:border-gray-300 transition-all space-y-4">
+                  {/* Row 1: Icon, Name, Delete */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 flex-1">
+                      <select
+                        value={sub.icon}
+                        onChange={e => updateSubject(idx, 'icon', e.target.value)}
+                        className="p-2 rounded-xl border border-gray-200 bg-white text-lg cursor-pointer focus:outline-none focus:border-[#059669]"
+                      >
+                        {SUBJECT_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        list="db-subjects-modal-list"
+                        value={sub.name}
+                        onChange={e => updateSubject(idx, 'name', e.target.value)}
+                        placeholder="Subject Name (e.g. Physics)"
+                        className="flex-1 px-4 py-2 rounded-xl border border-gray-200 bg-white font-bold text-sm text-gray-900 focus:outline-none focus:border-[#059669]"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeSubject(idx)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors shrink-0"
+                      title="Remove Subject"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+
+                  {/* Row 2: Metrics Grid */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">Chapters Count</label>
+                      <input
+                        type="number"
+                        value={sub.chaptersCount}
+                        onChange={e => updateSubject(idx, 'chaptersCount', e.target.value)}
+                        placeholder="e.g. 28"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-800 focus:outline-none focus:border-[#059669]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">DPP Sets</label>
+                      <input
+                        type="number"
+                        value={sub.dppsCount}
+                        onChange={e => updateSubject(idx, 'dppsCount', e.target.value)}
+                        placeholder="e.g. 140"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-800 focus:outline-none focus:border-[#059669]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">Mock Tests</label>
+                      <input
+                        type="number"
+                        value={sub.testsCount}
+                        onChange={e => updateSubject(idx, 'testsCount', e.target.value)}
+                        placeholder="e.g. 24"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-800 focus:outline-none focus:border-[#059669]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 3: Syllabus Description */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">Syllabus Overview / Description</label>
+                    <input
+                      type="text"
+                      value={sub.description}
+                      onChange={e => updateSubject(idx, 'description', e.target.value)}
+                      placeholder="Brief overview of course modules covered in this subject..."
+                      className="w-full px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 focus:outline-none focus:border-[#059669]"
+                    />
+                  </div>
+
+                  {/* Row 4: Key Syllabus Topics */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Key Syllabus Topics / Units</label>
+                      <span className="text-[10px] text-gray-400 font-semibold">{sub.topics?.length || 0} topics added</span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {(sub.topics || []).map((top, tIdx) => (
+                        <span key={tIdx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-700 shadow-2xs">
+                          <span>{top}</span>
+                          <button type="button" onClick={() => removeTopic(idx, tIdx)} className="text-gray-400 hover:text-red-500">
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        id={`modal-topic-input-${idx}`}
+                        type="text"
+                        placeholder="Type key topic & press enter (e.g. Thermodynamics & Heat)"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const val = (e.target as HTMLInputElement).value;
+                            if (val.trim()) {
+                              addTopic(idx, val);
+                              (e.target as HTMLInputElement).value = '';
+                            }
+                          }
+                        }}
+                        className="flex-1 px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 focus:outline-none focus:border-[#059669]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById(`modal-topic-input-${idx}`) as HTMLInputElement;
+                          if (el && el.value.trim()) {
+                            addTopic(idx, el.value);
+                            el.value = '';
+                          }
+                        }}
+                        className="px-3.5 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-bold transition-colors"
+                      >
+                        + Topic
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add subject button */}
+          <button
+            type="button"
+            onClick={() => addSubject()}
+            className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-300 text-gray-600 hover:border-[#059669] hover:text-[#059669] hover:bg-emerald-50/30 text-xs font-bold flex items-center justify-center gap-2 transition-all"
+          >
+            <Plus size={16} /> Add Another Subject
+          </button>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
+          <span className="text-xs text-gray-500 font-medium">
+            {subjects.length} subject{subjects.length !== 1 ? 's' : ''} configured
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={loading}
+              className="px-6 py-2.5 rounded-xl text-white text-sm font-bold flex items-center gap-2 transition-all shadow-md hover:opacity-95 disabled:opacity-50"
+              style={{ background: '#059669' }}
+            >
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Check size={16} />
+              )}
+              Save Subjects Curriculum
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function CourseDetailsPage() {
   const params = useParams();
@@ -411,6 +858,7 @@ export default function CourseDetailsPage() {
   
   const [showCreate, setShowCreate] = useState(false);
   const [showAssignFaculties, setShowAssignFaculties] = useState(false);
+  const [showManageSubjects, setShowManageSubjects] = useState(false);
   const [editBatch, setEditBatch] = useState<any>(null);
   const [deleteBatch, setDeleteBatch] = useState<any>(null);
   const [bulkAssignBatch, setBulkAssignBatch] = useState<any>(null);
@@ -484,53 +932,62 @@ export default function CourseDetailsPage() {
       {/* Back & Header */}
       <div>
         <div className="flex items-center justify-between gap-4 mb-4">
-          <button onClick={() => router.push('/admin/courses')} className="flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+          <button onClick={() => router.push('/admin/courses')} className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
             <ArrowLeft size={16} /> Back to Courses
           </button>
           <button 
             onClick={() => router.push(`/admin/courses/builder?id=${course._id}`)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-gray-700 bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-[#059669] hover:bg-[#047857] shadow-md transition-all active:scale-95"
           >
             <Pencil size={14} /> Edit Course Details
           </button>
         </div>
         
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              {course.tag && (
-                <span className="text-[11px] font-black px-3 py-1 rounded-full bg-[#0B132B] text-[#C99A2E]">
-                  {course.tag}
-                </span>
-              )}
-              {course.targetExam && course.targetExam !== 'ALL' && (
-                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                  {course.targetExam}
-                </span>
-              )}
-              {course.targetClass && course.targetClass !== 'ALL' && (
-                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                  {course.targetClass}
-                </span>
-              )}
-              {course.medium && course.medium !== 'ALL' && (
-                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
-                  {course.medium} Medium
-                </span>
-              )}
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#0B132B] via-[#1C2541] to-[#0B132B] p-6 md:p-8 rounded-3xl text-white shadow-xl border border-slate-800">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#059669]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-[#C99A2E]/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+            <div className="flex-1">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {course.tag && (
+                  <span className="text-[11px] font-black px-3 py-1 rounded-full bg-[#C99A2E] text-[#0B132B]">
+                    {course.tag}
+                  </span>
+                )}
+                {course.targetExam && course.targetExam !== 'ALL' && (
+                  <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    {course.targetExam}
+                  </span>
+                )}
+                {course.targetClass && course.targetClass !== 'ALL' && (
+                  <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                    {course.targetClass}
+                  </span>
+                )}
+                {course.medium && course.medium !== 'ALL' && (
+                  <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {course.medium} Medium
+                  </span>
+                )}
+              </div>
+              <h1 className="text-2xl md:text-3xl font-black text-white leading-tight font-display">{course.name}</h1>
+              {course.subtitle && <p className="text-sm font-medium text-slate-300 mt-1">{course.subtitle}</p>}
+              <p className="text-sm text-slate-300/90 mt-3 max-w-3xl leading-relaxed">{course.description || 'No description provided.'}</p>
             </div>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">{course.name}</h1>
-            {course.subtitle && <p className="text-sm font-medium text-gray-600 mt-1">{course.subtitle}</p>}
-            <p className="text-sm text-gray-500 mt-3 max-w-3xl leading-relaxed">{course.description || 'No description provided.'}</p>
-          </div>
-          <div className="flex md:flex-col gap-4 min-w-[200px] border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6">
-            <div>
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">Duration</p>
-              <p className="text-base font-bold text-gray-800">{calculateDuration(course.startDate, course.endDate, course.duration)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">Course Fee</p>
-              <p className="text-2xl font-black text-gray-900">₹{course.fee?.toLocaleString() || '0'}</p>
+            
+            <div className="flex md:flex-col gap-4 min-w-[200px] border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6">
+              <div>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Duration</p>
+                <p className="text-base font-bold text-white">{calculateDuration(course.startDate, course.endDate, course.duration)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Course Fee</p>
+                <p className="text-2xl font-black text-[#10B981]">₹{course.fee?.toLocaleString() || '0'}</p>
+                {course.actualFee && course.actualFee > course.fee && (
+                  <p className="text-xs text-slate-400 line-through">₹{course.actualFee?.toLocaleString()}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -648,71 +1105,96 @@ export default function CourseDetailsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center font-bold">
-                <Layers size={18} />
+              <div className="w-9 h-9 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center font-bold shadow-xs">
+                <Layers size={20} />
               </div>
               <h2 className="text-xl font-black text-gray-900">Course Subjects & Curriculum</h2>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {course.subjects?.length || 0} configured subject{(course.subjects?.length || 0) !== 1 ? 's' : ''} for this course
+              {course.subjects?.length || 0} configured subject{(course.subjects?.length || 0) !== 1 ? 's' : ''} with dynamic syllabus & chapter breakdown
             </p>
           </div>
           <button 
-            onClick={() => router.push(`/admin/courses/builder?id=${course._id}`)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all self-start sm:self-auto"
+            onClick={() => setShowManageSubjects(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md hover:opacity-95 transition-all self-start sm:self-auto"
+            style={{ background: '#059669' }}
           >
-            <Pencil size={14} /> Manage Subjects
+            <Pencil size={15} /> Manage / Add Subjects
           </button>
         </div>
 
         {!course.subjects || course.subjects.length === 0 ? (
-          <div className="text-center py-8 px-4 bg-gray-50/70 rounded-2xl border border-dashed border-gray-200">
-            <Layers className="mx-auto text-gray-400 mb-2" size={28} />
-            <h3 className="text-sm font-bold text-gray-700">No subjects configured yet</h3>
+          <div className="text-center py-10 px-4 bg-gray-50/80 rounded-2xl border-2 border-dashed border-gray-200">
+            <Layers className="mx-auto text-gray-400 mb-2" size={32} />
+            <h3 className="text-sm font-bold text-gray-800">No subjects configured yet</h3>
             <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
-              Add subjects and syllabus chapters in the course builder so students can view their detailed curriculum.
+              Add subjects, syllabus chapters, DPP sets, and mock tests so students can view their complete classroom curriculum.
             </p>
             <button 
-              onClick={() => router.push(`/admin/courses/builder?id=${course._id}`)}
-              className="mt-3 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm hover:opacity-95 transition-all"
-              style={{ background: '#0B132B' }}
+              onClick={() => setShowManageSubjects(true)}
+              className="mt-3.5 px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md hover:opacity-95 transition-all inline-flex items-center gap-2"
+              style={{ background: '#059669' }}
             >
-              + Configure Subjects
+              <Plus size={15} /> Configure Course Subjects
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {course.subjects.map((sub: any, sIdx: number) => (
-              <div key={sIdx} className="p-5 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 hover:shadow-md transition-all flex flex-col justify-between">
+              <div key={sIdx} className="p-5 rounded-2xl border border-gray-200/80 bg-white hover:border-[#059669]/40 hover:shadow-lg transition-all flex flex-col justify-between group">
                 <div>
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <span className="text-xl">{sub.icon || '📖'}</span>
-                    <h4 className="font-bold text-gray-900 text-base">{sub.name}</h4>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#0B132B] border border-[#C99A2E]/40 flex items-center justify-center text-xl shadow-xs shrink-0">
+                        {sub.icon || '📖'}
+                      </div>
+                      <div>
+                        <h4 className="font-black text-gray-900 text-base group-hover:text-[#059669] transition-colors">{sub.name}</h4>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                          Syllabus Configured
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowManageSubjects(true)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#059669] hover:bg-emerald-50 transition-colors"
+                      title="Edit Subject"
+                    >
+                      <Pencil size={15} />
+                    </button>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-medium mb-3">
-                    <span className="px-2 py-0.5 rounded-md bg-white border border-gray-200 font-bold text-gray-700">
-                      {sub.chaptersCount || 0} Chapters
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-white border border-gray-200 font-bold text-gray-700">
-                      {sub.dppsCount || 0} DPPs
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-white border border-gray-200 font-bold text-gray-700">
-                      {sub.testsCount || 0} Tests
-                    </span>
+
+                  {sub.description && (
+                    <p className="text-xs text-gray-500 mb-3 line-clamp-2">{sub.description}</p>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                    <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-100">
+                      <p className="text-[10px] font-bold text-emerald-700 uppercase">Chapters</p>
+                      <p className="text-sm font-black text-emerald-950 mt-0.5">{sub.chaptersCount || 0}</p>
+                    </div>
+                    <div className="p-2 rounded-xl bg-blue-50/70 border border-blue-100">
+                      <p className="text-[10px] font-bold text-blue-700 uppercase">DPP Sets</p>
+                      <p className="text-sm font-black text-blue-950 mt-0.5">{sub.dppsCount || 0}</p>
+                    </div>
+                    <div className="p-2 rounded-xl bg-amber-50/70 border border-amber-100">
+                      <p className="text-[10px] font-bold text-amber-700 uppercase">Tests</p>
+                      <p className="text-sm font-black text-amber-950 mt-0.5">{sub.testsCount || 0}</p>
+                    </div>
                   </div>
 
                   {sub.topics?.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Key Topics</p>
+                    <div className="pt-3 border-t border-gray-100">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Key Topics & Modules</p>
                       <div className="flex flex-wrap gap-1">
-                        {sub.topics.slice(0, 4).map((top: string, tIdx: number) => (
-                          <span key={tIdx} className="text-[11px] px-2 py-0.5 rounded-md bg-white border border-gray-200/80 text-gray-600">
+                        {sub.topics.slice(0, 5).map((top: string, tIdx: number) => (
+                          <span key={tIdx} className="text-[11px] px-2.5 py-0.5 rounded-md bg-gray-50 border border-gray-200/80 text-gray-700 font-medium">
                             {top}
                           </span>
                         ))}
-                        {sub.topics.length > 4 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded text-gray-400 font-semibold">
-                            +{sub.topics.length - 4} more
+                        {sub.topics.length > 5 && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-200/60">
+                            +{sub.topics.length - 5} more
                           </span>
                         )}
                       </div>
@@ -916,6 +1398,14 @@ export default function CourseDetailsPage() {
           token={token} 
           onClose={() => setShowAssignFaculties(false)} 
           onSaved={fetchData} 
+        />
+      )}
+      {showManageSubjects && (
+        <ManageSubjectsModal
+          course={course}
+          token={token}
+          onClose={() => setShowManageSubjects(false)}
+          onSaved={fetchData}
         />
       )}
       {showCreate && <BatchModal courseId={courseId} token={token} onClose={() => setShowCreate(false)} onSaved={fetchData} />}

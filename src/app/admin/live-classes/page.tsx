@@ -11,7 +11,6 @@ import { adminAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const LIVE_CLASS_SUBJECT_OPTIONS = ['Physics', 'Chemistry', 'Botany', 'Zoology'];
 
 const getLiveClassUrl = (liveClass, preferHostUrl = false) => {
   const primaryUrl = preferHostUrl ? liveClass?.startUrl || liveClass?.meetingLink : liveClass?.meetingLink || liveClass?.startUrl;
@@ -326,12 +325,7 @@ export default function LiveClassesPage() {
       };
 
       if (cellData.subjectId) {
-        const matchingSubject = subjects.find((subject) => subject.name === cellData.subjectId);
-        if (!matchingSubject?._id) {
-          toast.error("Selected subject is not available in the database");
-          return;
-        }
-        payload.subjectId = matchingSubject._id;
+        payload.subjectId = cellData.subjectId;
       }
       
       // If updating, delete old one first for simplicity, or if our API supports upsert, use that.
@@ -813,8 +807,8 @@ export default function LiveClassesPage() {
                     <label className="block text-sm font-medium mb-1">Subject (Optional)</label>
                     <select value={cellData.subjectId} onChange={e => setCellData({...cellData, subjectId: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700">
                       <option value="">-- Select Subject --</option>
-                      {LIVE_CLASS_SUBJECT_OPTIONS.map((subjectName) => (
-                        <option key={subjectName} value={subjectName}>{subjectName}</option>
+                      {subjects.map((s) => (
+                        <option key={s._id} value={s._id}>{s.name}</option>
                       ))}
                     </select>
                   </div>
@@ -855,14 +849,9 @@ export default function LiveClassesPage() {
                     <label className="block text-sm font-medium mb-1">Subject (Optional)</label>
                     <select value={overrideData.subjectId} onChange={e => setOverrideData({...overrideData, subjectId: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700">
                       <option value="">-- Select Subject --</option>
-                      {LIVE_CLASS_SUBJECT_OPTIONS.map((subjectName) => {
-                        const matchingSubject = subjects.find((subject) => subject.name === subjectName);
-                        return (
-                          <option key={subjectName} value={matchingSubject?._id || ''} disabled={!matchingSubject?._id}>
-                            {subjectName}
-                          </option>
-                        );
-                      })}
+                      {subjects.map((s) => (
+                        <option key={s._id} value={s._id}>{s.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
