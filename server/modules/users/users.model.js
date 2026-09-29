@@ -9,9 +9,9 @@ const userSchema = new mongoose.Schema({
     required: false 
   },
   branchId: { type: mongoose.Schema.Types.ObjectId },
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  firstName: { type: String, default: 'Student' },
+  lastName: { type: String, default: '' },
+  email: { type: String, required: false, unique: true, sparse: true },
   password: { type: String, required: true, select: false },
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   childrenIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

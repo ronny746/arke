@@ -34,9 +34,9 @@ export default function StudentLiveClassesPage() {
     try {
       setLoading(true);
       const [batchRes, scheduleRes, liveRes] = await Promise.all([
-        studentAPI.getMyBatches(),
-        studentAPI.getMySchedule(), // Get all recurring schedules for the student's class
-        studentAPI.getLiveClasses()
+        studentAPI.getMyBatches().catch(() => ({ data: { data: [] } })),
+        studentAPI.getMySchedule().catch(() => ({ data: { data: [] } })),
+        studentAPI.getLiveClasses().catch(() => ({ data: { data: [] } }))
       ]);
       setBatches(batchRes.data?.data || []);
       const scheds = scheduleRes.data?.data || [];

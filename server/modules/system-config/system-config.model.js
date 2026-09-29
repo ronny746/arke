@@ -12,7 +12,7 @@ const systemConfigSchema = new mongoose.Schema({
     latestVersion: { type: String, default: "1.0.0" },
     minRequiredVersion: { type: String, default: "1.0.0" },
     isMandatory: { type: Boolean, default: false },
-    updateUrl: { type: String, default: "https://play.google.com/store/apps/details?id=com.skdinstituteneet.online" },
+    updateUrl: { type: String, default: "https://play.google.com/store/apps/details?id=com.arkescholarsneet.online" },
     updateNotes: { type: String, default: "New version available with enhanced performance and features!" }
   },
   neetExamConfig: {

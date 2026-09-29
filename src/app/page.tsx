@@ -87,7 +87,7 @@ export default function LandingPage() {
     }
     const role = user.role || "student";
     if (role === "admin" || role === "super_admin") router.push("/admin/dashboard");
-    else if (role === "teacher" || role === "skd-teacher" || role === "arke-teacher") router.push("/teacher/dashboard");
+    else if (role === "teacher" || role === "arke-teacher" || role === "arke-teacher") router.push("/teacher/dashboard");
     else router.push("/student/dashboard");
   };
 

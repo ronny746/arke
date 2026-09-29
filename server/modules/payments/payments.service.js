@@ -1,4 +1,5 @@
 const easebuzzService = require('./easebuzz.service');
+const razorpayService = require('./razorpay.service');
 const { FeeRecord, PaymentTransaction } = require('../fees-payments/fees-payments.model');
 const CourseModel = require('../courses/courses.model');
 const BatchModel = require('../batches/batches.model');
@@ -32,8 +33,8 @@ class PaymentsService {
       (user.role !== 'parent' && !user.email) ||
       user.lastName === '.' ||
       user.metadata?.isProfileIncomplete === true ||
-      (user.email && user.email.startsWith('student_') && user.email.endsWith('@skd.com')) ||
-      (user.email && user.email.startsWith('parent_') && user.email.endsWith('@skd.com'));
+      (user.email && user.email.startsWith('student_') && user.email.endsWith('@arke.com')) ||
+      (user.email && user.email.startsWith('parent_') && user.email.endsWith('@arke.com'));
 
     if (isProfileIncomplete) {
       throw new Error('Please complete your profile details before enrolling in any course.');
@@ -74,7 +75,7 @@ class PaymentsService {
     // Clean fields
     const cleanProductInfo = (course.name || 'Course').replace(/[^a-zA-Z0-9 ]/g, '').trim().slice(0, 50) || 'Course';
     const cleanFirstName = (user.firstName || 'Student').replace(/[^a-zA-Z0-9]/g, '').trim().slice(0, 50) || 'Student';
-    const cleanEmail = (user.email || 'student@skd.com').trim();
+    const cleanEmail = (user.email || 'student@arke.com').trim();
 
     // Call Easebuzz Gateway
     const paymentResponse = await easebuzzService.initiatePayment({
@@ -104,6 +105,139 @@ class PaymentsService {
         name: course.name,
         fee: course.fee
       }
+    };
+  }
+
+  /**
+   * Initiate Razorpay Order for course enrollment
+   */
+  async initiateRazorpayOrder(reqUser, courseId) {
+    const course = await CourseModel.findById(courseId);
+    if (!course) {
+      throw new Error('Course not found');
+    }
+
+    if (course.endDate && new Date(course.endDate) < new Date()) {
+      throw new Error('This course has ended and is no longer accepting enrollments.');
+    }
+
+    const studentId = reqUser.userId || reqUser.id || reqUser._id;
+    const user = await UserModel.findById(studentId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const amount = Number(course.fee) || 0;
+    if (amount <= 0) {
+      throw new Error('Course fee must be greater than 0 for online payment gateway.');
+    }
+
+    const receipt = `RZP_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const order = await razorpayService.createOrder({
+      amount,
+      receipt,
+      notes: {
+        courseId: course._id.toString(),
+        studentId: user._id.toString(),
+        courseName: course.name || ''
+      }
+    });
+
+    // Save pending transaction
+    const paymentTxn = new PaymentTransaction({
+      instituteId: course.instituteId || reqUser.instituteId,
+      studentId: user._id,
+      courseId: course._id,
+      amountPaid: amount,
+      paymentMethod: 'RAZORPAY',
+      transactionId: order.id,
+      status: 'PENDING'
+    });
+    await paymentTxn.save();
+
+    return {
+      success: true,
+      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || 'rzp_test_TZAWZi6xItEYWa',
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      course: {
+        id: course._id,
+        name: course.name,
+        fee: course.fee
+      },
+      user: {
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        email: user.email || '',
+        phone: user.phone || ''
+      }
+    };
+  }
+
+  /**
+   * Verify Razorpay Payment Signature and fulfill enrollment
+   */
+  async verifyRazorpayPayment(body) {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, courseId, studentId } = body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      throw new Error('Missing Razorpay verification parameters.');
+    }
+
+    const isValid = razorpayService.verifySignature({
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    });
+
+    let paymentTxn = await PaymentTransaction.findOne({ transactionId: razorpay_order_id });
+
+    if (!isValid) {
+      if (paymentTxn) {
+        paymentTxn.status = 'FAILED';
+        paymentTxn.gatewayStatus = 'SIGNATURE_MISMATCH';
+        await paymentTxn.save();
+      }
+      throw new Error('Invalid payment signature. Verification failed.');
+    }
+
+    const targetCourseId = courseId || paymentTxn?.courseId;
+    const targetStudentId = studentId || paymentTxn?.studentId;
+    const targetInstituteId = paymentTxn?.instituteId;
+
+    if (paymentTxn) {
+      paymentTxn.status = 'SUCCESS';
+      paymentTxn.gatewayStatus = 'captured';
+      paymentTxn.easepayid = razorpay_payment_id;
+      await paymentTxn.save();
+    } else {
+      paymentTxn = new PaymentTransaction({
+        instituteId: targetInstituteId || null,
+        studentId: targetStudentId || null,
+        courseId: targetCourseId || null,
+        amountPaid: 0,
+        paymentMethod: 'RAZORPAY',
+        transactionId: razorpay_order_id,
+        easepayid: razorpay_payment_id,
+        status: 'SUCCESS',
+        gatewayStatus: 'captured'
+      });
+      await paymentTxn.save();
+    }
+
+    if (targetCourseId && targetStudentId) {
+      await this.fulfillCourseEnrollment(targetCourseId, targetStudentId, targetInstituteId, null, paymentTxn);
+    }
+
+    return {
+      success: true,
+      status: 'success',
+      transactionId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      courseId: targetCourseId,
+      studentId: targetStudentId,
+      message: 'Razorpay payment verified and course enrolled successfully!'
     };
   }
 
@@ -235,9 +369,9 @@ class PaymentsService {
 
       // Assign Roll number if not present
       if (!user.metadata || !user.metadata.rollNo) {
-        const skdCount = await UserModel.countDocuments({ "metadata.rollNo": { $regex: /^SKD/i } });
-        const nextSkdRoll = `SKD${skdCount + 1}`;
-        user.metadata = { ...user.metadata, rollNo: nextSkdRoll };
+        const arkeCount = await UserModel.countDocuments({ "metadata.rollNo": { $regex: /^ARKE/i } });
+        const nextArkeRoll = `ARKE${arkeCount + 1}`;
+        user.metadata = { ...user.metadata, rollNo: nextArkeRoll };
         await user.save();
       }
 

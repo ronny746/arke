@@ -42,13 +42,13 @@ exports.changePassword = async (req, res, next) => {
 
 exports.requestOtp = async (req, res, next) => {
     try {
-        const { mobileNumber } = req.body;
+        const rawPhone = req.body.mobileNumber || req.body.phone || req.body.phoneNumber || req.body.mobile;
         
-        if (!mobileNumber) {
+        if (!rawPhone) {
             return errorResponse(res, "Mobile number is required", null, 400);
         }
 
-        const cleanPhone = String(mobileNumber).replace(/\D/g, '').slice(-10);
+        const cleanPhone = String(rawPhone).replace(/\D/g, '').slice(-10);
         if (cleanPhone.length !== 10) {
             return errorResponse(res, "Please enter a valid 10-digit mobile number", null, 400);
         }
@@ -70,14 +70,15 @@ exports.requestOtp = async (req, res, next) => {
 
 exports.verifyOtp = async (req, res, next) => {
     try {
-        const { phone, otp, isSignup, name, role } = req.body;
+        const { otp, isSignup, name, role } = req.body;
+        const rawPhone = req.body.phone || req.body.mobileNumber || req.body.phoneNumber || req.body.mobile;
         const requestedRole = role || 'student';
 
-        if (!phone || !otp) {
+        if (!rawPhone || !otp) {
             return errorResponse(res, "Phone and OTP are required", null, 400);
         }
 
-        const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
+        const cleanPhone = String(rawPhone).replace(/\D/g, '').slice(-10);
 
         let user = await User.findOne({ phone: cleanPhone, role: requestedRole });
         let isRollNoBypass = false;
@@ -90,7 +91,7 @@ exports.verifyOtp = async (req, res, next) => {
 
             if (enableRollNumberLogin) {
                 const rollNoStr = String(user.metadata.rollNo).trim();
-                if (!/SKD/i.test(rollNoStr)) {
+                if (!/ARKE/i.test(rollNoStr)) {
                     if (String(otp).trim() === rollNoStr) {
                         isRollNoBypass = true;
                     }
@@ -107,24 +108,25 @@ exports.verifyOtp = async (req, res, next) => {
             }
 
             if (!user) {
-                // Create new barebones student if they don't exist
+                // Create new barebones user if they don't exist
                 const Institute = require('../institutes/institutes.model');
                 const defaultInstitute = await Institute.findOne();
                 
+                const defaultRole = requestedRole || 'student';
+                const defaultFirstName = defaultRole === 'parent' ? 'Parent' : (defaultRole === 'teacher' ? 'Teacher' : 'Student');
+                
                 const userFields = {
-                    firstName: requestedRole === 'parent' ? 'Parent' : '',
+                    firstName: defaultFirstName,
                     lastName: '',
                     phone: cleanPhone,
-                    role: requestedRole,
+                    role: defaultRole,
                     instituteId: defaultInstitute ? defaultInstitute._id : null,
-                    password: Math.random().toString(36).slice(-8),
+                    password: Math.random().toString(36).slice(-8) + 'A1!',
+                    email: `${defaultRole}_${cleanPhone}_${Date.now()}@arkescholars.com`,
                     metadata: {
                         isProfileIncomplete: true
                     }
                 };
-                if (requestedRole !== 'parent') {
-                    userFields.email = `${requestedRole}_${cleanPhone}@arkescholars.com`;
-                }
                 user = await User.create(userFields);
             }
 

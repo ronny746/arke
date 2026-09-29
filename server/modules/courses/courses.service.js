@@ -94,17 +94,17 @@ exports.enrollCourse = async (id, reqUser, payload) => {
     (user.role !== 'parent' && !user.email) || 
     user.lastName === '.' || 
     user.metadata?.isProfileIncomplete === true ||
-    (user.email && user.email.startsWith('student_') && user.email.endsWith('@skd.com')) ||
-    (user.email && user.email.startsWith('parent_') && user.email.endsWith('@skd.com'));
+    (user.email && user.email.startsWith('student_') && user.email.endsWith('@arke.com')) ||
+    (user.email && user.email.startsWith('parent_') && user.email.endsWith('@arke.com'));
 
   if (isProfileIncomplete) {
     throw new Error('Please complete your profile details before enrolling in any course.');
   }
   
   if (user && (!user.metadata || !user.metadata.rollNo)) {
-    const skdCount = await UserModel.countDocuments({ "metadata.rollNo": { $regex: /^SKD/i } });
-    const nextSkdRoll = `SKD${skdCount + 1}`;
-    user.metadata = { ...user.metadata, rollNo: nextSkdRoll };
+    const arkeCount = await UserModel.countDocuments({ "metadata.rollNo": { $regex: /^ARKE/i } });
+    const nextArkeRoll = `ARKE${arkeCount + 1}`;
+    user.metadata = { ...user.metadata, rollNo: nextArkeRoll };
     await user.save();
   }
   

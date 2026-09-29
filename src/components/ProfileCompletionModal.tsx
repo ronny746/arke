@@ -26,7 +26,7 @@ export function ProfileCompletionModal({ user, onComplete }) {
       setForm({
         firstName: user.firstName === 'Student' ? '' : user.firstName || '',
         lastName: user.lastName === '.' ? '' : user.lastName || '',
-        email: user.email?.includes('@skd.com') ? '' : user.email || '',
+        email: user.email?.includes('@arke.com') ? '' : user.email || '',
         metadata: {
           studentClass: user.metadata?.studentClass || '',
           state: user.metadata?.state || '',

@@ -1,5 +1,5 @@
 /**
- * Seed Script — SKD Institute + Admin User + 3 Batches
+ * Seed Script — ARKE Scholars + Admin User + 3 Batches
  * Run: node server/seed.js
  */
 
@@ -58,7 +58,7 @@ const Batch     = mongoose.models.Batch     || mongoose.model('Batch', batchSche
 
 const COURSES = [
   {
-    name: 'SKD Prime',
+    name: 'ARKE Prime',
     subtitle: 'Complete NEET Preparation Program',
     price: 9999, // we map price to fee
     fee: 9999,
@@ -111,7 +111,7 @@ const COURSES = [
     ]
   },
   {
-    name: 'SKD NEO',
+    name: 'ARKE NEO',
     subtitle: 'Learn with Expert Faculty',
     fee: 4999,
     tag: 'NEET 2027',
@@ -141,15 +141,15 @@ async function seed() {
   console.log('✅ Connected to MongoDB:', MONGO_URI.split('@')[1]?.split('/')[0]);
 
   // 1️⃣ Upsert Institute
-  let institute = await Institute.findOne({ subdomain: 'skdinstitute' });
+  let institute = await Institute.findOne({ subdomain: 'arkescholars' });
   if (!institute) {
     institute = await Institute.create({
-      name: 'SKD Institute',
-      subdomain: 'skdinstitute',
-      domain: 'skdinstitute.com',
-      logoUrl: '/SKD-logo.png',
+      name: 'ARKE Scholars',
+      subdomain: 'arkescholars',
+      domain: 'arkescholars.com',
+      logoUrl: '/ARKE-logo.png',
       planType: 'premium',
-      contactEmail: 'admin@skdinstitute.com',
+      contactEmail: 'admin@arkescholars.com',
       contactPhone: '+91-9876543210',
       address: 'Lucknow, Uttar Pradesh, India',
       settings: {
@@ -163,14 +163,14 @@ async function seed() {
   }
 
   // 2️⃣ Upsert Admin User
-  const adminEmail = 'admin@skdinstitute.com';
+  const adminEmail = 'admin@arkescholars.com';
   let admin = await User.findOne({ email: adminEmail });
   if (!admin) {
     const salt   = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash('Admin@123', salt);
     admin = await User.create({
       instituteId: institute._id,
-      firstName: 'SKD',
+      firstName: 'ARKE',
       lastName: 'Admin',
       email: adminEmail,
       password: hashed,
@@ -206,8 +206,8 @@ async function seed() {
 
   console.log('\n✅ Seed complete!');
   console.log('─────────────────────────────────────');
-  console.log('Admin Login URL : http://localhost:3000/skd-admin');
-  console.log('Email          : admin@skdinstitute.com');
+  console.log('Admin Login URL : http://localhost:3000/admin');
+  console.log('Email          : admin@arkescholars.com');
   console.log('Password       : Admin@123');
   console.log('─────────────────────────────────────');
 

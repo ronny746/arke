@@ -25,7 +25,7 @@ router.get('/', async (req, res, next) => {
         latestVersion: config?.appUpdate?.latestVersion || "1.0.0",
         minRequiredVersion: config?.appUpdate?.minRequiredVersion || "1.0.0",
         isMandatory: config?.appUpdate?.isMandatory ?? false,
-        updateUrl: config?.appUpdate?.updateUrl || "https://play.google.com/store/apps/details?id=com.skdinstituteneet.online",
+        updateUrl: config?.appUpdate?.updateUrl || "https://play.google.com/store/apps/details?id=com.arkescholarsneet.online",
         updateNotes: config?.appUpdate?.updateNotes || "New version available with enhanced performance and features!"
       },
       neetExamConfig: {
@@ -48,7 +48,7 @@ router.get('/', async (req, res, next) => {
         latestVersion: "1.0.0",
         minRequiredVersion: "1.0.0",
         isMandatory: false,
-        updateUrl: "https://play.google.com/store/apps/details?id=com.skdinstituteneet.online",
+        updateUrl: "https://play.google.com/store/apps/details?id=com.arkescholarsneet.online",
         updateNotes: "New version available with enhanced performance and features!"
       },
       neetExamConfig: {

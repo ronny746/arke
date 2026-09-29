@@ -24,7 +24,7 @@ export default function AdminSettingsPage() {
     latestVersion: '1.0.0',
     minRequiredVersion: '1.0.0',
     isMandatory: false,
-    updateUrl: 'https://play.google.com/store/apps/details?id=com.skdinstituteneet.online',
+    updateUrl: 'https://play.google.com/store/apps/details?id=com.arkescholarsneet.online',
     updateNotes: 'New version available with enhanced performance and features!'
   });
 

@@ -597,7 +597,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const isHostRole = (role?: string) => {
     if (!role) return false;
     const r = role.toLowerCase();
-    return r === 'teacher' || r === 'admin' || r === 'super_admin' || r === 'skd-teacher' || r === 'instructor' || r === 'host';
+    return r === 'teacher' || r === 'admin' || r === 'super_admin' || r === 'arke-teacher' || r === 'instructor' || r === 'host';
   };
 
   // Build tiles

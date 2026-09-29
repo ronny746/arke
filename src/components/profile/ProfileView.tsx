@@ -88,7 +88,7 @@ export function ProfileView({ user, onUpdate }: { user: any, onUpdate?: (user: a
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
-    email: user?.email && !user.email.includes('@skd.com') && !user.email.startsWith('student_') ? user.email : (user?.email || ''),
+    email: user?.email && !user.email.includes('@arke.com') && !user.email.startsWith('student_') ? user.email : (user?.email || ''),
     phone: user?.phone || '',
     profilePictureUrl: user?.profilePictureUrl || ''
   });

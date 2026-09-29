@@ -1,11 +1,8 @@
 const Joi = require('joi');
 
 exports.createResourceSchema = Joi.object({
-  batchId: Joi.string().when('type', {
-    is: 'FOLDER',
-    then: Joi.optional().allow('', null),
-    otherwise: Joi.required()
-  }),
+  batchId: Joi.string().allow('', null).optional(),
+  batchIds: Joi.array().items(Joi.string().allow('', null)).optional(),
   subjectId: Joi.string().allow('', null).optional(),
   title: Joi.string().required(),
   description: Joi.string().allow('', null).optional(),

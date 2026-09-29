@@ -48,7 +48,21 @@ const calculateDuration = (start: any, end: any, fallback: string) => {
   return fallback || 'N/A';
 };
 
-function EasebuzzPaymentModal({ course, onClose, onAuthError }: { course: any; onClose: () => void; onAuthError: () => void }) {
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (typeof window !== 'undefined' && (window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
+function RazorpayPaymentModal({ course, onClose, onAuthError }: { course: any; onClose: () => void; onAuthError: () => void }) {
   const [loading, setLoading] = useState(false);
 
   const handlePay = async () => {
@@ -59,7 +73,12 @@ function EasebuzzPaymentModal({ course, onClose, onAuthError }: { course: any; o
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/payments/easebuzz/initiate', {
+      const isScriptLoaded = await loadRazorpayScript();
+      if (!isScriptLoaded) {
+        throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
+      }
+
+      const res = await fetch('/api/v1/payments/razorpay/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ courseId: course._id })
@@ -74,12 +93,58 @@ function EasebuzzPaymentModal({ course, onClose, onAuthError }: { course: any; o
         throw new Error(data.message || 'Payment initiation failed');
       }
 
-      if (data.paymentUrl) {
-        toast.loading('Redirecting to Easebuzz Payment Gateway...');
-        window.location.href = data.paymentUrl;
-      } else {
-        throw new Error('Could not obtain Easebuzz payment URL');
-      }
+      const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency || 'INR',
+        name: "ARKE Scholars",
+        description: data.course?.name || course.name || "Course Payment",
+        order_id: data.orderId,
+        prefill: {
+          name: data.user?.name || '',
+          email: data.user?.email || '',
+          contact: data.user?.phone || ''
+        },
+        theme: {
+          color: "#0B132B"
+        },
+        handler: async function (response: any) {
+          toast.loading('Verifying payment...');
+          try {
+            const verifyRes = await fetch('/api/v1/payments/razorpay/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                courseId: course._id
+              })
+            });
+            const verifyData = await verifyRes.json();
+            toast.dismiss();
+            if (verifyData.success) {
+              toast.success('Payment successful! Enrolled in course.');
+              window.location.href = `/payment/status?status=success&txnid=${response.razorpay_order_id}&courseId=${course._id}`;
+            } else {
+              toast.error(verifyData.message || 'Payment verification failed.');
+              setLoading(false);
+            }
+          } catch (vErr: any) {
+            toast.dismiss();
+            toast.error(vErr.message || 'Verification error');
+            setLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong');
       setLoading(false);
@@ -98,7 +163,7 @@ function EasebuzzPaymentModal({ course, onClose, onAuthError }: { course: any; o
             </div>
             <div>
               <h3 className="font-bold text-white text-base">Course Checkout</h3>
-              <p className="text-xs text-[#C99A2E] font-medium">Secured by Easebuzz Gateway</p>
+              <p className="text-xs text-[#C99A2E] font-medium">Secured by Razorpay</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-colors"><X size={20} /></button>
@@ -127,11 +192,11 @@ function EasebuzzPaymentModal({ course, onClose, onAuthError }: { course: any; o
             {loading ? (
               <>
                 <Loader2 size={18} className="animate-spin text-[#C99A2E]" />
-                <span>Connecting to Gateway...</span>
+                <span>Opening Gateway...</span>
               </>
             ) : (
               <>
-                <span>Pay ₹{course.fee?.toLocaleString() || 0} via Easebuzz</span>
+                <span>Pay ₹{course.fee?.toLocaleString() || 0} via Razorpay</span>
                 <ArrowRight size={18} className="text-[#C99A2E]" />
               </>
             )}
@@ -294,17 +359,14 @@ export default function StudentCourseDetailPage() {
       (user.role !== 'parent' && !user.email) || 
       user.lastName === '.' || 
       user.metadata?.isProfileIncomplete === true ||
-      (user.email && user.email.startsWith('student_') && user.email.endsWith('@skd.com')) ||
-      (user.email && user.email.startsWith('parent_') && user.email.endsWith('@skd.com'));
+      (user.email && user.email.startsWith('student_') && user.email.endsWith('@arke.com')) ||
+      (user.email && user.email.startsWith('parent_') && user.email.endsWith('@arke.com'));
 
     if (isIncomplete) {
       toast.error('Please complete your profile details before purchasing courses.');
-      setTimeout(() => {
-        router.push(`/${user.role || 'student'}/profile`);
-      }, 1500);
       return;
     }
-    setShowPayment(true);
+    router.push(`/student/checkout/${course._id}`);
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 text-[#0B132B] animate-spin" /></div>;
@@ -333,28 +395,343 @@ export default function StudentCourseDetailPage() {
     return true; // ALL
   });
 
-  const FAQS_LIST = [
-    {
-      q: "How do I attend Live and Recorded classes?",
-      a: "All scheduled classes are conducted live on the platform with interactive chat and real-time polls. If you miss a live session, the full recording with chapters and transcript is uploaded within 2 hours."
-    },
-    {
-      q: "Are DPPs (Daily Practice Problems) and Class Notes provided?",
-      a: "Yes! High-yield curated Daily Practice Problems (DPPs) with video solutions and downloadable PDF annotated teacher notes are provided right after each lecture."
-    },
-    {
-      q: "What is the Test Series schedule and evaluation process?",
-      a: "The batch includes regular Part Tests every 2-3 weeks, Chapter-wise Quizzes, and Full-Syllabus All-India Mock Exams strictly mirroring the official NEET/JEE pattern with instant All-India Rank (AIR) and AI-powered performance analytics."
-    },
-    {
-      q: "How will my doubts be resolved during and after class?",
-      a: "You can ask doubts in live chat during lectures. In addition, our 24/7 Doubt Engine allows you to snap a picture of any question and receive verified faculty explanations with video hints."
-    },
-    {
-      q: "Can I access the batch on mobile, tablet, and PC?",
-      a: "Yes, you can access your enrolled batches and classroom seamlessly across Web, Android, and iOS devices with automated sync across devices."
+  // Dynamic Subject calculation
+  const getDynamicSubjects = (c: any) => {
+    if (c?.subjects && Array.isArray(c.subjects) && c.subjects.length > 0) {
+      return c.subjects.map((s: any) => {
+        if (typeof s === 'string') return { name: s, icon: '📖', chapters: 25, dpps: 120, tests: 20 };
+        return {
+          name: s.name || s.title || 'Subject',
+          icon: s.icon || '📖',
+          chapters: s.chapters || 25,
+          dpps: s.dpps || 120,
+          tests: s.tests || 20
+        };
+      });
     }
-  ];
+
+    const exam = (c?.targetExam || '').toUpperCase();
+    const name = (c?.name || '').toUpperCase();
+    const cls = (c?.targetClass || '').toUpperCase();
+
+    if (exam.includes('NEET') || name.includes('NEET') || name.includes('MEDICAL') || cls.includes('BIOLOGY')) {
+      return [
+        { name: 'Physics', icon: '⚡', chapters: 28, dpps: 140, tests: 24 },
+        { name: 'Chemistry', icon: '🧪', chapters: 30, dpps: 150, tests: 26 },
+        { name: 'Botany', icon: '🌿', chapters: 22, dpps: 110, tests: 18 },
+        { name: 'Zoology', icon: '🧬', chapters: 20, dpps: 100, tests: 18 },
+      ];
+    }
+
+    if (exam.includes('JEE') || name.includes('JEE') || name.includes('IIT') || name.includes('ENGINEERING') || cls.includes('MATH')) {
+      return [
+        { name: 'Physics', icon: '⚡', chapters: 32, dpps: 160, tests: 28 },
+        { name: 'Chemistry', icon: '🧪', chapters: 30, dpps: 150, tests: 26 },
+        { name: 'Mathematics', icon: '📐', chapters: 34, dpps: 170, tests: 30 },
+      ];
+    }
+
+    if (exam.includes('CUET') || name.includes('CUET') || name.includes('COMMERCE')) {
+      return [
+        { name: 'General Test', icon: '🧩', chapters: 20, dpps: 100, tests: 15 },
+        { name: 'Language & English', icon: '📚', chapters: 18, dpps: 90, tests: 15 },
+        { name: 'Accountancy & Commerce', icon: '📊', chapters: 24, dpps: 120, tests: 20 },
+        { name: 'Economics & Business', icon: '📈', chapters: 22, dpps: 110, tests: 18 },
+      ];
+    }
+
+    if (exam.includes('UPSC') || exam.includes('SSC') || name.includes('GOVT') || name.includes('CIVIL')) {
+      return [
+        { name: 'General Studies I', icon: '🏛️', chapters: 35, dpps: 175, tests: 30 },
+        { name: 'Polity & Governance', icon: '⚖️', chapters: 25, dpps: 125, tests: 20 },
+        { name: 'Aptitude & CSAT', icon: '🔢', chapters: 20, dpps: 100, tests: 15 },
+        { name: 'Current Affairs & GK', icon: '🌐', chapters: 30, dpps: 150, tests: 25 },
+      ];
+    }
+
+    if (exam.includes('FOUNDATION') || cls.includes('9') || cls.includes('10') || cls.includes('8')) {
+      return [
+        { name: 'Physics & Chem', icon: '🔬', chapters: 20, dpps: 100, tests: 15 },
+        { name: 'Mathematics', icon: '📐', chapters: 22, dpps: 110, tests: 18 },
+        { name: 'Biology', icon: '🌿', chapters: 18, dpps: 90, tests: 14 },
+        { name: 'Mental Ability (MAT)', icon: '🧠', chapters: 16, dpps: 80, tests: 12 },
+      ];
+    }
+
+    return [
+      { name: 'Core Concepts & Theory', icon: '📖', chapters: 25, dpps: 120, tests: 20 },
+      { name: 'Problem Solving & DPPs', icon: '📝', chapters: 20, dpps: 100, tests: 15 },
+      { name: 'Mock Tests & Revision', icon: '🎯', chapters: 15, dpps: 75, tests: 25 },
+    ];
+  };
+
+  const defaultSubjects = getDynamicSubjects(course);
+
+  // Dynamic Syllabus Roadmap calculation
+  const getDynamicSyllabus = (c: any): Record<string, string[]> => {
+    if (c?.syllabus && typeof c.syllabus === 'object' && Object.keys(c.syllabus).length > 0) {
+      return c.syllabus;
+    }
+
+    return {
+      'Physics': [
+        'Units, Dimensions & Physical Measurements',
+        'Kinematics: Motion in 1D & 2D',
+        'Laws of Motion & Friction',
+        'Work, Energy and Power',
+        'Rotational Mechanics & System of Particles',
+        'Gravitation & Planetary Dynamics',
+        'Thermodynamics & Kinetic Theory of Gases',
+        'Electrostatics & Capacitance',
+        'Current Electricity & Magnetism',
+        'Ray & Wave Optics',
+        'Modern Physics & Semiconductors'
+      ],
+      'Chemistry': [
+        'Some Basic Concepts of Chemistry & Stoichiometry',
+        'Atomic Structure & Quantum Numbers',
+        'Periodic Table & Chemical Bonding',
+        'Chemical Thermodynamics & Energetics',
+        'Equilibrium: Physical & Ionic',
+        'Organic Chemistry: Principles & Mechanisms',
+        'Coordination Compounds & d-Block Elements',
+        'Electrochemistry & Chemical Kinetics'
+      ],
+      'Mathematics': [
+        'Sets, Relations and Functions',
+        'Complex Numbers & Quadratic Equations',
+        'Matrices and Determinants',
+        'Permutations, Combinations & Probability',
+        'Calculus: Limits, Continuity & Differentiability',
+        'Definite & Indefinite Integrals',
+        'Vectors & 3D Analytical Geometry',
+        'Coordinate Geometry: Conic Sections'
+      ],
+      'Botany': [
+        'Cell: The Unit of Life & Cell Division',
+        'Plant Kingdom & Morphology of Flowering Plants',
+        'Photosynthesis in Higher Plants & Respiration',
+        'Plant Growth, Hormones & Regulators',
+        'Genetics: Molecular Basis of Inheritance',
+        'Ecology, Ecosystems & Environmental Issues'
+      ],
+      'Zoology': [
+        'Animal Kingdom & Structural Organisation',
+        'Human Physiology: Digestion, Breathing & Circulation',
+        'Excretory System, Locomotion & Movement',
+        'Neural Control & Endocrine Coordination',
+        'Human Reproduction & Health',
+        'Evolution & Human Health and Diseases'
+      ],
+      'General Test': [
+        'General Mental Ability & Logical Reasoning',
+        'Numerical Ability & Quantitative Aptitude',
+        'Basic Mathematical Concepts',
+        'General Knowledge & Current Events',
+        'Analytical & Diagrammatic Reasoning'
+      ],
+      'Language & English': [
+        'Reading Comprehension & Passages',
+        'Vocabulary, Synonyms & Antonyms',
+        'Grammar & Sentence Correction',
+        'Idioms, Phrases & Verbal Ability'
+      ],
+      'Accountancy & Commerce': [
+        'Accounting for Partnership Firms',
+        'Company Accounts & Issue of Shares',
+        'Financial Statement Analysis',
+        'Cash Flow Statement & Ratios'
+      ],
+      'Economics & Business': [
+        'Microeconomics: Consumer Behavior & Demand',
+        'Macroeconomics: National Income & Money',
+        'Business Environment & Management Principles',
+        'Financial Markets & Marketing Management'
+      ],
+      'General Studies I': [
+        'Indian History & National Movement',
+        'Indian & World Geography',
+        'Indian Polity, Constitution & Governance',
+        'Economic & Social Development',
+        'General Science & Environment'
+      ],
+      'Polity & Governance': [
+        'Preamble & Fundamental Rights',
+        'Union & State Executive and Legislature',
+        'Judiciary & Constitutional Bodies',
+        'Local Self Government & Panchayati Raj'
+      ],
+      'Aptitude & CSAT': [
+        'Comprehension & Interpersonal Skills',
+        'Logical Reasoning & Analytical Ability',
+        'Decision Making & Problem Solving',
+        'Basic Numeracy & Data Interpretation'
+      ],
+      'Current Affairs & GK': [
+        'National & International Importance',
+        'Government Schemes & Policies',
+        'Science & Technology Developments',
+        'Economic Surveys & Budget Highlights'
+      ],
+      'Physics & Chem': [
+        'Motion, Force & Gravitation',
+        'Work, Energy & Power',
+        'Matter in Our Surroundings & Chemical Reactions',
+        'Acids, Bases & Metals'
+      ],
+      'Biology': [
+        'Cell Biology & Tissues',
+        'Diversity in Living Organisms',
+        'Why Do We Fall Ill?',
+        'Natural Resources & Food Improvement'
+      ],
+      'Mental Ability (MAT)': [
+        'Verbal & Non-Verbal Series',
+        'Coding-Decoding & Blood Relations',
+        'Venn Diagrams & Syllogism',
+        'Puzzles, Seating & Direction Sense'
+      ],
+      'Core Concepts & Theory': [
+        'Fundamental Principles & Foundations',
+        'Advanced Problem Solving Techniques',
+        'Core Theoretical Frameworks',
+        'Applied Case Studies & Practice'
+      ],
+      'Problem Solving & DPPs': [
+        'Daily Problem Sets - Part 1',
+        'Daily Problem Sets - Part 2',
+        'Previous Year Questions Analysis',
+        'High-Yield Exam Pattern MCQs'
+      ],
+      'Mock Tests & Revision': [
+        'Chapter-wise Revision Summaries',
+        'Formula Sheets & Quick Guides',
+        'Part Tests & Cumulative Review',
+        'Full Syllabus Mock Exams'
+      ]
+    };
+  };
+
+  const syllabusChapters = getDynamicSyllabus(course);
+
+  // Dynamic FAQs calculation
+  const getDynamicFaqs = (c: any) => {
+    if (c?.faqs && Array.isArray(c.faqs) && c.faqs.length > 0) {
+      return c.faqs;
+    }
+
+    const courseName = c?.name || 'this batch';
+    const exam = c?.targetExam || 'Competitive Exams';
+    const cls = c?.targetClass || 'Class 11 & 12';
+    const fee = c?.fee ? `₹${c.fee.toLocaleString()}` : 'the course fee';
+    const startDateStr = c?.startDate 
+      ? new Date(c.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+      : 'upon enrollment';
+
+    return [
+      {
+        q: `Who can enroll in ${courseName} and what are the eligibility criteria?`,
+        a: `This batch is specifically tailored for ${cls} students preparing for ${exam}. All concepts are covered comprehensively from basic fundamentals up to exam level.`
+      },
+      {
+        q: 'How can I access live lectures, recorded videos, and class notes?',
+        a: `Classes start ${startDateStr}. Once enrolled, all live streams, HD recordings, daily downloadable PDF notes, and DPPs are immediately accessible under your Classroom portal.`
+      },
+      {
+        q: 'Will Daily Practice Problems (DPP) with video solutions be provided?',
+        a: 'Yes! After every single lecture, a curated DPP set containing high-yield MCQs is provided with complete step-by-step video solutions and instant performance analysis.'
+      },
+      {
+        q: 'How does the Doubt Engine work during and after classes?',
+        a: 'Students can ask doubts live during sessions, or upload questions 24/7 on the dedicated Doubt Resolution Portal for fast responses from verified subject experts.'
+      },
+      {
+        q: `What is the schedule and pattern of Mock Tests included in ${fee}?`,
+        a: `The batch includes regular bi-weekly chapter tests, part tests, and full-syllabus All India Mock Tests matching the exact ${exam} computer-based interface with detailed rank analytics.`
+      },
+      {
+        q: 'Until when will the batch recordings and materials remain valid?',
+        a: `Batch recordings and study materials will remain active and accessible in your library throughout your active academic session.`
+      }
+    ];
+  };
+
+  const batchFaqs = getDynamicFaqs(course);
+
+  // Dynamic Curriculum Deliverables calculation
+  const getDynamicDeliverables = (c: any) => {
+    const access = c?.access || {};
+    const deliverables = [];
+
+    deliverables.push({
+      icon: <Video size={20} />,
+      title: access.liveClasses !== false ? 'Live & HD Recorded Lectures' : 'HD Recorded Video Library',
+      desc: access.liveClasses !== false 
+        ? 'Interactive live sessions with top faculties + 24/7 unlimited access to HD class archives.'
+        : 'Structured high-definition video lectures accessible anytime for self-paced learning.'
+    });
+
+    if (access.dpps !== false) {
+      deliverables.push({
+        icon: <FileCheck size={20} />,
+        title: 'Daily DPPs with Video Solutions',
+        desc: 'Daily practice problem sets after every lecture with step-by-step video hints.'
+      });
+    }
+
+    if (access.testSeries !== false) {
+      deliverables.push({
+        icon: <Trophy size={20} />,
+        title: 'All India Test Series (AITS)',
+        desc: `Exam simulation mock tests strictly matching ${c?.targetExam || 'official'} pattern with All India Rank & analytics.`
+      });
+    }
+
+    if (access.studyMaterials !== false) {
+      deliverables.push({
+        icon: <BookOpen size={20} />,
+        title: 'Class Notes & Revision Sheets',
+        desc: 'Teacher handwritten annotations, chapter-wise formula summaries, and downloadable PDF modules.'
+      });
+    }
+
+    deliverables.push({
+      icon: <MessageSquare size={20} />,
+      title: '24/7 Smart Doubt Engine',
+      desc: 'Dedicated subject experts resolve your doubts with fast turnaround times and video explanations.'
+    });
+
+    deliverables.push({
+      icon: <GraduationCap size={20} />,
+      title: 'Personalized Strategy & Mentorship',
+      desc: 'Regular time management workshops, test performance audits, and rank booster strategy sessions.'
+    });
+
+    return deliverables;
+  };
+
+  const batchDeliverables = getDynamicDeliverables(course);
+
+  // Dynamic Features List
+  const dynamicFeatures = (course.features && course.features.length > 0)
+    ? course.features
+    : [
+        `Complete ${course.targetExam || 'Exam'} syllabus coverage from scratch to advanced level`,
+        `Interactive Live Classes & 24/7 HD Recorded Video Library`,
+        `Daily Practice Problems (DPPs) with step-by-step Video Solutions`,
+        `All India Mock Test Series (AITS) matching NTA Computer-Based Test pattern`,
+        `Handwritten Class Notes & PDF Formula Revision Modules`,
+        `24/7 Dedicated Subject Specialist Doubt Resolution Engine`
+      ];
+
+  // Dynamic Best For
+  const dynamicBestFor = (course.bestFor && course.bestFor.length > 0)
+    ? course.bestFor
+    : [
+        `Aspirants preparing for ${course.targetExam || 'Competitive Exams'}`,
+        `Students of ${course.targetClass || 'Class 11 / 12 & Droppers'}`,
+        `${course.medium || 'Hinglish/English'} Medium Students`
+      ];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans pb-24 text-gray-900">
@@ -577,57 +954,29 @@ export default function StudentCourseDetailPage() {
                     Key Batch Deliverables
                   </h2>
                   <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200/60 flex items-start gap-3.5">
-                      <div className="w-10 h-10 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center shrink-0">
-                        <Video size={20} />
+                    {batchDeliverables.map((item: any, idx: number) => (
+                      <div key={idx} className="p-4 rounded-2xl bg-gray-50 border border-gray-200/60 flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center shrink-0">
+                          {item.icon}
+                        </div>
+                        <div>
+                          <h4 className="font-black text-gray-900 text-sm">{item.title}</h4>
+                          <p className="text-xs text-gray-600 mt-0.5">{item.desc}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-black text-gray-900 text-sm">Live & Recorded Lectures</h4>
-                        <p className="text-xs text-gray-600 mt-0.5">Interactive live classes + 24/7 unlimited access to full HD class archives.</p>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200/60 flex items-start gap-3.5">
-                      <div className="w-10 h-10 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center shrink-0">
-                        <FileCheck size={20} />
-                      </div>
-                      <div>
-                        <h4 className="font-black text-gray-900 text-sm">Daily DPPs with Video Solutions</h4>
-                        <p className="text-xs text-gray-600 mt-0.5">Curated practice problem sets after every lecture with step-by-step video hints.</p>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200/60 flex items-start gap-3.5">
-                      <div className="w-10 h-10 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center shrink-0">
-                        <Trophy size={20} />
-                      </div>
-                      <div>
-                        <h4 className="font-black text-gray-900 text-sm">All India Test Series (AITS)</h4>
-                        <p className="text-xs text-gray-600 mt-0.5">Exact NTA Computer Based Test pattern with real-time All India Rank (AIR).</p>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200/60 flex items-start gap-3.5">
-                      <div className="w-10 h-10 rounded-xl bg-[#0B132B] text-[#C99A2E] flex items-center justify-center shrink-0">
-                        <MessageSquare size={20} />
-                      </div>
-                      <div>
-                        <h4 className="font-black text-gray-900 text-sm">24/7 AI Doubt Engine</h4>
-                        <p className="text-xs text-gray-600 mt-0.5">Instant faculty & smart doubt resolution engine for round-the-clock support.</p>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
 
                 {/* Features List */}
-                {course.features?.length > 0 && (
+                {dynamicFeatures.length > 0 && (
                   <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
                     <h2 className="text-xl font-black text-[#0B132B] mb-6 flex items-center gap-2.5">
                       <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
                       What You Will Get
                     </h2>
                     <div className="grid sm:grid-cols-2 gap-3.5">
-                      {course.features.map((feat: string, idx: number) => (
+                      {dynamicFeatures.map((feat: string, idx: number) => (
                         <div key={idx} className="flex items-start gap-3 p-3.5 rounded-2xl bg-gray-50 border border-gray-200/60">
                           <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
                           <span className="text-gray-800 font-semibold text-sm leading-snug">{feat}</span>
@@ -638,14 +987,14 @@ export default function StudentCourseDetailPage() {
                 )}
 
                 {/* Best Suited For */}
-                {course.bestFor?.length > 0 && (
+                {dynamicBestFor.length > 0 && (
                   <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
                     <h2 className="text-xl font-black text-[#0B132B] mb-5 flex items-center gap-2.5">
                       <span className="w-2.5 h-6 bg-[#C99A2E] rounded-full inline-block"></span>
                       Best Suited For
                     </h2>
                     <div className="flex flex-wrap gap-2.5">
-                      {course.bestFor.map((bf: string, idx: number) => (
+                      {dynamicBestFor.map((bf: string, idx: number) => (
                         <span key={idx} className="px-4 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm font-bold">
                           🎯 {bf}
                         </span>
@@ -669,15 +1018,18 @@ export default function StudentCourseDetailPage() {
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                    {['Physics', 'Chemistry', course.targetExam === 'NEET' ? 'Biology' : 'Mathematics'].map((subject) => (
-                      <div key={subject} className="p-5 rounded-2xl bg-gray-50 border border-gray-200/80">
+                    {defaultSubjects.map((subject: any) => (
+                      <div key={subject.name} className="p-5 rounded-2xl bg-gray-50 border border-gray-200/80">
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-black text-gray-900 text-base">{subject}</h4>
+                          <h4 className="font-black text-gray-900 text-base flex items-center gap-2">
+                            <span>{subject.icon}</span>
+                            <span>{subject.name}</span>
+                          </h4>
                           <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#0B132B] text-[#C99A2E]">
                             Core Subject
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500 font-medium">25+ Structured Chapters • 120+ DPP Sets</p>
+                        <p className="text-xs text-gray-500 font-medium">{subject.chapters || 25}+ Structured Chapters • {subject.dpps || 120}+ DPP Sets</p>
                       </div>
                     ))}
                   </div>
@@ -874,7 +1226,7 @@ export default function StudentCourseDetailPage() {
                   </p>
 
                   <div className="space-y-3">
-                    {FAQS_LIST.map((faq, idx) => {
+                    {batchFaqs.map((faq: any, idx: number) => {
                       const isOpen = openFaq === idx;
                       return (
                         <div key={idx} className="border border-gray-200/80 rounded-2xl overflow-hidden">
@@ -959,8 +1311,8 @@ export default function StudentCourseDetailPage() {
                   (user.role !== 'parent' && !user.email) || 
                   user.lastName === '.' || 
                   user.metadata?.isProfileIncomplete === true ||
-                  (user.email && user.email.startsWith('student_') && user.email.endsWith('@skd.com')) ||
-                  (user.email && user.email.startsWith('parent_') && user.email.endsWith('@skd.com'))
+                  (user.email && user.email.startsWith('student_') && user.email.endsWith('@arke.com')) ||
+                  (user.email && user.email.startsWith('parent_') && user.email.endsWith('@arke.com'))
                 ) ? (
                   <button 
                     onClick={() => router.push(`/${user.role || 'student'}/profile`)}
@@ -1215,7 +1567,7 @@ export default function StudentCourseDetailPage() {
       </main>
 
       <AnimatePresence>
-        {showPayment && <EasebuzzPaymentModal course={course} onClose={() => setShowPayment(false)} onAuthError={handleAuthError} />}
+        {showPayment && <RazorpayPaymentModal course={course} onClose={() => setShowPayment(false)} onAuthError={handleAuthError} />}
       </AnimatePresence>
     </div>
   );

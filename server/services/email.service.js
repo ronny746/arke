@@ -25,14 +25,14 @@ exports.sendEmailOTP = async (to, otp) => {
   }
 
   const mailOptions = {
-    from: `"SKD Xpress" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    from: `"ARKE Xpress" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
     replyTo: process.env.SMTP_FROM || process.env.SMTP_USER,
     to,
-    subject: 'Your Login Verification Code - SKD Xpress',
-    text: `Hello,\n\nYour One-Time Password (OTP) for logging into your SKD Xpress account is: ${otp}\n\nThis OTP is valid for 10 minutes. Please do not share it with anyone.\n\nIf you didn't request this, you can safely ignore this email.\n\nThank you,\nSKD Xpress Team`,
+    subject: 'Your Login Verification Code - ARKE Xpress',
+    text: `Hello,\n\nYour One-Time Password (OTP) for logging into your ARKE Xpress account is: ${otp}\n\nThis OTP is valid for 10 minutes. Please do not share it with anyone.\n\nIf you didn't request this, you can safely ignore this email.\n\nThank you,\nARKE Xpress Team`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
-        <h2 style="color: #0033a0; text-align: center;">SKD Xpress Login</h2>
+        <h2 style="color: #0033a0; text-align: center;">ARKE Xpress Login</h2>
         <p style="color: #374151; font-size: 16px;">Hello,</p>
         <p style="color: #374151; font-size: 16px;">Your One-Time Password (OTP) for logging into your account is:</p>
         <div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; text-align: center; margin: 24px 0;">

@@ -252,7 +252,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
           setFullName(`${user.firstName} ${user.lastName || ""}`.trim());
         }
         
-        const isDummyEmail = user.email && (user.email.includes("@skd.com") || user.email.startsWith("student_"));
+        const isDummyEmail = user.email && (user.email.includes("@arke.com") || user.email.startsWith("student_"));
         if (user.email && !isDummyEmail) {
           setEmail(user.email);
         } else {

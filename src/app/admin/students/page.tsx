@@ -37,7 +37,7 @@ export default function Students() {
   const [filterSection, setFilterSection] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '', status: 'active', parentName: '', parentPhone: '', batchIds: [], rollNo: '', class: '', section: '' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', dob: '', phone: '', status: 'active', parentName: '', parentPhone: '', batchIds: [], rollNo: '', class: 'Class 10', section: 'A' });
 
   const columns = [
     {
@@ -247,8 +247,13 @@ export default function Students() {
   }, [students, classes, filterClass, filterSection, filterStatus]);
 
   const handleAdd = async () => {
-    if (!form.firstName || !form.email || !form.password) {
-      toast.error('First Name, Email, and Password are required');
+    if (!form.firstName || !form.email) {
+      toast.error('First Name and Email are required');
+      return;
+    }
+    const effectivePassword = form.password || form.dob;
+    if (!effectivePassword) {
+      toast.error('Date of Birth (DOB) or Password is required');
       return;
     }
     setLoading(true);
@@ -257,16 +262,18 @@ export default function Students() {
         firstName: form.firstName,
         lastName: form.lastName || ' ', // Backend requires lastName, provide default space if empty
         email: form.email,
-        password: form.password,
+        password: effectivePassword,
+        dob: form.dob,
         role: 'student',
         rfid: form.rfid,
         qrId: form.qrId,
         faceId: form.faceId,
         metadata: {
           status: form.status,
+          dob: form.dob,
           rollNo: form.rollNo || '',
-          class: form.class || '',
-          section: form.section || '',
+          class: form.class || 'Class 10',
+          section: form.section || 'A',
           parentName: form.parentName || '',
           parentPhone: form.parentPhone || ''
         }
@@ -287,7 +294,7 @@ export default function Students() {
 
       toast.success('Student added successfully!');
       setShowAdd(false);
-      setForm({ firstName: '', lastName: '', email: '', password: '', phone: '', status: 'active', parentName: '', parentPhone: '', batchIds: [] });
+      setForm({ firstName: '', lastName: '', email: '', password: '', dob: '', phone: '', status: 'active', parentName: '', parentPhone: '', batchIds: [], rollNo: '', class: 'Class 10', section: 'A' });
       fetchStudents();
       fetchClasses();
     } catch (error) {
@@ -377,11 +384,46 @@ export default function Students() {
             <FormField label="First Name" required><Input placeholder="John" value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} /></FormField>
             <FormField label="Last Name"><Input placeholder="Doe" value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} /></FormField>
             <FormField label="Email" required><Input type="email" placeholder="student@school.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></FormField>
-            <FormField label="Password" required><Input type="password" placeholder="Temp password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} /></FormField>
+            <FormField label="Date of Birth (DOB)*">
+              <Input 
+                type="date" 
+                value={form.dob || ''} 
+                onChange={e => {
+                  const val = e.target.value;
+                  setForm(f => ({ ...f, dob: val, password: f.password ? f.password : val }));
+                }} 
+              />
+            </FormField>
+            <FormField label="Password (Defaults to DOB)">
+              <Input 
+                type="password" 
+                placeholder={form.dob ? `Default password: ${form.dob}` : "Temp password (or DOB)"} 
+                value={form.password} 
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))} 
+              />
+            </FormField>
             <FormField label="Phone"><Input placeholder="+91 9876543210" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></FormField>
-            <FormField label="Roll No"><Input placeholder="R-101" value={form.rollNo || ''} onChange={e => setForm(f => ({ ...f, rollNo: e.target.value }))} /></FormField>
-            <FormField label="Class"><Input placeholder="e.g. 10" value={form.class || ''} onChange={e => setForm(f => ({ ...f, class: e.target.value }))} /></FormField>
-            <FormField label="Section"><Input placeholder="e.g. A" value={form.section || ''} onChange={e => setForm(f => ({ ...f, section: e.target.value }))} /></FormField>
+            <FormField label="Roll No (Auto-generated if blank)">
+              <Input 
+                placeholder="Auto (e.g. ARKE0001)" 
+                value={form.rollNo || ''} 
+                onChange={e => setForm(f => ({ ...f, rollNo: e.target.value }))} 
+              />
+            </FormField>
+            <FormField label="Class">
+              <Select value={form.class || 'Class 10'} onChange={e => setForm(f => ({ ...f, class: e.target.value }))}>
+                {['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'Dropper', 'Foundation'].map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField label="Section">
+              <Select value={form.section || 'A'} onChange={e => setForm(f => ({ ...f, section: e.target.value }))}>
+                {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map(s => (
+                  <option key={s} value={s}>Section {s}</option>
+                ))}
+              </Select>
+            </FormField>
             <FormField label="Assign Course & Batch" className="md:col-span-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 border border-surface-200 dark:border-surface-700 p-3 rounded-xl max-h-48 overflow-y-auto bg-surface-50 dark:bg-surface-800/50">
                 {classes.map(c => {
@@ -484,8 +526,20 @@ export default function Students() {
               <FormField label="Email"><Input type="email" value={showEdit.email || ''} onChange={e => setShowEdit(f => ({ ...f, email: e.target.value }))} /></FormField>
               <FormField label="Phone"><Input value={showEdit.phone || ''} onChange={e => setShowEdit(f => ({ ...f, phone: e.target.value }))} /></FormField>
               <FormField label="Roll No"><Input value={showEdit.rollNo || ''} onChange={e => setShowEdit(f => ({ ...f, rollNo: e.target.value }))} /></FormField>
-              <FormField label="Class"><Input value={showEdit.metadata?.class || ''} onChange={e => setShowEdit(f => ({ ...f, metadata: { ...f.metadata, class: e.target.value } }))} /></FormField>
-              <FormField label="Section"><Input value={showEdit.metadata?.section || ''} onChange={e => setShowEdit(f => ({ ...f, metadata: { ...f.metadata, section: e.target.value } }))} /></FormField>
+              <FormField label="Class">
+                <Select value={showEdit.metadata?.class || 'Class 10'} onChange={e => setShowEdit(f => ({ ...f, metadata: { ...f.metadata, class: e.target.value } }))}>
+                  {['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'Dropper', 'Foundation'].map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </Select>
+              </FormField>
+              <FormField label="Section">
+                <Select value={showEdit.metadata?.section || 'A'} onChange={e => setShowEdit(f => ({ ...f, metadata: { ...f.metadata, section: e.target.value } }))}>
+                  {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map(s => (
+                    <option key={s} value={s}>Section {s}</option>
+                  ))}
+                </Select>
+              </FormField>
               <FormField label="Assign Course & Batch" className="md:col-span-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 border border-surface-200 dark:border-surface-700 p-3 rounded-xl max-h-48 overflow-y-auto bg-surface-50 dark:bg-surface-800/50">
                   {classes.map(c => {

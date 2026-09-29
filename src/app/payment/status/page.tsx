@@ -112,7 +112,7 @@ function PaymentStatusContent() {
           </Link>
           <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
             <ShieldCheck size={16} className="text-emerald-600" />
-            <span>Easebuzz Secured</span>
+            <span>Razorpay Secured</span>
           </div>
         </div>
       </header>
@@ -193,14 +193,14 @@ function PaymentStatusContent() {
 
               {easepayid && (
                 <div className="flex justify-between items-center text-xs border-t border-gray-200/60 pt-3">
-                  <span className="text-gray-500 font-medium">Easebuzz Pay ID</span>
+                  <span className="text-gray-500 font-medium">Payment ID</span>
                   <span className="font-mono text-gray-700 font-bold">{easepayid}</span>
                 </div>
               )}
 
               <div className="flex justify-between items-center text-xs border-t border-gray-200/60 pt-3">
                 <span className="text-gray-500 font-medium">Payment Mode</span>
-                <span className="font-semibold text-gray-700">Easebuzz Gateway</span>
+                <span className="font-semibold text-gray-700">Razorpay Gateway</span>
               </div>
             </div>
 
@@ -260,7 +260,7 @@ function PaymentStatusContent() {
 
       {/* Footer */}
       <footer className="py-4 text-center text-xs text-gray-400">
-        ARKE Scholars • Secured by Easebuzz Payment Gateway
+        ARKE Scholars • Secured by Razorpay Payment Gateway
       </footer>
     </div>
   );

@@ -118,6 +118,35 @@ class PaymentsController {
       return res.status(404).json({ success: false, message: err.message });
     }
   }
+  /**
+   * POST /api/v1/payments/razorpay/initiate
+   */
+  async initiateRazorpay(req, res) {
+    try {
+      const { courseId } = req.body;
+      if (!courseId) {
+        return res.status(400).json({ success: false, message: 'courseId is required' });
+      }
+      const result = await paymentsService.initiateRazorpayOrder(req.user, courseId);
+      return res.status(200).json(result);
+    } catch (err) {
+      console.error('[PaymentsController] initiateRazorpay error:', err.message);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * POST /api/v1/payments/razorpay/verify
+   */
+  async verifyRazorpay(req, res) {
+    try {
+      const result = await paymentsService.verifyRazorpayPayment(req.body);
+      return res.status(200).json(result);
+    } catch (err) {
+      console.error('[PaymentsController] verifyRazorpay error:', err.message);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  }
 }
 
 module.exports = new PaymentsController();

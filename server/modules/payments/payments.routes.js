@@ -15,5 +15,7 @@ router.get('/status/:txnid', (req, res) => paymentsController.getPaymentStatus(r
 
 // Authenticated endpoints
 router.post('/easebuzz/initiate', authMiddleware, (req, res) => paymentsController.initiateEasebuzz(req, res));
+router.post('/razorpay/initiate', authMiddleware, (req, res) => paymentsController.initiateRazorpay(req, res));
+router.post('/razorpay/verify', authMiddleware, (req, res) => paymentsController.verifyRazorpay(req, res));
 
 module.exports = router;

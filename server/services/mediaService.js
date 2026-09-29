@@ -130,16 +130,21 @@ const rooms = new Map(); // key: roomCode -> { router, transports, producers, co
 
 // Initialize workers
 async function createWorkers() {
-  const numWorkers = os.cpus().length;
-  for (let i = 0; i < numWorkers; i++) {
-    const worker = await mediasoup.createWorker(config.workerSettings);
-    worker.on('died', () => {
-      console.error(`mediasoup Worker died, exiting in 2 seconds...`);
-      setTimeout(() => process.exit(1), 2000);
-    });
-    workers.push(worker);
+  const numWorkers = process.env.MEDIASOUP_WORKERS 
+    ? parseInt(process.env.MEDIASOUP_WORKERS, 10) 
+    : (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV ? Math.min(2, os.cpus().length) : os.cpus().length);
+  try {
+    for (let i = 0; i < numWorkers; i++) {
+      const worker = await mediasoup.createWorker(config.workerSettings);
+      worker.on('died', () => {
+        console.warn(`[Mediasoup] Worker ${i} died.`);
+      });
+      workers.push(worker);
+    }
+    console.log(`Created ${workers.length} mediasoup Workers.`);
+  } catch (err) {
+    console.warn('⚠️ Mediasoup workers creation warning:', err.message);
   }
-  console.log(`Created ${workers.length} mediasoup Workers.`);
 }
 
 function getWorker() {

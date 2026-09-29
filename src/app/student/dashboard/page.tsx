@@ -155,8 +155,12 @@ export default function StudentDashboard() {
           const liveClassesRes = await studentAPI.getLiveClasses();
           const ongoing = (liveClassesRes.data?.data || []).filter((c: any) => c.status === 'ONGOING');
           setActiveClasses(ongoing);
-        } catch (err) {
-          console.error("Live classes restricted or failed to fetch");
+        } catch (err: any) {
+          if (err?.response?.status === 403) {
+            console.log("Live classes restricted for student's current plan.");
+          } else {
+            console.warn("Failed to fetch live classes:", err?.message || err);
+          }
           setActiveClasses([]);
         }
 

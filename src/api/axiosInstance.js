@@ -61,21 +61,21 @@ axiosInstance.interceptors.response.use(
 
         if (pathname.startsWith('/admin') || pathname.startsWith('/arke-admin')) {
           loginUrl = '/arke-admin';
-        } else if (pathname.startsWith('/skd-admin')) {
-          loginUrl = '/skd-admin';
+        } else if (pathname.startsWith('/admin')) {
+          loginUrl = '/admin';
         } else if (pathname.startsWith('/teacher') || pathname.startsWith('/arke-teacher')) {
           loginUrl = '/arke-teacher';
-        } else if (pathname.startsWith('/skd-teacher')) {
-          loginUrl = '/skd-teacher';
+        } else if (pathname.startsWith('/teacher')) {
+          loginUrl = '/teacher';
         } else if (pathname.startsWith('/parent') || pathname.startsWith('/student')) {
           loginUrl = '/?login=true';
         }
 
         const isAlreadyOnLoginPage =
           pathname === '/arke-admin' ||
-          pathname === '/skd-admin' ||
+          pathname === '/admin' ||
           pathname === '/arke-teacher' ||
-          pathname === '/skd-teacher' ||
+          pathname === '/teacher' ||
           pathname === '/login' ||
           (pathname === '/' && window.location.search.includes('login=true'));
 

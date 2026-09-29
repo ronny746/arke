@@ -9,6 +9,38 @@ exports.createUser = async (reqUser, payload) => {
     instituteId = payload.instituteId;
   }
   
+  if (!payload.metadata) {
+    payload.metadata = {};
+  }
+
+  // DOB & Password logic
+  const dob = payload.dob || payload.metadata.dob;
+  if (dob) {
+    payload.metadata.dob = dob;
+    if (!payload.password || payload.password.trim() === '') {
+      payload.password = dob;
+    }
+  }
+
+  // Auto Roll No & Class/Section handling for Students
+  const isStudent = payload.role === ROLES.STUDENT || payload.role === 'student';
+  if (isStudent) {
+    const existingRollNo = payload.rollNo || payload.metadata.rollNo;
+    if (!existingRollNo || existingRollNo.trim() === '' || existingRollNo.toLowerCase() === 'auto') {
+      const studentCount = await UserModel.countDocuments({ 
+        role: ROLES.STUDENT, 
+        instituteId 
+      });
+      const nextRollNo = `ARKE${String(studentCount + 1).padStart(4, '0')}`;
+      payload.metadata.rollNo = nextRollNo;
+    } else {
+      payload.metadata.rollNo = existingRollNo;
+    }
+
+    if (payload.class) payload.metadata.class = payload.class;
+    if (payload.section) payload.metadata.section = payload.section;
+  }
+
   const user = new UserModel({
     ...payload,
     instituteId
@@ -16,23 +48,28 @@ exports.createUser = async (reqUser, payload) => {
   
   return await user.save();
 };
+
 exports.getDistinctClasses = async (reqUser) => {
   const query = { role: ROLES.STUDENT };
   if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN) {
     query.instituteId = reqUser.instituteId;
   }
-  const classes = await UserModel.distinct('metadata.class', query);
-  // Filter out any empty/null strings and sort
-  return classes.filter(Boolean).sort();
+  const dbClasses = await UserModel.distinct('metadata.class', query);
+  const defaultClasses = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'Dropper', 'Foundation'];
+  const merged = Array.from(new Set([...defaultClasses, ...(dbClasses.filter(Boolean))]));
+  return merged;
 };
 
 exports.getDistinctSections = async (reqUser, className) => {
-  const query = { role: ROLES.STUDENT, 'metadata.class': className };
+  const query = { role: ROLES.STUDENT };
+  if (className) query['metadata.class'] = className;
   if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN) {
     query.instituteId = reqUser.instituteId;
   }
-  const sections = await UserModel.distinct('metadata.section', query);
-  return sections.filter(Boolean).sort();
+  const dbSections = await UserModel.distinct('metadata.section', query);
+  const defaultSections = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const merged = Array.from(new Set([...defaultSections, ...(dbSections.filter(Boolean))]));
+  return merged;
 };
 
 exports.getAllUsers = async (reqUser, query = {}) => {

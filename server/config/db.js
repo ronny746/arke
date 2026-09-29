@@ -1,3 +1,6 @@
+const dns = require('dns');
+try { dns.setDefaultResultOrder('ipv4first'); } catch (e) {}
+
 const mongoose = require('mongoose');
 const env = require('./env');
 const softDeletePlugin = require('./softDeletePlugin');
@@ -7,11 +10,11 @@ mongoose.plugin(softDeletePlugin);
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(env.MONGO_URI);
-    console.log('MongoDB connected successfully');
+    console.log('🔄 Connecting to MongoDB...');
+    await mongoose.connect(env.MONGO_URI, { family: 4, serverSelectionTimeoutMS: 8000 });
+    console.log('✅ MongoDB connected successfully!');
   } catch (error) {
-    console.error('MongoDB connection error:', error.message);
-    process.exit(1);
+    console.error('❌ MongoDB connection error:', error.message);
   }
 };
 
