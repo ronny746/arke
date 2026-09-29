@@ -202,6 +202,28 @@ module.exports = function setupSocketIO(server) {
       socket.to(roomCode).emit('peer-mute-toggled', { peerId: socket.id, kind, muted });
     });
 
+    socket.on('pause-producer', async ({ roomCode, producerId }, callback) => {
+      const info = peerInfo.get(socket.id);
+      if (!info || info.roomCode !== String(roomCode).toUpperCase()) return callback?.({ error: 'Invalid media control request.' });
+      try {
+        await mediaService.pauseProducer(info.roomCode, socket.id, producerId);
+        callback?.({ success: true });
+      } catch (error) {
+        callback?.({ error: error.message });
+      }
+    });
+
+    socket.on('resume-producer', async ({ roomCode, producerId }, callback) => {
+      const info = peerInfo.get(socket.id);
+      if (!info || info.roomCode !== String(roomCode).toUpperCase()) return callback?.({ error: 'Invalid media control request.' });
+      try {
+        await mediaService.resumeProducer(info.roomCode, socket.id, producerId);
+        callback?.({ success: true });
+      } catch (error) {
+        callback?.({ error: error.message });
+      }
+    });
+
     // Chat message event
     socket.on('chat-message', async ({ roomCode, message }) => {
       const info = peerInfo.get(socket.id);
@@ -229,18 +251,23 @@ module.exports = function setupSocketIO(server) {
     });
 
     // Shared Notes Update
-    socket.on('notes-update', async ({ roomCode, content }) => {
-      socket.to(roomCode).emit('notes-update', { content });
-      
-      // Throttle / Save to db
+    socket.on('notes-update', async ({ roomCode, content }, callback) => {
+      const info = peerInfo.get(socket.id);
+      const normalizedRoom = String(roomCode || '').toUpperCase();
+      if (!info || info.roomCode !== normalizedRoom || typeof content !== 'string' || content.length > 50000) {
+        return callback?.({ error: 'Invalid shared notes update.' });
+      }
       try {
         await Note.findOneAndUpdate(
-          { roomCode },
+          { roomCode: normalizedRoom },
           { content, updatedAt: new Date() },
           { upsert: true }
         );
+        socket.to(normalizedRoom).emit('notes-update', { content });
+        callback?.({ success: true });
       } catch (error) {
         console.error('Error updating notes:', error);
+        callback?.({ error: 'Notes could not be saved. Please try again.' });
       }
     });
 
@@ -389,6 +416,8 @@ module.exports = function setupSocketIO(server) {
       if (teacherSession) io.to(teacherSession.roomCode).emit('app-share-stopped');
     });
   });
+
+  return io;
 };
 
 function isValidStroke(stroke) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { PenLine, CheckCheck, Clock } from 'lucide-react';
 
@@ -10,8 +10,9 @@ interface NotesPanelProps {
 
 export default function NotesPanel({ roomCode, socket, token }: NotesPanelProps) {
   const [content, setContent] = useState('');
-  const [syncState, setSyncState] = useState<'saved' | 'saving' | 'synced'>('synced');
+  const [syncState, setSyncState] = useState<'saved' | 'saving' | 'synced' | 'error'>('synced');
   const [charCount, setCharCount] = useState(0);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -36,16 +37,29 @@ export default function NotesPanel({ roomCode, socket, token }: NotesPanelProps)
       setSyncState('synced');
     };
     socket.on('notes-update', handleNotesUpdate);
-    return () => { socket.off('notes-update', handleNotesUpdate); };
+    return () => {
+      socket.off('notes-update', handleNotesUpdate);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [roomCode, socket, token]);
+
+  const saveNotes = (value: string) => {
+    setSyncState('saving');
+    socket.emit('notes-update', { roomCode, content: value }, (response: { success?: boolean; error?: string }) => {
+      if (response?.error) {
+        setSyncState('error');
+        return;
+      }
+      setSyncState('saved');
+    });
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setContent(val);
     setCharCount(val.length);
-    setSyncState('saving');
-    socket.emit('notes-update', { roomCode, content: val });
-    setTimeout(() => setSyncState('saved'), 800);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveNotes(val), 350);
   };
 
   return (
@@ -59,9 +73,11 @@ export default function NotesPanel({ roomCode, socket, token }: NotesPanelProps)
         <div className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${
           syncState === 'synced' ? 'text-green-500' :
           syncState === 'saving' ? 'text-amber-500' :
-          'text-sky-500'
+          syncState === 'error' ? 'text-red-500' : 'text-sky-500'
         }`}>
-          {syncState === 'saving' ? (
+          {syncState === 'error' ? (
+            <span>Save failed</span>
+          ) : syncState === 'saving' ? (
             <><Clock className="w-3 h-3 animate-spin" /> Saving</>
           ) : (
             <><CheckCheck className="w-3.5 h-3.5" /> {syncState === 'saved' ? 'Saved' : 'Synced'}</>

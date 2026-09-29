@@ -5,6 +5,9 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const { Upload } = require('@aws-sdk/lib-storage');
+const { s3Client, bucketName } = require('../config/s3');
 
 const { User, Room, Message, Note, Recording, SharedFile } = require('../models/Schemas');
 
@@ -15,15 +18,21 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = new Set([
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'image/png', 'image/jpeg', 'image/webp',
+    ]);
+    cb(allowed.has(file.mimetype) ? null : new Error('Only PDFs, Office documents, and images can be shared.'), allowed.has(file.mimetype));
   },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
 });
-const upload = multer({ storage });
 
 // Auth Middleware
 const auth = (req, res, next) => {
@@ -149,21 +158,33 @@ router.post('/files/upload', auth, upload.single('file'), async (req, res) => {
     const { roomCode } = req.body;
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
     if (!roomCode) return res.status(400).json({ error: 'Room code required.' });
+    if (!bucketName) return res.status(503).json({ error: 'File storage is not configured.' });
 
-    const downloadUrl = `/api/uploads/download/${req.file.filename}`;
+    const normalizedRoom = roomCode.toUpperCase();
+    const safeName = path.basename(req.file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const key = `live-classes/${normalizedRoom}/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
+    await new Upload({
+      client: s3Client,
+      params: {
+        Bucket: bucketName,
+        Key: key,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+        ContentDisposition: `attachment; filename="${safeName}"`,
+      },
+    }).done();
+    const downloadUrl = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
     const newFile = new SharedFile({
-      roomCode: roomCode.toUpperCase(),
+      roomCode: normalizedRoom,
       filename: req.file.originalname,
       downloadUrl,
       senderName: req.user.username
     });
     await newFile.save();
 
-    // The io instance is attached to the req/res somehow or broadcast via a global io?
-    // Since we don't have global io easily accessible here, we'd need to attach it.
-    // For now, let's assume the frontend will poll or use socket locally.
-    
-    res.json(newFile);
+    const payload = newFile.toJSON();
+    req.app.get('io')?.to(normalizedRoom).emit('file-shared', payload);
+    res.status(201).json(payload);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
-import { Download, FileText, CheckCircle, AlertCircle, Paperclip, File, Image, Film } from 'lucide-react';
+import { Download, FileText, CheckCircle, AlertCircle, Paperclip, File, Image as ImageIcon, Film } from 'lucide-react';
 
 interface SharedFile {
   _id: string;
@@ -18,7 +18,7 @@ interface FilesPanelProps {
 
 const getFileIcon = (filename: string) => {
   const ext = filename.split('.').pop()?.toLowerCase();
-  if (['jpg','jpeg','png','gif','webp','svg'].includes(ext || '')) return <Image className="w-4 h-4" />;
+  if (['jpg','jpeg','png','gif','webp','svg'].includes(ext || '')) return <ImageIcon className="w-4 h-4" />;
   if (['mp4','mov','avi','mkv'].includes(ext || '')) return <Film className="w-4 h-4" />;
   return <FileText className="w-4 h-4" />;
 };
@@ -79,8 +79,9 @@ export default function FilesPanel({ roomCode, socket, token }: FilesPanelProps)
       setUploadStatus({ type: 'success', message: `✓ ${file.name} shared!` });
       if (fileInputRef.current) fileInputRef.current.value = '';
       setTimeout(() => setUploadStatus(null), 3000);
-    } catch (err: any) {
-      setUploadStatus({ type: 'error', message: err.message || 'Upload failed' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Upload failed';
+      setUploadStatus({ type: 'error', message });
     } finally {
       setUploading(false);
     }

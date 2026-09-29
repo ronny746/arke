@@ -532,28 +532,26 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
     const nextState = !videoEnabled;
     if (nextState) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, frameRate: 30 } });
-        const track = stream.getVideoTracks()[0];
-        if (localStreamRef.current) localStreamRef.current.getVideoTracks().forEach(t => t.stop());
-        const audioTracks = localStreamRef.current ? localStreamRef.current.getAudioTracks() : [];
-        localStreamRef.current = new MediaStream([track, ...audioTracks]);
-        if (sendTransportRef.current && deviceRef.current?.canProduce('video')) {
-          videoProducerRef.current = await sendTransportRef.current.produce({ track, appData: { label: 'video' } });
+        if (videoProducerRef.current) {
+          await videoProducerRef.current.resume();
+          socketRef.current?.emit('resume-producer', { roomCode, producerId: videoProducerRef.current.id });
+        } else {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, frameRate: 30 } });
+          const track = stream.getVideoTracks()[0];
+          const audioTracks = localStreamRef.current ? localStreamRef.current.getAudioTracks() : [];
+          localStreamRef.current = new MediaStream([track, ...audioTracks]);
+          if (sendTransportRef.current && deviceRef.current?.canProduce('video')) {
+            videoProducerRef.current = await sendTransportRef.current.produce({ track, appData: { label: 'video' } });
+          }
         }
         setVideoEnabled(true);
         socketRef.current?.emit('mute-toggle', { roomCode, kind: 'video', muted: false });
       } catch (err) { console.error('Error starting video:', err); }
     } else {
       if (videoProducerRef.current) {
-        const prodId = videoProducerRef.current.id;
-        videoProducerRef.current.track.stop();
-        videoProducerRef.current.close();
-        videoProducerRef.current = null;
-        socketRef.current?.emit('close-producer', { roomCode, producerId: prodId });
+        await videoProducerRef.current.pause();
+        socketRef.current?.emit('pause-producer', { roomCode, producerId: videoProducerRef.current.id });
       }
-      if (localStreamRef.current) localStreamRef.current.getVideoTracks().forEach(t => t.stop());
-      const audioTracks = localStreamRef.current ? localStreamRef.current.getAudioTracks() : [];
-      localStreamRef.current = new MediaStream([...audioTracks]);
       setVideoEnabled(false);
       socketRef.current?.emit('mute-toggle', { roomCode, kind: 'video', muted: true });
     }
@@ -739,7 +737,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
     if (!tile) return null;
     const { peerId, username, role, isMuted, isCamOff, isSpeaking, stream, isLocal, isScreen } = tile;
     const hasLiveVideoTrack = stream ? stream.getVideoTracks().some((t: any) => t.readyState === 'live') : false;
-    const showVideo = (hasLiveVideoTrack || !isCamOff) && !!stream && stream.getVideoTracks().length > 0;
+    const showVideo = hasLiveVideoTrack && (isScreen || !isCamOff);
     const initials = username.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
     const displayName = isLocal ? `${username} (You)` : username;
 

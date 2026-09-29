@@ -313,6 +313,24 @@ function closeProducer(roomCode, producerId) {
   }
 }
 
+async function pauseProducer(roomCode, peerId, producerId) {
+  const room = rooms.get(roomCode);
+  const peer = room?.peers.get(peerId);
+  if (!peer?.producers.includes(producerId)) throw new Error('Producer does not belong to this peer');
+  const producer = room.producers.get(producerId);
+  if (!producer) throw new Error('Producer not found');
+  await producer.pause();
+}
+
+async function resumeProducer(roomCode, peerId, producerId) {
+  const room = rooms.get(roomCode);
+  const peer = room?.peers.get(peerId);
+  if (!peer?.producers.includes(producerId)) throw new Error('Producer does not belong to this peer');
+  const producer = room.producers.get(producerId);
+  if (!producer) throw new Error('Producer not found');
+  await producer.resume();
+}
+
 function closePeer(roomCode, peerId) {
   const room = rooms.get(roomCode);
   if (!room) return;
@@ -352,6 +370,8 @@ module.exports = {
   consume,
   getRoomProducers,
   closeProducer,
+  pauseProducer,
+  resumeProducer,
   closePeer,
   rooms
 };

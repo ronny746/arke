@@ -34,7 +34,8 @@ nextApp.prepare().then(() => {
   const server = http.createServer(app);
 
   // Setup Socket.IO for Meetonline WebRTC
-  setupSocketIO(server);
+  const io = setupSocketIO(server);
+  app.set('io', io);
 
   // Health check
   app.get('/health', (req, res) => {
