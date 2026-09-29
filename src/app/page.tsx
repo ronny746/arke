@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from "react";
 import { LoginModal } from "@/components/LoginModal";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { CounsellingBanner } from "@/components/CounsellingBanner";
+import ArkeLogo from "@/components/ArkeLogo";
 
 // ─── Mentor Data ─────────────────────────────────────────────────────────────
 const MENTORS = [
@@ -95,19 +96,19 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20 selection:text-primary">
       {/* ─── Top Contact Info Bar ────────────────────────────────────────── */}
-      <div className="bg-[#0B132B] text-white/90 text-xs py-2 px-4 border-b border-white/10 block">
+      <div className="bg-[#1B2952] text-white/90 text-xs py-2 px-4 border-b border-white/10 block">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-6">
-            <a href="tel:+917607151617" className="flex items-center gap-1.5 hover:text-[#E4B94F] transition-colors">
-              <Phone className="w-3.5 h-3.5 text-[#E4B94F]" />
+            <a href="tel:+917607151617" className="flex items-center gap-1.5 hover:text-[#10B981] transition-colors">
+              <Phone className="w-3.5 h-3.5 text-[#10B981]" />
               <span>+91-7607151617</span>
             </a>
             <a href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-[#25D366] transition-colors">
               <Smartphone className="w-3.5 h-3.5 text-[#25D366]" />
               <span>WhatsApp: +91-7607151617</span>
             </a>
-            <a href="mailto:Contact@arkescholars.com" className="flex items-center gap-1.5 hover:text-[#E4B94F] transition-colors">
-              <Mail className="w-3.5 h-3.5 text-[#E4B94F]" />
+            <a href="mailto:Contact@arkescholars.com" className="flex items-center gap-1.5 hover:text-[#10B981] transition-colors">
+              <Mail className="w-3.5 h-3.5 text-[#10B981]" />
               <span>Contact@arkescholars.com</span>
             </a>
           </div>
@@ -116,7 +117,7 @@ export default function LandingPage() {
               href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0C8044] hover:bg-[#0A6C38] text-white font-bold text-[11px] transition-all shadow-sm"
             >
               <span>Book a Free Counselling Session</span>
               <ChevronRight className="w-3 h-3" />
@@ -126,18 +127,11 @@ export default function LandingPage() {
       </div>
 
       {/* ─── Header / Navigation Bar ────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-navy text-white border-b border-white/10 shadow-lg py-3 backdrop-blur-md">
+      <header className="sticky top-0 z-50 bg-[#23346B]/95 text-white border-b border-white/10 shadow-lg py-3 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Logo & Brand Name */}
           <Link href="/" className="flex items-center gap-2 group py-1">
-            <Image
-              src="/arke_logo_light.png"
-              alt="ARKE Scholars Logo"
-              width={200}
-              height={56}
-              className="h-9 sm:h-11 md:h-12 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]"
-              priority
-            />
+            <ArkeLogo variant="light" size="md" />
           </Link>
 
           {/* Desktop Navigation Links */}
@@ -146,11 +140,11 @@ export default function LandingPage() {
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               1:1 Coaching
             </Link>
-            <a href="#courses" className="hover:text-primary transition-colors">Courses</a>
-            <a href="#features" className="hover:text-primary transition-colors">Why ARKE</a>
-            <a href="#mentors" className="hover:text-primary transition-colors">Mentors</a>
-            <a href="#mobile-app" className="hover:text-primary transition-colors">App</a>
-            <a href="#faqs" className="hover:text-primary transition-colors">FAQs</a>
+            <a href="#courses" className="hover:text-emerald-400 transition-colors">Courses</a>
+            <a href="#features" className="hover:text-emerald-400 transition-colors">Why ARKE</a>
+            <a href="#mentors" className="hover:text-emerald-400 transition-colors">Mentors</a>
+            <a href="#mobile-app" className="hover:text-emerald-400 transition-colors">App</a>
+            <a href="#faqs" className="hover:text-emerald-400 transition-colors">FAQs</a>
           </nav>
 
           {/* Action Buttons */}
@@ -159,7 +153,7 @@ export default function LandingPage() {
               href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-pill bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-md transition-all duration-200"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#0C8044] hover:bg-[#0A6C38] px-4 py-2 text-xs font-bold text-white shadow-md transition-all duration-200"
             >
               Free Counselling
               <ChevronRight className="h-3.5 w-3.5" />
@@ -167,7 +161,7 @@ export default function LandingPage() {
             {user ? (
               <button
                 onClick={handleDashboardRedirect}
-                className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] px-6 py-2.5 text-sm font-bold text-navy shadow-md hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-6 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
               >
                 Go to Dashboard
                 <ArrowRight className="h-4 w-4" />
@@ -176,13 +170,13 @@ export default function LandingPage() {
               <>
                 <button
                   onClick={() => setIsLoginModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-pill border border-white/30 bg-white/10 px-5 py-2 text-sm font-bold text-white hover:bg-white/20 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2 text-sm font-bold text-white hover:bg-white/20 transition-colors"
                 >
                   Log In
                 </button>
                 <button
                   onClick={() => setIsLoginModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] px-6 py-2.5 text-sm font-bold text-navy shadow-md hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-6 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
                 >
                   Get Started
                   <Sparkles className="h-4 w-4" />
@@ -771,13 +765,7 @@ export default function LandingPage() {
           {/* Brand Col */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Image
-                src="/arke_logo_light.png"
-                alt="ARKE Scholars"
-                width={190}
-                height={54}
-                className="h-10 md:h-12 w-auto object-contain"
-              />
+              <ArkeLogo variant="light" size="md" />
             </div>
             <p className="text-xs text-white/70 leading-relaxed">
               India & UAE's premier online coaching platform for JEE Main, JEE Advanced, NEET UG & Foundation exams.
