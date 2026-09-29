@@ -93,6 +93,37 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20 selection:text-primary">
+      {/* ─── Top Contact Info Bar ────────────────────────────────────────── */}
+      <div className="bg-[#0B132B] text-white/90 text-xs py-2 px-4 border-b border-white/10 hidden sm:block">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-6">
+            <a href="tel:+917607151617" className="flex items-center gap-1.5 hover:text-[#E4B94F] transition-colors">
+              <Phone className="w-3.5 h-3.5 text-[#E4B94F]" />
+              <span>+91-7607151617</span>
+            </a>
+            <a href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-[#25D366] transition-colors">
+              <Smartphone className="w-3.5 h-3.5 text-[#25D366]" />
+              <span>WhatsApp: +91-7607151617</span>
+            </a>
+            <a href="mailto:Contact@arkescholars.com" className="flex items-center gap-1.5 hover:text-[#E4B94F] transition-colors">
+              <Mail className="w-3.5 h-3.5 text-[#E4B94F]" />
+              <span>Contact@arkescholars.com</span>
+            </a>
+          </div>
+          <div className="flex items-center gap-4">
+            <a 
+              href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm"
+            >
+              <span>Book a Free Counselling Session</span>
+              <ChevronRight className="w-3 h-3" />
+            </a>
+          </div>
+        </div>
+      </div>
+
       {/* ─── Header / Navigation Bar ────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 bg-navy text-white border-b border-white/10 shadow-lg py-3 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
@@ -119,6 +150,15 @@ export default function LandingPage() {
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
+            <a 
+              href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-pill bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-md transition-all duration-200"
+            >
+              Free Counselling
+              <ChevronRight className="h-3.5 w-3.5" />
+            </a>
             {user ? (
               <button
                 onClick={handleDashboardRedirect}
@@ -762,21 +802,36 @@ export default function LandingPage() {
           {/* Legal / Contact */}
           <div>
             <h4 className="font-display font-bold text-sm text-white uppercase tracking-wider mb-4">Contact & Support</h4>
-            <ul className="space-y-2 text-xs text-white/70">
-              <li>Email: contact@arke.pro</li>
-              <li>Website: https://arke.pro</li>
-              <li>Regions: India & United Arab Emirates (UAE)</li>
+            <ul className="space-y-2.5 text-xs text-white/70">
+              <li className="flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span>Phone: <a href="tel:+917607151617" className="hover:text-white font-medium">+91-7607151617</a></span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Smartphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Whatsapp: <a href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars" target="_blank" rel="noopener noreferrer" className="hover:text-white font-medium">+91-7607151617</a></span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span>Email: <a href="mailto:Contact@arkescholars.com" className="hover:text-white font-medium">Contact@arkescholars.com</a></span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span>Website: <a href="https://arkescholars.com" target="_blank" rel="noopener noreferrer" className="hover:text-white font-medium">arkescholars.com</a></span>
+              </li>
               <li className="pt-2">
                 <Link href="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
                 {" · "}
                 <Link href="/terms-conditions" className="hover:text-primary transition-colors">Terms of Service</Link>
+                {" · "}
+                <Link href="/refund-cancellation" className="hover:text-primary transition-colors">Refund Policy</Link>
               </li>
             </ul>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 mt-8 pt-6 border-t border-white/10 text-center text-xs text-white/50">
-          © 2026 ARKE Scholars (arke.pro). All rights reserved.
+          © 2026 ARKE Scholars (arkescholars.com). All rights reserved.
         </div>
       </footer>
 
