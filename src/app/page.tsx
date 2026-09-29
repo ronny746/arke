@@ -202,49 +202,57 @@ export default function LandingPage() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="md:hidden border-b border-border bg-card px-4 pt-3 pb-5 space-y-3"
+              className="md:hidden border-b border-white/10 bg-[#1B2952] px-5 pt-4 pb-6 space-y-3 text-white shadow-xl"
             >
+              <Link
+                href="/one-on-one"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 py-2.5 text-base font-bold text-[#10B981] border-b border-white/10"
+              >
+                <Sparkles className="w-4 h-4 text-[#10B981]" />
+                1:1 Coaching Program
+              </Link>
               <a
                 href="#courses"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-base font-semibold text-foreground hover:text-primary"
+                className="block py-2 text-base font-semibold text-white/90 hover:text-[#10B981] transition-colors"
               >
                 Courses
               </a>
               <a
                 href="#features"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-base font-semibold text-foreground hover:text-primary"
+                className="block py-2 text-base font-semibold text-white/90 hover:text-[#10B981] transition-colors"
               >
                 Why ARKE
               </a>
               <a
                 href="#mentors"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-base font-semibold text-foreground hover:text-primary"
+                className="block py-2 text-base font-semibold text-white/90 hover:text-[#10B981] transition-colors"
               >
                 Mentors
               </a>
               <a
                 href="#mobile-app"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-base font-semibold text-foreground hover:text-primary"
+                className="block py-2 text-base font-semibold text-white/90 hover:text-[#10B981] transition-colors"
               >
                 Mobile App
               </a>
               <a
                 href="#faqs"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-base font-semibold text-foreground hover:text-primary"
+                className="block py-2 text-base font-semibold text-white/90 hover:text-[#10B981] transition-colors"
               >
                 FAQs
               </a>
 
-              <div className="pt-3 border-t border-border flex flex-col gap-2.5">
+              <div className="pt-4 border-t border-white/10 flex flex-col gap-3">
                 {user ? (
                   <button
                     onClick={() => { setMobileMenuOpen(false); handleDashboardRedirect(); }}
-                    className="w-full text-center rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] py-3 text-sm font-bold text-navy shadow-md"
+                    className="w-full text-center rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] py-3 text-sm font-bold text-white shadow-lg"
                   >
                     Go to Dashboard
                   </button>
@@ -252,13 +260,13 @@ export default function LandingPage() {
                   <>
                     <button
                       onClick={() => { setMobileMenuOpen(false); setIsLoginModalOpen(true); }}
-                      className="w-full text-center rounded-pill border border-primary/40 bg-primary/5 py-2.5 text-sm font-bold text-foreground"
+                      className="w-full text-center rounded-full border border-white/30 bg-white/10 py-3 text-sm font-bold text-white hover:bg-white/20 transition-colors"
                     >
                       Log In
                     </button>
                     <button
                       onClick={() => { setMobileMenuOpen(false); setIsLoginModalOpen(true); }}
-                      className="w-full text-center rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] py-3 text-sm font-bold text-navy shadow-md"
+                      className="w-full text-center rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] py-3 text-sm font-bold text-white shadow-lg"
                     >
                       Get Started
                     </button>
@@ -281,35 +289,35 @@ export default function LandingPage() {
           <div className="grid items-end gap-8 md:gap-6 md:grid-cols-2">
             {/* Hero Left Text & Actions */}
             <div className="text-center md:text-left md:pb-[6rem] order-2 md:order-1">
-              <span className="inline-flex items-center gap-1.5 rounded-pill border border-primary/40 bg-primary/10 px-3.5 py-1.5 text-xs md:text-sm font-bold text-primary">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                India's Rising EdTech Platform
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs md:text-sm font-bold text-[#0C8044]">
+                <Sparkles className="h-3.5 w-3.5 text-[#0C8044]" />
+                India & Gulf's Premier EdTech Platform
               </span>
 
               <h1 className="mt-4 md:mt-6 font-display">
-                <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black text-foreground md:text-5xl lg:text-6xl tracking-tight">
+                <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black text-slate-900 dark:text-white md:text-5xl lg:text-6xl tracking-tight">
                   JEE, NEET & Foundation
                 </span>
-                <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] bg-clip-text text-transparent md:text-5xl lg:text-6xl tracking-tight mt-1">
-                  Exam Prep That Works
+                <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black bg-gradient-to-r from-[#23346B] via-[#2563EB] to-[#0C8044] bg-clip-text text-transparent md:text-5xl lg:text-6xl tracking-tight mt-1">
+                  Exam Prep That Works.
                 </span>
               </h1>
 
-              <p className="mt-3 md:mt-5 mx-auto md:mx-0 max-w-lg text-sm md:text-base text-muted-foreground leading-relaxed">
-                <strong className="text-foreground font-bold">ARKE Scholars</strong> helps you master JEE Main, JEE Advanced, NEET & Foundation exams with live classes from top educators, AI-powered doubt solving, and smart test analytics.
+              <p className="mt-3 md:mt-5 mx-auto md:mx-0 max-w-lg text-sm md:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
+                <strong className="text-slate-900 dark:text-white font-bold">ARKE Scholars</strong> helps you master JEE Main, JEE Advanced, NEET & Foundation exams with live 1:1 classes from top educators, AI-powered doubt solving, and smart test analytics.
               </p>
 
               <div className="mt-6 md:mt-8 flex flex-wrap items-center justify-center md:justify-start gap-3.5">
                 <button
                   onClick={() => user ? router.push("/student/dashboard") : setIsLoginModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] px-7 py-3.5 text-sm md:text-base font-bold text-navy shadow-lg hover:opacity-90 transition-all duration-200 hover:scale-[1.02]"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-7 py-3.5 text-sm md:text-base font-bold text-white shadow-lg shadow-emerald-950/20 hover:scale-[1.02] transition-all"
                 >
                   {user ? "Explore Courses" : "Get Started"}
                   <ArrowRight className="h-4 w-4" />
                 </button>
                 <a
                   href="#courses"
-                  className="inline-flex items-center gap-2 rounded-pill border border-border bg-card px-6 py-3.5 text-sm md:text-base font-bold text-foreground hover:bg-muted transition-colors"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-white/20 bg-white dark:bg-white/10 px-6 py-3.5 text-sm md:text-base font-bold text-slate-800 dark:text-white hover:bg-slate-50 transition-colors"
                 >
                   Browse Courses
                 </a>
