@@ -107,6 +107,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const [whiteboardStrokes, setWhiteboardStrokes] = useState<WhiteboardStroke[]>([]);
   const [appShare, setAppShare] = useState<{ code: string; expiresAt: number; connected: boolean } | null>(null);
   const [showAppShareModal, setShowAppShareModal] = useState(false);
+  const [showAppWhiteboard, setShowAppWhiteboard] = useState(true);
   // Theme
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('cr-theme') === 'dark';
@@ -1126,11 +1127,11 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                 {isHost ? 'Students will appear here when they join' : 'The live broadcast will begin shortly...'}
               </p>
             </div>
-          ) : appShare ? (
+          ) : appShare && showAppWhiteboard ? (
             /* App whiteboard mode: the writing is never painted over a face.
                It becomes the primary lesson surface, while the teacher stays
                visible in a dedicated camera panel for every student. */
-            <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 md:gap-4">
+            <div className="relative flex-1 min-h-0 flex flex-col md:flex-row gap-3 md:gap-4">
               <section className="relative flex-1 min-h-[300px] overflow-hidden rounded-2xl border bg-white shadow-sm"
                 style={{ borderColor: '#cbd5e1' }}>
                 <div
@@ -1149,10 +1150,13 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                       <p className="text-[11px] font-medium text-slate-500">Teacher is writing from the companion app</p>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2">
                   <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${appShare.connected ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${appShare.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                     {appShare.connected ? 'LIVE' : 'Connecting'}
                   </span>
+                  {isHost && <button type="button" onClick={() => setShowAppWhiteboard(false)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50">Student grid</button>}
+                  </div>
                 </div>
                 <SharedWhiteboard strokes={whiteboardStrokes} />
                 {whiteboardStrokes.length === 0 && (
@@ -1164,15 +1168,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                 )}
               </section>
 
-              {teacherHasVideo && (
-                <aside className="flex h-44 shrink-0 flex-col overflow-hidden rounded-2xl border bg-slate-950 shadow-sm md:h-auto md:w-64"
-                  style={{ borderColor: 'var(--cr-border)' }}>
-                  <div className="flex items-center gap-2 border-b border-white/10 bg-slate-900 px-3 py-2 text-xs font-bold text-white">
-                    <Video className="h-3.5 w-3.5 text-emerald-400" /> Teacher camera
-                  </div>
-                  <div className="relative min-h-0 flex-1">{renderTile(teacherTile)}</div>
-                </aside>
-              )}
+              {teacherHasVideo && <div className="absolute bottom-5 right-5 z-30 h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-slate-950 shadow-2xl md:h-36 md:w-36" title="Teacher camera">{renderTile(teacherTile, true)}</div>}
             </div>
           ) : effectiveSpotlightId && spotlightTile ? (
             /* Spotlight Mode: Main Stage (Screen Share or Spotlighted User) + Collapsible Strip */
@@ -1392,8 +1388,8 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
               </Tip>
 
               {isHost && (
-                <Tip label={appShare ? 'Stop app whiteboard' : 'Share with app'}>
-                  <button onClick={appShare ? stopAppShare : startAppShare}
+                <Tip label={appShare ? (showAppWhiteboard ? 'Show student grid' : 'Show writing pad') : 'Share with app'}>
+                  <button onClick={appShare ? () => setShowAppWhiteboard(current => !current) : startAppShare}
                     className={`flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-200 active:scale-95 border ${
                       appShare ? 'bg-emerald-500 text-white border-emerald-400 shadow-md shadow-emerald-500/30' : 'border-transparent hover:bg-emerald-500/10'
                     }`}
