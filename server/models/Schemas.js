@@ -43,11 +43,19 @@ const SharedFileSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const WhiteboardLessonSchema = new mongoose.Schema({
+  roomCode: { type: String, required: true, unique: true },
+  pages: [{ index: Number, strokes: [mongoose.Schema.Types.Mixed] }],
+  status: { type: String, enum: ['ACTIVE', 'EXPORTED'], default: 'ACTIVE' },
+  exportUrl: String,
+}, { timestamps: true });
+
 const MeetonlineUser = mongoose.models.MeetonlineUser || mongoose.model('MeetonlineUser', UserSchema);
 const Room = mongoose.models.Room || mongoose.model('Room', RoomSchema);
 const Message = mongoose.models.Message || mongoose.model('Message', MessageSchema);
 const Note = mongoose.models.Note || mongoose.model('Note', NoteSchema);
 const Recording = mongoose.models.Recording || mongoose.model('Recording', RecordingSchema);
 const SharedFile = mongoose.models.SharedFile || mongoose.model('SharedFile', SharedFileSchema);
+const WhiteboardLesson = mongoose.models.WhiteboardLesson || mongoose.model('WhiteboardLesson', WhiteboardLessonSchema);
 
-module.exports = { User: MeetonlineUser, Room, Message, Note, Recording, SharedFile };
+module.exports = { User: MeetonlineUser, Room, Message, Note, Recording, SharedFile, WhiteboardLesson };
