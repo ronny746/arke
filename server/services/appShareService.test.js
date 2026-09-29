@@ -27,3 +27,18 @@ test('expires unused pairing codes and bounds stroke history', () => {
   for (let i = 0; i < 1201; i += 1) service.appendStroke(active.id, { id: i });
   assert.equal(service.sessions.get(active.id).strokes.length, 1001);
 });
+
+test('keeps a pairing valid when the teacher browser reconnects', () => {
+  const service = new AppShareService();
+  const session = service.create('room-1', 'old-socket', 'teacher@example.com');
+
+  const rebound = service.rebindTeacher({
+    roomCode: 'ROOM-1',
+    teacherKey: 'teacher@example.com',
+    teacherSocketId: 'new-socket',
+  });
+
+  assert.equal(rebound.id, session.id);
+  assert.equal(service.getByTeacher('new-socket').id, session.id);
+  assert.equal(service.join({ roomCode: 'ROOM-1', code: session.code, appSocketId: 'app' }).id, session.id);
+});

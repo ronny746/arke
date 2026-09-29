@@ -10,6 +10,7 @@ const { Upload } = require('@aws-sdk/lib-storage');
 const { s3Client, bucketName } = require('../config/s3');
 
 const { User, Room, Message, Note, Recording, SharedFile } = require('../models/Schemas');
+const UserModel = require('../modules/users/users.model');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
@@ -174,11 +175,21 @@ router.post('/files/upload', auth, upload.single('file'), async (req, res) => {
       },
     }).done();
     const downloadUrl = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    const account = req.user.userId
+      ? await UserModel.findById(req.user.userId).select('firstName lastName name email')
+      : null;
+    const senderName = [account?.firstName, account?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      || account?.name
+      || req.user.username
+      || account?.email
+      || 'Class participant';
     const newFile = new SharedFile({
       roomCode: normalizedRoom,
       filename: req.file.originalname,
       downloadUrl,
-      senderName: req.user.username
+      senderName,
     });
     await newFile.save();
 

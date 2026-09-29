@@ -8,15 +8,19 @@ const CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
  * proves possession of the one-time code before it can send whiteboard data.
  */
 class AppShareService {
-  constructor({ now = () => Date.now(), ttlMs = 5 * 60 * 1000 } = {}) {
+  constructor({ now = () => Date.now(), ttlMs = 30 * 60 * 1000 } = {}) {
     this.now = now;
     this.ttlMs = ttlMs;
     this.sessions = new Map();
   }
 
-  create(roomCode, teacherSocketId) {
+  create(roomCode, teacherSocketId, teacherKey = '') {
     this.removeExpired();
-    this.stopForTeacher(teacherSocketId);
+    if (teacherKey) {
+      this.stopForTeacherKey(roomCode, teacherKey);
+    } else {
+      this.stopForTeacher(teacherSocketId);
+    }
     const id = crypto.randomUUID();
     const code = this._uniqueCode();
     const session = {
@@ -24,11 +28,27 @@ class AppShareService {
       code,
       roomCode: roomCode.toUpperCase(),
       teacherSocketId,
+      teacherKey,
       appSocketId: null,
       expiresAt: this.now() + this.ttlMs,
       strokes: [],
     };
     this.sessions.set(id, session);
+    return session;
+  }
+
+  // Socket.IO gives a reconnecting browser a new socket id. Keep the pairing
+  // alive and attach it to that new id rather than invalidating a freshly
+  // generated code because of a brief network reconnect.
+  rebindTeacher({ roomCode, teacherKey, teacherSocketId }) {
+    this.removeExpired();
+    if (!teacherKey) return null;
+    const normalizedRoom = roomCode.toUpperCase();
+    const session = [...this.sessions.values()].find((candidate) =>
+      candidate.roomCode === normalizedRoom && candidate.teacherKey === teacherKey,
+    );
+    if (!session) return null;
+    session.teacherSocketId = teacherSocketId;
     return session;
   }
 
@@ -75,6 +95,15 @@ class AppShareService {
 
   stopForTeacher(socketId) {
     const session = this.getByTeacher(socketId);
+    if (session) this.sessions.delete(session.id);
+    return session;
+  }
+
+  stopForTeacherKey(roomCode, teacherKey) {
+    const normalizedRoom = roomCode.toUpperCase();
+    const session = [...this.sessions.values()].find((candidate) =>
+      candidate.roomCode === normalizedRoom && candidate.teacherKey === teacherKey,
+    );
     if (session) this.sessions.delete(session.id);
     return session;
   }

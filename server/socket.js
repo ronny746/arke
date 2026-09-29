@@ -26,6 +26,14 @@ module.exports = function setupSocketIO(server) {
       socket.join(roomCode);
       peerInfo.set(socket.id, { username, role, roomCode, mobile });
 
+      if (String(role).toLowerCase() === 'teacher') {
+        appShareService.rebindTeacher({
+          roomCode,
+          teacherKey: getTeacherShareKey({ username, mobile }),
+          teacherSocketId: socket.id,
+        });
+      }
+
       try {
         // Ensure router is created for this room
         const router = await mediaService.getOrCreateRouter(roomCode);
@@ -310,7 +318,11 @@ module.exports = function setupSocketIO(server) {
         return callback({ error: 'This app share does not belong to the current class.' });
       }
 
-      const session = appShareService.create(info.roomCode, socket.id);
+      const session = appShareService.create(
+        info.roomCode,
+        socket.id,
+        getTeacherShareKey(info),
+      );
       callback({
         code: session.code,
         expiresAt: session.expiresAt,
@@ -353,7 +365,9 @@ module.exports = function setupSocketIO(server) {
     });
 
     socket.on('stop-app-share', (_, callback) => {
-      const session = appShareService.getByTeacher(socket.id);
+      const info = peerInfo.get(socket.id);
+      const session = appShareService.getByTeacher(socket.id) ||
+        (info ? appShareService.stopForTeacherKey(info.roomCode, getTeacherShareKey(info)) : null);
       if (!session) return callback?.({ success: true });
       appShareService.stopForTeacher(socket.id);
       io.to(session.roomCode).emit('app-share-stopped');
@@ -412,8 +426,9 @@ module.exports = function setupSocketIO(server) {
         appSession.appSocketId = null;
         io.to(appSession.roomCode).emit('app-share-status', { connected: false });
       }
-      const teacherSession = appShareService.stopForTeacher(socket.id);
-      if (teacherSession) io.to(teacherSession.roomCode).emit('app-share-stopped');
+      // Do not stop the pairing on a browser reconnect. The next join-room
+      // event rebinds the session to the new socket id; expiry and the explicit
+      // “Stop sharing” action remain the cleanup mechanism.
     });
   });
 
@@ -429,4 +444,9 @@ function isValidStroke(stroke) {
     point && Number.isFinite(point.x) && Number.isFinite(point.y) &&
     point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1,
   );
+}
+
+function getTeacherShareKey({ username, mobile }) {
+  const mobileKey = String(mobile || '').replace(/\D/g, '');
+  return mobileKey || String(username || '').trim().toLowerCase();
 }
