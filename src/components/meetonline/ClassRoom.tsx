@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
 import { Device } from 'mediasoup-client';
 import { 
@@ -10,7 +11,7 @@ import {
 import ChatPanel from './ChatPanel';
 import NotesPanel from './NotesPanel';
 import FilesPanel from './FilesPanel';
-import SharedWhiteboard, { type WhiteboardStroke } from './SharedWhiteboard';
+import SharedWhiteboard, { generateWhiteboardPDF, type WhiteboardStroke } from './SharedWhiteboard';
 
 // Tooltip wrapper
 function Tip({ label, children, position = 'top' }: { label: string; children: React.ReactNode; position?: 'top' | 'bottom' }) {
@@ -108,6 +109,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const [appShare, setAppShare] = useState<{ code: string; expiresAt: number; connected: boolean } | null>(null);
   const [showAppShareModal, setShowAppShareModal] = useState(false);
   const [showAppWhiteboard, setShowAppWhiteboard] = useState(true);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   // Theme
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('cr-theme') === 'dark';
@@ -632,7 +634,53 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
     }
   };
 
-  const handleLeave = () => { cleanup(); onLeave(); };
+  const exportWhiteboardPDF = async (shouldUpload = true) => {
+    if (!whiteboardStrokes.length) return;
+    setIsExportingPDF(true);
+    try {
+      const res = await generateWhiteboardPDF(whiteboardStrokes, `Class_Notes_${roomCode}`);
+      if (!res) return;
+      
+      // Trigger browser download
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(res.blob);
+      link.download = res.filename;
+      link.click();
+
+      // Upload file to room resources if host
+      if (shouldUpload && isHost) {
+        const formData = new FormData();
+        formData.append('file', res.blob, res.filename);
+        formData.append('roomCode', roomCode);
+
+        try {
+          await axios.post('/api/meetonline/files/upload', formData, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data',
+            }
+          });
+        } catch (uploadErr) {
+          console.warn('Primary file upload failed, trying fallback:', uploadErr);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to export whiteboard PDF:', err);
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (isHost && whiteboardStrokes.length > 0) {
+      const confirmSave = confirm('End class & upload handwritten whiteboard notes PDF for students?');
+      if (confirmSave) {
+        await exportWhiteboardPDF(true);
+      }
+    }
+    cleanup();
+    onLeave();
+  };
 
   const cleanup = () => {
     stopScreenShare();
@@ -1128,9 +1176,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
               </p>
             </div>
           ) : appShare && showAppWhiteboard ? (
-            /* App whiteboard mode: the writing is never painted over a face.
-               It becomes the primary lesson surface, while the teacher stays
-               visible in a dedicated camera panel for every student. */
+            /* App whiteboard mode: Continuous vertical pad with circular streaming camera overlay */
             <div className="relative flex-1 min-h-0 flex flex-col md:flex-row gap-3 md:gap-4">
               <section className="relative flex-1 min-h-[300px] overflow-hidden rounded-2xl border bg-white shadow-sm"
                 style={{ borderColor: '#cbd5e1' }}>
@@ -1142,33 +1188,91 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                     backgroundSize: '28px 28px',
                   }}
                 />
-                <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
+                <div className="absolute inset-x-0 top-0 z-20 flex flex-wrap items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur-sm shadow-sm gap-2">
                   <div className="flex items-center gap-2 text-slate-800">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><BookOpen className="h-4 w-4" /></div>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/20">
+                      <BookOpen className="h-4 w-4" />
+                    </div>
                     <div>
-                      <p className="text-sm font-bold">Live writing pad</p>
-                      <p className="text-[11px] font-medium text-slate-500">Teacher is writing from the companion app</p>
+                      <p className="text-sm font-bold text-slate-900 leading-tight">Live Continuous Whiteboard</p>
+                      <p className="text-[11px] font-medium text-slate-500">Teacher writing from app & web • Continuous vertical pad</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                  <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${appShare.connected ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${appShare.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                    {appShare.connected ? 'LIVE' : 'Connecting'}
-                  </span>
-                  {isHost && <button type="button" onClick={() => setShowAppWhiteboard(false)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50">Student grid</button>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ${appShare.connected ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
+                      <span className={`h-2 w-2 rounded-full ${appShare.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                      {appShare.connected ? 'APP SYNCED' : 'CONNECTING APP'}
+                    </span>
+                    {whiteboardStrokes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => exportWhiteboardPDF(true)}
+                        disabled={isExportingPDF}
+                        className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-700 active:scale-95 transition shadow-sm disabled:opacity-50"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>{isExportingPDF ? 'Saving PDF...' : 'Save PDF Notes'}</span>
+                      </button>
+                    )}
+                    {isHost && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAppWhiteboard(false)}
+                        className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-200 active:scale-95 transition shadow-sm"
+                      >
+                        <Users className="w-3.5 h-3.5 text-violet-600" />
+                        <span>Hide Whiteboard (View Student Grid)</span>
+                      </button>
+                    )}
                   </div>
                 </div>
+
                 <SharedWhiteboard strokes={whiteboardStrokes} />
+
                 {whiteboardStrokes.length === 0 && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center px-6 pt-12 text-center text-slate-500 pointer-events-none">
-                    <BookOpen className="mb-3 h-10 w-10 text-emerald-600" />
-                    <h3 className="font-bold text-slate-900">Writing pad is ready</h3>
-                    <p className="mt-1 max-w-sm text-sm">Everything the teacher writes on the phone or iPad appears here live.</p>
+                    <BookOpen className="mb-3 h-12 w-12 text-emerald-600" />
+                    <h3 className="font-bold text-lg text-slate-900">Whiteboard is ready</h3>
+                    <p className="mt-1 max-w-sm text-sm">Everything written on the mobile app or web canvas streams here live for all students.</p>
                   </div>
                 )}
               </section>
 
-              {teacherHasVideo && <div className="absolute bottom-5 right-5 z-30 h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-slate-950 shadow-2xl md:h-36 md:w-36" title="Teacher camera">{renderTile(teacherTile, true)}</div>}
+              {/* Streaming style round circular teacher video bubble */}
+              {teacherTile && (
+                <div
+                  className="absolute bottom-5 right-5 z-30 flex flex-col items-center group cursor-pointer"
+                  onClick={() => setSpotlightId(teacherTile.peerId)}
+                  title={`Teacher: ${teacherTile.username}`}
+                >
+                  <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-emerald-500 shadow-2xl overflow-hidden bg-slate-950 flex items-center justify-center hover:scale-105 transition-transform duration-200">
+                    {teacherTile.stream && teacherTile.stream.getVideoTracks().some((t: any) => t.readyState === 'live' && t.enabled) && !teacherTile.isCamOff ? (
+                      <video
+                        autoPlay
+                        playsInline
+                        muted={teacherTile.isLocal}
+                        ref={el => {
+                          if (el && el.srcObject !== teacherTile.stream) {
+                            el.srcObject = teacherTile.stream;
+                            el.play().catch(() => {});
+                          }
+                        }}
+                        className={`w-full h-full object-cover ${teacherTile.isLocal && isMirrored ? 'scale-x-[-1]' : ''}`}
+                      />
+                    ) : (
+                      <div className={`w-full h-full bg-gradient-to-br ${getAvatarGradient(teacherTile.role)} flex flex-col items-center justify-center text-white shadow-inner p-2`}>
+                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-xl font-bold border border-white/30 mb-1">
+                          {teacherTile.username.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className="text-[11px] font-bold truncate max-w-[80%] drop-shadow">{teacherTile.username}</span>
+                      </div>
+                    )}
+                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-emerald-600/90 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider backdrop-blur-md shadow">
+                      LIVE
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : effectiveSpotlightId && spotlightTile ? (
             /* Spotlight Mode: Main Stage (Screen Share or Spotlighted User) + Collapsible Strip */

@@ -80,9 +80,7 @@ class AppShareService {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
     session.strokes.push(stroke);
-    // A reconnect needs enough context to redraw, but a companion session must
-    // never become an unbounded in-memory store.
-    if (session.strokes.length > 1200) session.strokes.splice(0, 200);
+    if (session.strokes.length > 10000) session.strokes.splice(0, 1000);
     return session;
   }
 

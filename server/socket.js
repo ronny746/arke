@@ -440,12 +440,12 @@ module.exports = function setupSocketIO(server) {
 
 function isValidStroke(stroke) {
   if (!stroke || typeof stroke !== 'object') return false;
-  if (!Array.isArray(stroke.points) || stroke.points.length < 2 || stroke.points.length > 160) return false;
-  if (typeof stroke.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(stroke.color)) return false;
-  if (typeof stroke.width !== 'number' || stroke.width < 1 || stroke.width > 24) return false;
+  if (!Array.isArray(stroke.points) || stroke.points.length < 1) return false;
+  if (typeof stroke.color !== 'string') return false;
+  if (typeof stroke.width !== 'number' || stroke.width < 1) return false;
   return stroke.points.every((point) =>
     point && Number.isFinite(point.x) && Number.isFinite(point.y) &&
-    point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1,
+    point.x >= 0 && point.x <= 1 && point.y >= 0,
   );
 }
 
