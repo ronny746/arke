@@ -344,7 +344,18 @@ module.exports = function setupSocketIO(server) {
       callback({
         roomCode: session.roomCode,
         strokes: session.strokes,
+        docState: session.docState,
       });
+    });
+
+    socket.on('app-whiteboard-doc', ({ docState }, callback) => {
+      const session = appShareService.getBySocket(socket.id);
+      if (!session || session.appSocketId !== socket.id) {
+        return callback?.({ error: 'Whiteboard is not paired.' });
+      }
+      appShareService.setDocState(session.id, docState);
+      io.to(session.roomCode).emit('app-whiteboard-doc', { docState });
+      callback?.({ success: true });
     });
 
     socket.on('app-whiteboard-stroke', ({ stroke }, callback) => {
@@ -363,6 +374,7 @@ module.exports = function setupSocketIO(server) {
         return callback?.({ error: 'Whiteboard is not paired.' });
       }
       appShareService.clear(session.id);
+      appShareService.setDocState(session.id, null);
       io.to(session.roomCode).emit('app-whiteboard-clear');
       callback?.({ success: true });
     });

@@ -32,8 +32,16 @@ class AppShareService {
       appSocketId: null,
       expiresAt: this.now() + this.ttlMs,
       strokes: [],
+      docState: null,
     };
     this.sessions.set(id, session);
+    return session;
+  }
+
+  setDocState(sessionId, docState) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
+    session.docState = docState;
     return session;
   }
 

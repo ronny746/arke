@@ -196,6 +196,9 @@ async function findOrCreateClassData(institute, teacher, student) {
   await subject.save();
 
   const dayOfWeek = new Date().getDay();
+  const now = new Date();
+  const startTime = now.toTimeString().slice(0, 5);
+  const endTime = new Date(now.getTime() + 90 * 60 * 1000).toTimeString().slice(0, 5);
   let schedule = await ClassSchedule.findOne({
     instituteId: institute._id,
     batchId: batch._id,
@@ -210,13 +213,16 @@ async function findOrCreateClassData(institute, teacher, student) {
       teacherId: teacher._id,
       roomId: 'DEMO-WHITEBOARD',
       dayOfWeek,
-      startTime: '23:50',
-      endTime: '23:59',
+      startTime,
+      endTime,
       isRecurring: true,
       isActive: true,
     });
   } else {
     schedule.subjectId = subject._id;
+    schedule.dayOfWeek = dayOfWeek;
+    schedule.startTime = startTime;
+    schedule.endTime = endTime;
     schedule.isActive = true;
   }
   await schedule.save();

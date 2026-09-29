@@ -11,7 +11,7 @@ import {
 import ChatPanel from './ChatPanel';
 import NotesPanel from './NotesPanel';
 import FilesPanel from './FilesPanel';
-import SharedWhiteboard, { generateWhiteboardPDF, type WhiteboardStroke } from './SharedWhiteboard';
+import SharedWhiteboard, { generateWhiteboardPDF, type WhiteboardStroke, type WhiteboardDocState } from './SharedWhiteboard';
 
 // Tooltip wrapper
 function Tip({ label, children, position = 'top' }: { label: string; children: React.ReactNode; position?: 'top' | 'bottom' }) {
@@ -106,6 +106,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [whiteboardStrokes, setWhiteboardStrokes] = useState<WhiteboardStroke[]>([]);
+  const [whiteboardDoc, setWhiteboardDoc] = useState<WhiteboardDocState>(null);
   const [appShare, setAppShare] = useState<{ code: string; expiresAt: number; connected: boolean } | null>(null);
   const [showAppShareModal, setShowAppShareModal] = useState(false);
   const [showAppWhiteboard, setShowAppWhiteboard] = useState(true);
@@ -265,7 +266,13 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
         return [...current, stroke].slice(-10000);
       });
     });
-    socket.on('app-whiteboard-clear', () => setWhiteboardStrokes([]));
+    socket.on('app-whiteboard-clear', () => {
+      setWhiteboardStrokes([]);
+      setWhiteboardDoc(null);
+    });
+    socket.on('app-whiteboard-doc', ({ docState }: { docState: WhiteboardDocState }) => {
+      setWhiteboardDoc(docState);
+    });
     socket.on('app-share-started', ({ expiresAt }: { expiresAt: number }) => {
       // Every participant needs the dedicated pad layout, not only the host
       // who clicked “Share with app”. The host's callback below fills in the
@@ -1270,7 +1277,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                   </div>
                 </div>
 
-                <SharedWhiteboard strokes={whiteboardStrokes} />
+                <SharedWhiteboard strokes={whiteboardStrokes} docState={whiteboardDoc} />
 
                 {whiteboardStrokes.length === 0 && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center px-6 pt-12 text-center text-slate-500 pointer-events-none">
