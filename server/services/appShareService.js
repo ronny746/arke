@@ -79,7 +79,12 @@ class AppShareService {
   appendStroke(sessionId, stroke) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
-    session.strokes.push(stroke);
+    const idx = session.strokes.findIndex((s) => s.id === stroke.id);
+    if (idx !== -1) {
+      session.strokes[idx] = stroke;
+    } else {
+      session.strokes.push(stroke);
+    }
     if (session.strokes.length > 10000) session.strokes.splice(0, 1000);
     return session;
   }

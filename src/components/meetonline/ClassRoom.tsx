@@ -255,7 +255,15 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
     socket.on('recording-started', () => { setIsRecording(true); setRecordingUrl(null); });
     socket.on('recording-stopped', ({ downloadUrl }) => { setIsRecording(false); setRecordingUrl(downloadUrl); });
     socket.on('app-whiteboard-stroke', ({ stroke }: { stroke: WhiteboardStroke }) => {
-      setWhiteboardStrokes((current) => [...current, stroke].slice(-1200));
+      setWhiteboardStrokes((current) => {
+        const idx = current.findIndex(s => s.id === stroke.id);
+        if (idx !== -1) {
+          const updated = [...current];
+          updated[idx] = stroke;
+          return updated;
+        }
+        return [...current, stroke].slice(-10000);
+      });
     });
     socket.on('app-whiteboard-clear', () => setWhiteboardStrokes([]));
     socket.on('app-share-started', ({ expiresAt }: { expiresAt: number }) => {
@@ -997,6 +1005,30 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
         '--cr-subtle': isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
       } as React.CSSProperties}
     >
+      {/* Global audio player for all remote streams to guarantee uninterrupted voice playback across all view modes (Whiteboard, Grid, Spotlight) */}
+      <div className="hidden" aria-hidden="true">
+        {remoteStreams.map(remote => (
+          <audio
+            key={`global-remote-audio-${remote.peerId}-${remote.isScreen ? 'screen' : 'mic'}`}
+            autoPlay
+            playsInline
+            ref={el => {
+              if (el) {
+                if (el.srcObject !== remote.stream) {
+                  el.srcObject = remote.stream;
+                }
+                const p = el.play();
+                if (p !== undefined) {
+                  p.catch(() => {
+                    setAudioAutoplayBlocked(true);
+                  });
+                }
+              }
+            }}
+          />
+        ))}
+      </div>
+
       {audioAutoplayBlocked && (
         <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs md:text-sm font-semibold py-2 px-4 flex items-center justify-between shadow-lg z-50 animate-pulse">
           <div className="flex items-center gap-2">

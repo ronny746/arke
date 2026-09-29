@@ -134,27 +134,9 @@ export default function SharedWhiteboard({ strokes }: { strokes: WhiteboardStrok
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear whole canvas
-    ctx.clearRect(0, 0, canvasWidth, totalHeight);
-
-    // Draw background grid lines
-    ctx.save();
-    ctx.strokeStyle = '#CBD5E1';
-    ctx.lineWidth = 1;
-    const gridSize = 35;
-    for (let x = 0; x < canvasWidth; x += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, totalHeight);
-      ctx.stroke();
-    }
-    for (let y = 0; y < totalHeight; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvasWidth, y);
-      ctx.stroke();
-    }
-    ctx.restore();
+    // Plain pure white background (0 grid lines)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvasWidth, totalHeight);
 
     // Render strokes with destination-out composite operation for eraser so grid lines stay intact
     for (const stroke of strokes) {
