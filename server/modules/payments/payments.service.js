@@ -378,12 +378,22 @@ class PaymentsService {
       // Find batch
       let assignedBatchId = defaultBatchId || course.defaultBatchId;
       if (!assignedBatchId) {
-        const firstBatch = await BatchModel.findOne({ courseId });
-        if (firstBatch) {
-          assignedBatchId = firstBatch._id;
-          course.defaultBatchId = firstBatch._id;
-          await course.save();
+        let firstBatch = await BatchModel.findOne({ courseId });
+        if (!firstBatch) {
+          firstBatch = new BatchModel({
+            instituteId: course.instituteId || instituteId || user.instituteId,
+            name: `${course.name} Batch 1`,
+            section: 'A',
+            courseId: course._id,
+            students: [],
+            type: 'online',
+            isActive: true
+          });
+          await firstBatch.save();
         }
+        assignedBatchId = firstBatch._id;
+        course.defaultBatchId = firstBatch._id;
+        await course.save();
       }
 
       if (assignedBatchId) {

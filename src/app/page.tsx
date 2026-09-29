@@ -71,7 +71,7 @@ export default function LandingPage() {
     // Auth Check
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
-      try { setUser(JSON.parse(storedUser)); } catch (e) {}
+      try { setUser(JSON.parse(storedUser)); } catch (e) { }
     }
 
     if (window.location.search.includes('login=true')) {
@@ -112,7 +112,7 @@ export default function LandingPage() {
             </a>
           </div>
           <div className="flex items-center gap-4">
-            <a 
+            <a
               href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars"
               target="_blank"
               rel="noopener noreferrer"
@@ -151,9 +151,9 @@ export default function LandingPage() {
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <a 
-              href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars" 
-              target="_blank" 
+            <a
+              href="https://wa.me/917607151617?text=Hi%2C%20I%20want%20to%20book%20a%20free%20counselling%20session%20with%20ARKE%20Scholars"
+              target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-pill bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-md transition-all duration-200"
             >
@@ -206,42 +206,42 @@ export default function LandingPage() {
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden border-b border-border bg-card px-4 pt-3 pb-5 space-y-3"
             >
-              <a 
-                href="#courses" 
+              <a
+                href="#courses"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block py-2 text-base font-semibold text-foreground hover:text-primary"
               >
                 Courses
               </a>
-              <a 
-                href="#features" 
+              <a
+                href="#features"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block py-2 text-base font-semibold text-foreground hover:text-primary"
               >
                 Why ARKE
               </a>
-              <a 
-                href="#mentors" 
+              <a
+                href="#mentors"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block py-2 text-base font-semibold text-foreground hover:text-primary"
               >
                 Mentors
               </a>
-              <a 
-                href="#mobile-app" 
+              <a
+                href="#mobile-app"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block py-2 text-base font-semibold text-foreground hover:text-primary"
               >
                 Mobile App
               </a>
-              <a 
-                href="#faqs" 
+              <a
+                href="#faqs"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block py-2 text-base font-semibold text-foreground hover:text-primary"
               >
                 FAQs
               </a>
-              
+
               <div className="pt-3 border-t border-border flex flex-col gap-2.5">
                 {user ? (
                   <button
@@ -273,9 +273,9 @@ export default function LandingPage() {
       </header>
 
       {/* ─── Public Banner Carousel ────────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+      {/* <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <BannerCarousel />
-      </div>
+      </div> */}
 
       {/* ─── Hero Section ─────────────────────────────────────────────────── */}
       <section className="bg-white dark:bg-[#070D1F] overflow-hidden pt-6 pb-12 md:pt-10 md:pb-0">
@@ -287,7 +287,7 @@ export default function LandingPage() {
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
                 India's Rising EdTech Platform
               </span>
-              
+
               <h1 className="mt-4 md:mt-6 font-display">
                 <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black text-foreground md:text-5xl lg:text-6xl tracking-tight">
                   JEE, NEET & Foundation
@@ -547,7 +547,7 @@ export default function LandingPage() {
               </ul>
 
               <div className="mt-8 flex flex-wrap justify-center md:justify-start gap-4">
-                <button 
+                <button
                   onClick={() => setIsLoginModalOpen(true)}
                   className="flex items-center gap-3 rounded-xl bg-navy px-6 py-3 text-white hover:bg-navy/90 transition-colors shadow-md"
                 >
@@ -557,7 +557,7 @@ export default function LandingPage() {
                     <span className="block text-base font-bold">Google Play</span>
                   </div>
                 </button>
-                <button 
+                <button
                   onClick={() => setIsLoginModalOpen(true)}
                   className="flex items-center gap-3 rounded-xl bg-navy px-6 py-3 text-white hover:bg-navy/90 transition-colors shadow-md"
                 >
@@ -597,7 +597,7 @@ export default function LandingPage() {
 
           <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
             {MENTORS.map((mentor, i) => (
-              <div 
+              <div
                 key={i}
                 className="flex flex-col items-center text-center rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
               >
@@ -708,7 +708,7 @@ export default function LandingPage() {
 
           <div className="mt-10 space-y-4">
             {FAQS.map((faq, index) => (
-              <div 
+              <div
                 key={index}
                 className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all"
               >
@@ -717,9 +717,8 @@ export default function LandingPage() {
                   className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left font-display font-bold text-lg text-foreground hover:text-primary transition-colors"
                 >
                   <span>{faq.question}</span>
-                  <ChevronDown className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 ${
-                    openFaq === index ? "rotate-180 text-primary" : ""
-                  }`} />
+                  <ChevronDown className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 ${openFaq === index ? "rotate-180 text-primary" : ""
+                    }`} />
                 </button>
 
                 <AnimatePresence>
