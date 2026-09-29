@@ -142,6 +142,10 @@ export default function LandingPage() {
 
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-white/90">
+            <Link href="/one-on-one" className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              1:1 Coaching
+            </Link>
             <a href="#courses" className="hover:text-primary transition-colors">Courses</a>
             <a href="#features" className="hover:text-primary transition-colors">Why ARKE</a>
             <a href="#mentors" className="hover:text-primary transition-colors">Mentors</a>

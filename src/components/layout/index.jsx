@@ -8,6 +8,7 @@ import { cn } from '../../utils/helpers';
 import { useSidebarStore } from '../../store/index.js';
 import { ChevronLeft, Menu, X, Bell, LogOut, User } from 'lucide-react';
 import { LogoutConfirmModal } from '../LogoutConfirmModal';
+import ArkeLogo from '../ArkeLogo';
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 export function Sidebar({ title, subtitle, navGroups, user, portalInitial = 'S' }) {
@@ -51,36 +52,13 @@ export function Sidebar({ title, subtitle, navGroups, user, portalInitial = 'S' 
         !open && 'md:w-0 md:overflow-hidden md:border-0'
       )}>
         {/* Brand / Logo */}
-        <div className="sidebar-brand">
-          <div className="sidebar-logo-box">
-            <Image
-              src="/arke_logo_light.png"
-              alt="ARKE Logo"
-              width={36}
-              height={36}
-              className="object-contain w-full h-full"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                const fallback = e.currentTarget.nextSibling;
-                if (fallback) fallback.style.display = 'flex';
-              }}
-            />
-            <div
-              className="hidden w-full h-full items-center justify-center text-white font-bold text-sm"
-              style={{ background: 'linear-gradient(135deg, #0B132B, #C99A2E)' }}
-            >
-              {portalInitial}
-            </div>
-          </div>
-          <div className="overflow-hidden min-w-0">
-            <p className="font-bold text-sm leading-tight truncate tracking-tight" style={{ color: '#0B132B' }}>
-              {title || 'ARKE Scholars'}
-            </p>
-            {subtitle && <p className="text-[10px] text-slate-400 font-medium truncate">{subtitle}</p>}
+        <div className="sidebar-brand flex items-center justify-between">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <ArkeLogo size="sm" variant="dark" />
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="ml-auto md:hidden p-1 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"
+            className="md:hidden p-1 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors shrink-0"
           >
             <X size={16} />
           </button>

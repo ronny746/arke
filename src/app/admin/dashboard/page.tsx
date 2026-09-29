@@ -67,8 +67,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* NEET Countdown Card (with Edit option for Admin) */}
-      <NeetCountdownCard isAdmin={true} />
+
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
