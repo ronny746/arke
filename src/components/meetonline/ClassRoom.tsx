@@ -723,6 +723,11 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const primaryScreenShare = screenShares[0];
 
   const teacherTile = allTiles.find(t => isHostRole(t.role) && !t.isScreen);
+  const teacherHasVideo = Boolean(
+    teacherTile?.stream?.getVideoTracks().some((track: MediaStreamTrack) =>
+      track.readyState === 'live' && track.enabled,
+    ) && !teacherTile?.isCamOff,
+  );
 
   // Auto-spotlight / Grid View logic:
   // 1. If user pinned a tile -> Pinned tile takes main stage
@@ -1159,17 +1164,15 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                 )}
               </section>
 
-              <aside className="flex h-44 shrink-0 flex-col overflow-hidden rounded-2xl border bg-slate-950 shadow-sm md:h-auto md:w-64"
-                style={{ borderColor: 'var(--cr-border)' }}>
-                <div className="flex items-center gap-2 border-b border-white/10 bg-slate-900 px-3 py-2 text-xs font-bold text-white">
-                  <Video className="h-3.5 w-3.5 text-emerald-400" /> Teacher camera
-                </div>
-                <div className="relative min-h-0 flex-1">
-                  {teacherTile ? renderTile(teacherTile) : (
-                    <div className="flex h-full items-center justify-center px-4 text-center text-sm text-slate-400">Teacher camera will appear here.</div>
-                  )}
-                </div>
-              </aside>
+              {teacherHasVideo && (
+                <aside className="flex h-44 shrink-0 flex-col overflow-hidden rounded-2xl border bg-slate-950 shadow-sm md:h-auto md:w-64"
+                  style={{ borderColor: 'var(--cr-border)' }}>
+                  <div className="flex items-center gap-2 border-b border-white/10 bg-slate-900 px-3 py-2 text-xs font-bold text-white">
+                    <Video className="h-3.5 w-3.5 text-emerald-400" /> Teacher camera
+                  </div>
+                  <div className="relative min-h-0 flex-1">{renderTile(teacherTile)}</div>
+                </aside>
+              )}
             </div>
           ) : effectiveSpotlightId && spotlightTile ? (
             /* Spotlight Mode: Main Stage (Screen Share or Spotlighted User) + Collapsible Strip */

@@ -10,6 +10,7 @@ const connectDB = require('./config/db');
 const User = require('./modules/users/users.model');
 const Institute = require('./modules/institutes/institutes.model');
 const Batch = require('./modules/batches/batches.model');
+const Course = require('./modules/courses/courses.model');
 const Subject = require('./modules/subjects/subjects.model');
 const ClassSchedule = require('./modules/classes-schedule/classes-schedule.model');
 
@@ -20,6 +21,7 @@ const DEMO = {
   batchName: 'Demo Live Batch',
   batchSection: 'A',
   subjectName: 'Interactive Whiteboard',
+  courseName: 'Demo Live Classroom Course',
   studentPhone: '9000000002',
   studentEmail: 'demo.student@arkescholars.com',
   studentPassword: 'Student@123',
@@ -138,6 +140,39 @@ async function findOrCreateClassData(institute, teacher, student) {
   );
   await batch.save();
 
+  let course = await Course.findOne({
+    instituteId: institute._id,
+    name: DEMO.courseName,
+  });
+  if (!course) {
+    course = new Course({
+      instituteId: institute._id,
+      name: DEMO.courseName,
+      subtitle: 'Demo course for the live writing-pad classroom.',
+      description: 'Safe demo course containing the Demo Live Batch.',
+      tag: 'DEMO',
+      fee: 0,
+      actualFee: 0,
+      duration: 'Demo access',
+      targetExam: 'NEET',
+      targetClass: 'ALL',
+      faculties: [teacher._id],
+      isPublished: true,
+      isActive: true,
+    });
+  } else {
+    course.faculties = Array.from(new Set([...(course.faculties || []).map(String), String(teacher._id)])).map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
+    course.isPublished = true;
+    course.isActive = true;
+  }
+  course.defaultBatchId = batch._id;
+  await course.save();
+
+  batch.courseId = course._id;
+  await batch.save();
+
   let subject = await Subject.findOne({
     instituteId: institute._id,
     batchId: batch._id,
@@ -185,7 +220,7 @@ async function findOrCreateClassData(institute, teacher, student) {
     schedule.isActive = true;
   }
   await schedule.save();
-  return { batch, subject, schedule };
+  return { batch, course, subject, schedule };
 }
 
 async function main() {
@@ -198,13 +233,14 @@ async function main() {
     const institute = await findOrCreateInstitute();
     const teacher = await findOrCreateTeacher(institute);
     const student = await findOrCreateStudent(institute);
-    const { batch, subject, schedule } = await findOrCreateClassData(institute, teacher, student);
+    const { batch, course, subject, schedule } = await findOrCreateClassData(institute, teacher, student);
 
     console.log('Demo teacher seed completed.');
     console.log(`Teacher login (web): ${DEMO.email} / ${DEMO.password}`);
     console.log(`Teacher login (app): ${DEMO.phone} / OTP 123456`);
     console.log(`Student login (web): ${DEMO.studentEmail} / ${DEMO.studentPassword}`);
     console.log(`Student login (app): ${DEMO.studentPhone} / OTP 123456`);
+    console.log(`Demo course: ${course.name}`);
     console.log(`Demo class: ${batch.name} ${batch.section} — ${subject.name}`);
     console.log(`Class schedule id: ${schedule._id}`);
   } finally {
