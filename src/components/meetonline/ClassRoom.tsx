@@ -10,6 +10,7 @@ import {
 import ChatPanel from './ChatPanel';
 import NotesPanel from './NotesPanel';
 import FilesPanel from './FilesPanel';
+import SharedWhiteboard, { type WhiteboardStroke } from './SharedWhiteboard';
 
 // Tooltip wrapper
 function Tip({ label, children, position = 'top' }: { label: string; children: React.ReactNode; position?: 'top' | 'bottom' }) {
@@ -102,6 +103,9 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const [floatingReactions, setFloatingReactions] = useState<{id: number; emoji: string; x: number}[]>([]);
   const reactionIdRef = useRef(0);
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
+  const [whiteboardStrokes, setWhiteboardStrokes] = useState<WhiteboardStroke[]>([]);
+  const [appShare, setAppShare] = useState<{ code: string; expiresAt: number; connected: boolean } | null>(null);
+  const [showAppShareModal, setShowAppShareModal] = useState(false);
   // Theme
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('cr-theme') === 'dark';
@@ -242,6 +246,18 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
 
     socket.on('recording-started', () => { setIsRecording(true); setRecordingUrl(null); });
     socket.on('recording-stopped', ({ downloadUrl }) => { setIsRecording(false); setRecordingUrl(downloadUrl); });
+    socket.on('app-whiteboard-stroke', ({ stroke }: { stroke: WhiteboardStroke }) => {
+      setWhiteboardStrokes((current) => [...current, stroke].slice(-1200));
+    });
+    socket.on('app-whiteboard-clear', () => setWhiteboardStrokes([]));
+    socket.on('app-share-status', ({ connected }: { connected: boolean }) => {
+      setAppShare((current) => current ? { ...current, connected } : current);
+    });
+    socket.on('app-share-stopped', () => {
+      setAppShare(null);
+      setWhiteboardStrokes([]);
+      setShowAppShareModal(false);
+    });
 
     const unlockAudioOnUserInteraction = () => {
       document.querySelectorAll('audio, video').forEach((el: any) => {
@@ -279,6 +295,23 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
     const next = !handRaised;
     setHandRaised(next);
     socketRef.current?.emit('hand-raise', { roomCode, raised: next });
+  };
+
+  const startAppShare = () => {
+    socketRef.current?.emit('start-app-share', { roomCode }, (response: any) => {
+      if (response?.error) return alert(response.error);
+      setWhiteboardStrokes([]);
+      setAppShare({ code: response.code, expiresAt: response.expiresAt, connected: false });
+      setShowAppShareModal(true);
+    });
+  };
+
+  const stopAppShare = () => {
+    socketRef.current?.emit('stop-app-share', {}, () => {
+      setAppShare(null);
+      setWhiteboardStrokes([]);
+      setShowAppShareModal(false);
+    });
   };
 
   const formatTime = (seconds: number) => {
@@ -891,6 +924,36 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
           </button>
         </div>
       )}
+      {appShare && isHost && showAppShareModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="app-share-title" className="w-full max-w-md rounded-3xl border border-emerald-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700"><BookOpen className="h-5 w-5" /></div>
+                <h2 id="app-share-title" className="text-lg font-bold text-slate-950">Share with app</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Open <strong>Live Whiteboard</strong> in the teacher app and enter these codes. Your webcam stays on this web class.</p>
+              </div>
+              <button type="button" onClick={() => setShowAppShareModal(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Close pairing instructions"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-slate-100 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Class room</p>
+                <p className="mt-1 font-mono text-lg font-bold tracking-wider text-slate-950">{roomCode}</p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Share code</p>
+                <p className="mt-1 font-mono text-lg font-bold tracking-[0.18em] text-emerald-800">{appShare.code}</p>
+              </div>
+            </div>
+            <div className={`mt-4 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium ${appShare.connected ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>
+              <span className={`h-2 w-2 rounded-full ${appShare.connected ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+              {appShare.connected ? 'App connected — writing is live for everyone.' : 'Waiting for the teacher app to connect…'}
+            </div>
+            <p className="mt-3 text-xs text-slate-500">The code expires in five minutes and only pairs with this live class.</p>
+            <button type="button" onClick={() => setShowAppShareModal(false)} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">Continue to class</button>
+          </div>
+        </div>
+      )}
       {/* Suppress Next.js dev toolbar */}
       <style>{`nextjs-portal { display: none !important; } #__next-build-watcher { display: none !important; }`}</style>
 
@@ -1012,7 +1075,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
         {/* Video Grid / Main Stage */}
         <div className="flex-1 flex flex-col min-h-0 p-3 md:p-4 gap-3 md:gap-4">
 
-          {allTiles.length === 0 ? (
+          {allTiles.length === 0 && !appShare ? (
             /* Waiting for Host / Stream */
             <div className="flex flex-col items-center justify-center col-span-full rounded-2xl border h-full"
               style={{ background: isDark ? 'radial-gradient(ellipse at center, #1a1f2e 0%, #080c12 100%)' : 'radial-gradient(ellipse at center, #f8fafc 0%, #e2e8f0 100%)', borderColor: 'var(--cr-border)' }}>
@@ -1030,6 +1093,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
               {/* Main Stage */}
               <div className="flex-1 min-h-0 relative rounded-2xl overflow-hidden shadow-sm">
                 {renderTile(spotlightTile)}
+                <SharedWhiteboard strokes={whiteboardStrokes} />
                 {/* Spotlight label overlay */}
                 <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold shadow-md backdrop-blur-md border border-white/10"
@@ -1100,6 +1164,18 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                       {renderTile(t, true)}
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          ) : appShare ? (
+            <div className="flex-1 min-h-0 relative rounded-2xl overflow-hidden border shadow-sm"
+              style={{ background: '#ffffff', borderColor: 'var(--cr-border)' }}>
+              <SharedWhiteboard strokes={whiteboardStrokes} />
+              {whiteboardStrokes.length === 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-6">
+                  <BookOpen className="w-10 h-10 text-emerald-600 mb-3" />
+                  <h3 className="font-bold text-slate-900">App whiteboard is ready</h3>
+                  <p className="mt-1 text-sm text-slate-500">Your writing from the paired device appears here for the class.</p>
                 </div>
               )}
             </div>
@@ -1239,6 +1315,18 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
                   <Monitor className="w-5 h-5" />
                 </button>
               </Tip>
+
+              {isHost && (
+                <Tip label={appShare ? 'Stop app whiteboard' : 'Share with app'}>
+                  <button onClick={appShare ? stopAppShare : startAppShare}
+                    className={`flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-200 active:scale-95 border ${
+                      appShare ? 'bg-emerald-500 text-white border-emerald-400 shadow-md shadow-emerald-500/30' : 'border-transparent hover:bg-emerald-500/10'
+                    }`}
+                    style={{ color: appShare ? undefined : '#059669' }}>
+                    <BookOpen className="w-5 h-5" />
+                  </button>
+                </Tip>
+              )}
 
               {/* Hand Raise */}
               <Tip label={handRaised ? 'Lower Hand' : 'Raise Hand'}>

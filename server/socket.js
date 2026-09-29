@@ -1,6 +1,7 @@
 const socketIo = require('socket.io');
 const mediaService = require('./services/mediaService');
 const recordingService = require('./services/recordingService');
+const { AppShareService } = require('./services/appShareService');
 const { Note, Message } = require('./models/Schemas');
 
 module.exports = function setupSocketIO(server) {
@@ -12,6 +13,7 @@ module.exports = function setupSocketIO(server) {
   });
 
   const peerInfo = new Map(); // socket.id -> { username, role, roomCode }
+  const appShareService = new AppShareService();
 
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);
@@ -270,6 +272,67 @@ module.exports = function setupSocketIO(server) {
       socket.to(roomCode).emit('reaction', { emoji });
     });
 
+    // Companion whiteboard: the teacher keeps camera/audio on the web while a
+    // paired phone or tablet contributes only ink data to the same class room.
+    socket.on('start-app-share', ({ roomCode }, callback) => {
+      const info = peerInfo.get(socket.id);
+      if (!info || !['teacher', 'admin', 'super_admin'].includes(String(info.role).toLowerCase())) {
+        return callback({ error: 'Only the class host can share with the app.' });
+      }
+      if (info.roomCode !== String(roomCode).toUpperCase()) {
+        return callback({ error: 'This app share does not belong to the current class.' });
+      }
+
+      const session = appShareService.create(info.roomCode, socket.id);
+      callback({
+        code: session.code,
+        expiresAt: session.expiresAt,
+        roomCode: session.roomCode,
+      });
+    });
+
+    socket.on('join-app-share', ({ roomCode, code }, callback) => {
+      if (typeof roomCode !== 'string' || typeof code !== 'string') {
+        return callback({ error: 'Enter the class code and the six-character share code.' });
+      }
+      const session = appShareService.join({ roomCode, code, appSocketId: socket.id });
+      if (!session) return callback({ error: 'That share code is invalid or has expired.' });
+
+      io.to(session.roomCode).emit('app-share-status', { connected: true });
+      callback({
+        roomCode: session.roomCode,
+        strokes: session.strokes,
+      });
+    });
+
+    socket.on('app-whiteboard-stroke', ({ stroke }, callback) => {
+      const session = appShareService.getBySocket(socket.id);
+      if (!session || session.appSocketId !== socket.id || !isValidStroke(stroke)) {
+        return callback?.({ error: 'Invalid whiteboard update.' });
+      }
+      appShareService.appendStroke(session.id, stroke);
+      io.to(session.roomCode).emit('app-whiteboard-stroke', { stroke });
+      callback?.({ success: true });
+    });
+
+    socket.on('app-whiteboard-clear', (_, callback) => {
+      const session = appShareService.getBySocket(socket.id);
+      if (!session || session.appSocketId !== socket.id) {
+        return callback?.({ error: 'Whiteboard is not paired.' });
+      }
+      appShareService.clear(session.id);
+      io.to(session.roomCode).emit('app-whiteboard-clear');
+      callback?.({ success: true });
+    });
+
+    socket.on('stop-app-share', (_, callback) => {
+      const session = appShareService.getByTeacher(socket.id);
+      if (!session) return callback?.({ success: true });
+      appShareService.stopForTeacher(socket.id);
+      io.to(session.roomCode).emit('app-share-stopped');
+      callback?.({ success: true });
+    });
+
     // Server-side Recording starting
     socket.on('start-recording', async ({ roomCode }, callback) => {
       const info = peerInfo.get(socket.id);
@@ -316,6 +379,25 @@ module.exports = function setupSocketIO(server) {
         mediaService.closePeer(roomCode, socket.id);
         peerInfo.delete(socket.id);
       }
+
+      const appSession = appShareService.getBySocket(socket.id);
+      if (appSession?.appSocketId === socket.id) {
+        appSession.appSocketId = null;
+        io.to(appSession.roomCode).emit('app-share-status', { connected: false });
+      }
+      const teacherSession = appShareService.stopForTeacher(socket.id);
+      if (teacherSession) io.to(teacherSession.roomCode).emit('app-share-stopped');
     });
   });
 };
+
+function isValidStroke(stroke) {
+  if (!stroke || typeof stroke !== 'object') return false;
+  if (!Array.isArray(stroke.points) || stroke.points.length < 2 || stroke.points.length > 160) return false;
+  if (typeof stroke.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(stroke.color)) return false;
+  if (typeof stroke.width !== 'number' || stroke.width < 1 || stroke.width > 24) return false;
+  return stroke.points.every((point) =>
+    point && Number.isFinite(point.x) && Number.isFinite(point.y) &&
+    point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1,
+  );
+}
