@@ -41,12 +41,25 @@ exports.createUser = async (reqUser, payload) => {
     if (payload.section) payload.metadata.section = payload.section;
   }
 
+  const selectedCourses = payload.courses;
+  delete payload.courses;
+
   const user = new UserModel({
     ...payload,
     instituteId
   });
   
-  return await user.save();
+  const savedUser = await user.save();
+
+  if (selectedCourses && Array.isArray(selectedCourses) && selectedCourses.length > 0) {
+    const CourseModel = require('../courses/courses.model');
+    await CourseModel.updateMany(
+      { _id: { $in: selectedCourses } },
+      { $addToSet: { faculties: savedUser._id } }
+    );
+  }
+
+  return savedUser;
 };
 
 exports.getDistinctClasses = async (reqUser) => {
@@ -131,8 +144,55 @@ exports.getAllUsers = async (reqUser, query = {}) => {
     queryBuilder = queryBuilder.populate('childrenIds', 'firstName lastName metadata profilePictureUrl');
   }
 
+  const users = await queryBuilder.exec();
+
+  if (query.role === 'teacher' || (!query.role && users.some(u => u.role === 'teacher'))) {
+    const CourseModel = require('../courses/courses.model');
+    const BatchModel = require('../batches/batches.model');
+    const teacherIds = users.filter(u => u.role === 'teacher').map(u => u._id);
+    
+    const [courses, batches] = await Promise.all([
+      CourseModel.find({
+        faculties: { $in: teacherIds }
+      }).select('_id name tag targetExam color faculties'),
+      BatchModel.find({
+        $or: [
+          { batchTeacherId: { $in: teacherIds } },
+          { teachers: { $in: teacherIds } }
+        ],
+        courseId: { $exists: true, $ne: null }
+      }).populate('courseId', '_id name tag targetExam color')
+    ]);
+    
+    return users.map(user => {
+      const userObj = user.toObject();
+      if (user.role === 'teacher') {
+        const uIdStr = user._id.toString();
+        const directCourses = courses.filter(c => c.faculties && c.faculties.some(fId => fId.toString() === uIdStr));
+        const batchCourses = batches
+          .filter(b => (b.batchTeacherId?.toString() === uIdStr || (b.teachers && b.teachers.some(t => t.toString() === uIdStr))) && b.courseId)
+          .map(b => b.courseId);
+
+        const courseMap = new Map();
+        [...directCourses, ...batchCourses].forEach(c => {
+          if (c && c._id) {
+            courseMap.set(c._id.toString(), {
+              _id: c._id,
+              name: c.name,
+              tag: c.tag,
+              targetExam: c.targetExam,
+              color: c.color
+            });
+          }
+        });
+
+        userObj.assignedCourses = Array.from(courseMap.values());
+      }
+      return userObj;
+    });
+  }
   
-  return await queryBuilder.exec();
+  return users;
 };
 
 exports.getUserById = async (id, reqUser) => {
@@ -150,13 +210,59 @@ exports.getUserById = async (id, reqUser) => {
     queryBuilder = queryBuilder.populate('childrenIds', 'firstName lastName email phone metadata profilePictureUrl');
   }
   
-  return await queryBuilder.exec();
+  const user = await queryBuilder.exec();
+  if (user && user.role === 'teacher') {
+    const CourseModel = require('../courses/courses.model');
+    const assigned = await CourseModel.find({ faculties: user._id }).select('_id name tag targetExam color');
+    const userObj = user.toObject();
+    userObj.assignedCourses = assigned;
+    return userObj;
+  }
+  return user;
 };
 
 exports.updateUser = async (id, payload, reqUser) => {
   const query = { _id: id };
   if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
-  return await UserModel.findOneAndUpdate(query, payload, { new: true }).select('-password');
+
+  const bcrypt = require('bcryptjs');
+  if (payload.password && payload.password.trim()) {
+    const salt = await bcrypt.genSalt(10);
+    payload.password = await bcrypt.hash(payload.password, salt);
+  } else {
+    delete payload.password;
+  }
+
+  const selectedCourses = payload.courses;
+  delete payload.courses;
+
+  const updatedUser = await UserModel.findOneAndUpdate(query, payload, { new: true }).select('-password');
+
+  if (selectedCourses !== undefined && Array.isArray(selectedCourses)) {
+    const CourseModel = require('../courses/courses.model');
+    // Remove teacher from courses not in selectedCourses
+    await CourseModel.updateMany(
+      { faculties: id, _id: { $nin: selectedCourses } },
+      { $pull: { faculties: id } }
+    );
+    // Add teacher to selected courses
+    if (selectedCourses.length > 0) {
+      await CourseModel.updateMany(
+        { _id: { $in: selectedCourses } },
+        { $addToSet: { faculties: id } }
+      );
+    }
+  }
+
+  if (updatedUser && updatedUser.role === 'teacher') {
+    const CourseModel = require('../courses/courses.model');
+    const assigned = await CourseModel.find({ faculties: updatedUser._id }).select('_id name tag targetExam color');
+    const userObj = updatedUser.toObject();
+    userObj.assignedCourses = assigned;
+    return userObj;
+  }
+
+  return updatedUser;
 };
 
 exports.deleteUser = async (id, reqUser) => {

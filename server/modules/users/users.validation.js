@@ -16,12 +16,15 @@ exports.createUserSchema = Joi.object({
   childrenIds: Joi.array().items(Joi.string()).optional(),
   rfid: Joi.string().allow('').optional(),
   qrId: Joi.string().allow('').optional(),
-  faceId: Joi.string().allow('').optional()
+  faceId: Joi.string().allow('').optional(),
+  courses: Joi.array().items(Joi.string()).optional()
 });
 
 exports.updateUserSchema = Joi.object({
   firstName: Joi.string().optional(),
   lastName: Joi.string().optional(),
+  email: Joi.string().email().allow('').optional(),
+  password: Joi.string().min(6).allow('').optional(),
   phone: Joi.string().allow('').optional(),
   isActive: Joi.boolean().optional(),
   branchId: Joi.string().optional(),
@@ -32,7 +35,8 @@ exports.updateUserSchema = Joi.object({
   childrenIds: Joi.array().items(Joi.string()).optional(),
   rfid: Joi.string().allow('').optional(),
   qrId: Joi.string().allow('').optional(),
-  faceId: Joi.string().allow('').optional()
+  faceId: Joi.string().allow('').optional(),
+  courses: Joi.array().items(Joi.string()).optional()
 }).options({ stripUnknown: true });
 
 exports.linkParentStudentSchema = Joi.object({

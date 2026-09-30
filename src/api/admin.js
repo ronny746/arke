@@ -11,6 +11,13 @@ export const adminAPI = {
   updateSubject: (id, data) => axiosInstance.put(`/subjects/${id}`, data),
   deleteSubject: (id) => axiosInstance.delete(`/subjects/${id}`),
 
+  // Courses
+  getCourses: (params) => axiosInstance.get('/courses', { params }),
+  getCourseById: (id) => axiosInstance.get(`/courses/${id}`),
+  createCourse: (data) => axiosInstance.post('/courses', data),
+  updateCourse: (id, data) => axiosInstance.put(`/courses/${id}`, data),
+  deleteCourse: (id) => axiosInstance.delete(`/courses/${id}`),
+
   // Recycle Bin
   getRecycleBinItems: () => axiosInstance.get('/recycle-bin'),
   restoreRecycleBinItem: (data) => axiosInstance.post('/recycle-bin/restore', data),
