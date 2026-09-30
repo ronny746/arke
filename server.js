@@ -36,6 +36,10 @@ nextApp.prepare().then(() => {
   // Setup Socket.IO for Meetonline WebRTC
   const io = setupSocketIO(server);
   app.set('io', io);
+  // API routes live in the mounted LMS app, so expose the same Socket.IO
+  // instance there as well. Controllers can now notify connected clients
+  // when a teacher starts or ends a class.
+  lmsApp.set('io', io);
 
   // Health check
   app.get('/health', (req, res) => {
