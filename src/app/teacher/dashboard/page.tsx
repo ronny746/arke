@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, Video, FileText, CheckCircle, ArrowUpRight, BookOpen, Star, Clock, GraduationCap } from 'lucide-react';
 import { motion } from 'framer-motion';
-import NeetCountdownCard from '@/components/NeetCountdownCard';
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -56,9 +55,6 @@ export default function TeacherDashboard() {
           </p>
         </div>
       </div>
-
-      {/* NEET Countdown Card */}
-      <NeetCountdownCard />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

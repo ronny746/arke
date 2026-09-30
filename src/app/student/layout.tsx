@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, FileCheck, Video, LineChart, BookOpen, PenTool, LayoutList, MessageSquare, ShieldAlert, CreditCard } from 'lucide-react';
+import { Home, FileCheck, Video, LineChart, BookOpen, LayoutList, MessageSquare, ShieldAlert, CreditCard } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ProfileCompletionModal } from '@/components/ProfileCompletionModal';
@@ -127,8 +127,6 @@ export default function StudentLayout({ children }) {
         { icon: BookOpen, label: 'Study Materials', to: '/student/study-materials' },
         { icon: Video, label: 'Live Classes', to: '/student/live-classes' },
         { icon: MessageSquare, label: 'Q&A / Doubts', to: '/student/doubts' },
-        { icon: LayoutList, label: 'DPP (Practice)', to: '/student/dpp' },
-        { icon: PenTool, label: 'Interactive Practice', to: '/student/practice' },
       ]
     },
     {

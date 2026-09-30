@@ -24,7 +24,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { studentAPI } from '@/api/index.js';
 
-import NeetCountdownCard from '@/components/NeetCountdownCard';
 import StudentPerformanceCard from '@/components/StudentPerformanceCard';
 import { BannerCarousel } from '@/components/BannerCarousel';
 
@@ -294,9 +293,6 @@ export default function StudentDashboard() {
 
       {/* Student Performance Card */}
       <StudentPerformanceCard />
-
-      {/* NEET Countdown Card */}
-      <NeetCountdownCard />
 
       {/* ─── Available & Recommended Courses Section ───────────────────────────── */}
       <div className="pt-2">

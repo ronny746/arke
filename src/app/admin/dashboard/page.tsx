@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Users, GraduationCap, Video, FileCheck, Database, TrendingUp, Plus, ArrowUpRight, BookOpen, Calendar, Bell, BarChart2, Activity, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { adminAPI } from '@/api/admin';
-import NeetCountdownCard from '@/components/NeetCountdownCard';
 
 const quickActions = [
   { label: 'Add Student', icon: Plus, color: '#0033a0', bg: '#eef2ff', to: '/admin/students' },

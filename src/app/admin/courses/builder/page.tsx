@@ -149,7 +149,7 @@ function CourseBuilderContent() {
         .catch(() => {});
 
       // Fetch dynamic database subjects
-      adminAPI.getSubjects()
+      adminAPI.getSubjects({ libraryOnly: true })
         .then(res => {
           if (res.data?.data) setDbSubjects(res.data.data);
         })
@@ -261,6 +261,25 @@ function CourseBuilderContent() {
     set('subjects', updated);
   };
 
+  const pickLibrarySubject = (index: number, name: string) => {
+    const librarySubject = dbSubjects.find((subject: any) => subject.name?.trim().toLowerCase() === name.trim().toLowerCase());
+    const updated = [...form.subjects];
+    updated[index] = {
+      ...updated[index],
+      name,
+      ...(librarySubject ? {
+        icon: librarySubject.icon || updated[index].icon,
+        teacherId: librarySubject.teacherId?._id || librarySubject.teacherId || '',
+        chaptersCount: librarySubject.chaptersCount ?? updated[index].chaptersCount,
+        dppsCount: librarySubject.dppsCount ?? updated[index].dppsCount,
+        testsCount: librarySubject.testsCount ?? updated[index].testsCount,
+        description: librarySubject.description || updated[index].description,
+        topics: Array.isArray(librarySubject.topics) ? librarySubject.topics : updated[index].topics
+      } : {})
+    };
+    set('subjects', updated);
+  };
+
   const assignSubjectTeacher = (index: number, teacherId: string) => {
     updateSubject(index, 'teacherId', teacherId);
     if (teacherId && !form.faculties.includes(teacherId)) {
@@ -295,7 +314,7 @@ function CourseBuilderContent() {
       const mapped = dbSubjects.map((s: any) => ({
         name: s.name,
         icon: s.icon || '📖',
-        teacherId: '',
+        teacherId: s.teacherId?._id || s.teacherId || '',
         chaptersCount: s.chaptersCount || 20,
         dppsCount: s.dppsCount || 100,
         testsCount: s.testsCount || 15,
@@ -752,7 +771,7 @@ function CourseBuilderContent() {
                     onClick={() => applyPresetSubjects(form.targetExam)}
                     className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-[#0B132B] bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors flex items-center gap-1"
                   >
-                    <Sparkles size={12} className="text-amber-600" /> Auto-fill {form.targetExam}
+                    <Sparkles size={12} className="text-amber-600" /> Add Subject Library
                   </button>
                   <button
                     type="button"
@@ -796,7 +815,7 @@ function CourseBuilderContent() {
                             type="text"
                             list="db-subjects-list"
                             value={sub.name}
-                            onChange={e => updateSubject(idx, 'name', e.target.value)}
+                            onChange={e => pickLibrarySubject(idx, e.target.value)}
                             placeholder="Subject Name (e.g. Physics)"
                             className="flex-1 px-3.5 py-2 rounded-xl border border-gray-200 bg-white font-bold text-sm text-gray-900 focus:outline-none focus:border-[#0B132B]"
                           />

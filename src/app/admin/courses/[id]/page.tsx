@@ -456,7 +456,7 @@ function ManageSubjectsModal({
   );
 
   useEffect(() => {
-    adminAPI.getSubjects()
+    adminAPI.getSubjects({ libraryOnly: true })
       .then(res => {
         if (res.data?.data) setDbSubjects(res.data.data);
       })
@@ -508,7 +508,7 @@ function ManageSubjectsModal({
     const mapped = dbSubjects.map(s => ({
       name: s.name,
       icon: s.icon || '📖',
-      teacherId: '',
+      teacherId: s.teacherId?._id || s.teacherId || '',
       chaptersCount: s.chaptersCount || 20,
       dppsCount: s.dppsCount || 100,
       testsCount: s.testsCount || 15,

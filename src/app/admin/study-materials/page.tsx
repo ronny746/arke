@@ -226,7 +226,7 @@ export default function AdminStudyMaterialsPage() {
 
   // Filter subjects based on selected class
   const availableSubjects = formData.batchId 
-    ? subjects.filter(s => (s.batchId?._id || s.batchId) === formData.batchId)
+    ? subjects.filter(s => s.isLibrarySubject || (s.batchId?._id || s.batchId) === formData.batchId)
     : subjects;
 
   const filteredData = selectedBatchId === 'all' 
