@@ -36,6 +36,12 @@ function includeSubjectTeachersAsFaculty(payload, existingFacultyIds = []) {
   return payload;
 }
 
+function duplicateCourseNameError() {
+  const error = new Error('A course with this name already exists in this institute. Open the existing course to edit it, or use a different course name.');
+  error.statusCode = 409;
+  return error;
+}
+
 exports.createCourse = async (reqUser, payload) => {
   let instituteId = reqUser.instituteId;
   // A setup admin may not be attached to an institute yet. For a brand-new
@@ -48,6 +54,8 @@ exports.createCourse = async (reqUser, payload) => {
     instituteId = institutes[0]._id;
   }
   if (!instituteId) throw new Error('An institute is required before creating a course.');
+  const existingCourse = await CourseModel.exists({ instituteId, name: payload.name });
+  if (existingCourse) throw duplicateCourseNameError();
   await validateSubjectTeachers(payload, instituteId);
   includeSubjectTeachersAsFaculty(payload);
   const course = new CourseModel({
@@ -113,6 +121,14 @@ exports.getCourseById = async (id, reqUser) => {
 exports.updateCourse = async (id, payload, reqUser) => {
   const existingCourse = await CourseModel.findOne({ _id: id, instituteId: reqUser.instituteId }).select('faculties');
   if (!existingCourse) return null;
+  if (payload.name) {
+    const courseWithName = await CourseModel.exists({
+      _id: { $ne: id },
+      instituteId: reqUser.instituteId,
+      name: payload.name
+    });
+    if (courseWithName) throw duplicateCourseNameError();
+  }
   await validateSubjectTeachers(payload, reqUser.instituteId);
   includeSubjectTeachersAsFaculty(payload, existingCourse.faculties || []);
   return await CourseModel.findOneAndUpdate(
