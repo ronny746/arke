@@ -24,6 +24,12 @@ router.get(
   LiveClassesController.getActiveClasses
 );
 
+router.post(
+  '/:id/zoom-sdk/join-config',
+  checkAccess('liveClasses'),
+  LiveClassesController.getMeetingSdkJoinConfig
+);
+
 router.put(
   '/:id/end',
   rbacMiddleware.requireRole([ROLES.TEACHER, ROLES.ADMIN_ACADOPS, ROLES.SUPER_ADMIN]),
