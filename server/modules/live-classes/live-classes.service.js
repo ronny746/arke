@@ -65,12 +65,9 @@ exports.startLiveClass = async (reqOrUser, payload) => {
       finalMeetingId = meetingLink.split('/j/')[1]?.split('?')[0] || Math.random().toString(36).substring(2, 10);
       finalMeetingPassword = meetingPassword || '';
     } else {
-      // Fallback Zoom meeting room for testing when credentials are missing
-      const dummyId = Math.floor(10000000000 + Math.random() * 90000000000).toString();
-      finalMeetingId = dummyId;
-      finalMeetingLink = `https://zoom.us/j/${dummyId}`;
-      finalStartUrl = `https://zoom.us/s/${dummyId}`;
-      finalMeetingPassword = '123456';
+      // A generated URL without a real Zoom meeting is misleading and can
+      // never be joined. Admins must configure Zoom or supply a valid link.
+      throw new Error('Zoom is not configured. Add Zoom credentials or provide a valid Zoom meeting link.');
     }
   } else if (targetPlatform === 'custom') {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();

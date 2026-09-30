@@ -42,14 +42,14 @@ exports.changePassword = async (req, res, next) => {
 
 exports.requestOtp = async (req, res, next) => {
     try {
-        // Students sign in directly with a mobile OTP. Parent login remains
-        // DOB-based; teacher OTP support is retained for the teacher portal.
+        // Mobile apps use OTP for students, parents, and teachers. The web
+        // parent portal may still choose its separate password flow.
         // Older clients did not include `role` in this request. Treat that
         // safely as the public student sign-in flow instead of rejecting it as
         // a parent request.
         const requestedRole = String(req.body.role || 'student').toLowerCase();
-        if (!['student', 'teacher'].includes(requestedRole)) {
-            return errorResponse(res, 'Mobile OTP is available for students and teachers only. Parents must use the linked child\'s date of birth.', null, 400);
+        if (!['student', 'parent', 'teacher'].includes(requestedRole)) {
+            return errorResponse(res, 'Mobile OTP is available for students, parents, and teachers only.', null, 400);
         }
         const rawPhone = req.body.mobileNumber || req.body.phone || req.body.phoneNumber || req.body.mobile;
         
@@ -83,8 +83,8 @@ exports.verifyOtp = async (req, res, next) => {
         const rawPhone = req.body.phone || req.body.mobileNumber || req.body.phoneNumber || req.body.mobile;
         const requestedRole = role || 'student';
 
-        if (!['student', 'teacher'].includes(String(requestedRole).toLowerCase())) {
-            return errorResponse(res, 'Mobile OTP is available for students and teachers only. Parents must use the linked child\'s date of birth.', null, 400);
+        if (!['student', 'parent', 'teacher'].includes(String(requestedRole).toLowerCase())) {
+            return errorResponse(res, 'Mobile OTP is available for students, parents, and teachers only.', null, 400);
         }
 
         if (!rawPhone || !otp) {
