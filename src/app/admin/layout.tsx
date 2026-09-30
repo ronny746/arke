@@ -52,7 +52,7 @@ export default function AdminLayout({ children }) {
   ];
 
   return (
-    <PortalAccessGuard allowedRoles={["admin", "super_admin", "super_super_admin", "institute_admin", "admin_acadops", "admin_operations"]}>
+    <PortalAccessGuard allowedRoles={["admin"]}>
     <DashboardLayout sidebar={
       <Sidebar
         title="ARKE Scholars"

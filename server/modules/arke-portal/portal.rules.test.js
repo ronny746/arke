@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getTopicFlag, normalizeThresholds, normalizeDob, makeWelcomeMessage } = require('./portal.rules');
+const { getTopicFlag, normalizeThresholds, normalizeDob, dobPasswordCandidates, makeWelcomeMessage } = require('./portal.rules');
 
 test('flags use the agreed inclusive threshold boundaries', () => {
   assert.equal(getTopicFlag(0), 'RED');
@@ -22,6 +22,12 @@ test('DOB login values are normalized without changing the date', () => {
   assert.equal(normalizeDob('2008-02-09T00:00:00.000Z'), '2008-02-09');
   assert.equal(normalizeDob('09/02/2008'), '2008-02-09');
   assert.throws(() => normalizeDob('not a date'));
+});
+
+test('DOB login candidates accept display and stored date formats', () => {
+  assert.deepEqual(dobPasswordCandidates('09/02/2008'), [
+    '09/02/2008', '2008-02-09', '09-02-2008', '2008-02-09T00:00:00.000Z',
+  ]);
 });
 
 test('welcome message includes paid, due and timetable information', () => {

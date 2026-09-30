@@ -62,20 +62,20 @@ interface RemoteStream {
 // Role display labels
 const getRoleLabel = (role: string) => {
   if (role === 'teacher') return 'Teacher';
-  if (role === 'super_admin' || role === 'admin') return 'Admin';
+  if (role === 'admin') return 'Admin';
   if (role === 'student') return 'Student';
   return role;
 };
 
 const getRoleBadgeStyle = (role: string) => {
   if (role === 'teacher') return 'bg-violet-500/80 text-white';
-  if (role === 'super_admin' || role === 'admin') return 'bg-amber-500/80 text-white';
+  if (role === 'admin') return 'bg-amber-500/80 text-white';
   return 'bg-sky-500/60 text-white';
 };
 
 const getAvatarGradient = (role: string) => {
   if (role === 'teacher') return 'from-violet-600 to-purple-700';
-  if (role === 'super_admin' || role === 'admin') return 'from-amber-500 to-orange-600';
+  if (role === 'admin') return 'from-amber-500 to-orange-600';
   return 'from-sky-500 to-blue-600';
 };
 
@@ -118,7 +118,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   });
   const toggleTheme = () => setIsDark(prev => { const next = !prev; if (typeof window !== 'undefined') localStorage.setItem('cr-theme', next ? 'dark' : 'light'); return next; });
   // Spotlight: teacher/admin watches a specific peer; students watch teacher by default
-  const isHost = user.role === 'teacher' || user.role === 'admin' || user.role === 'super_admin';
+  const isHost = user.role === 'teacher' || user.role === 'admin';
   const [spotlightId, setSpotlightId] = useState<string | null>(isHost ? 'local' : null);
   const [showStrip, setShowStrip] = useState(true);
   const [isMirrored, setIsMirrored] = useState(false);
@@ -733,7 +733,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
   const isHostRole = (role?: string) => {
     if (!role) return false;
     const r = role.toLowerCase();
-    return r === 'teacher' || r === 'admin' || r === 'super_admin' || r === 'arke-teacher' || r === 'instructor' || r === 'host';
+    return r === 'teacher' || r === 'admin';
   };
 
   // Build tiles

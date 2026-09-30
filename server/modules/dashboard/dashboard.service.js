@@ -1,14 +1,15 @@
 const UserModel = require('../users/users.model');
 const AttendanceModel = require('../attendance/attendance.model');
 const InstituteModel = require('../institutes/institutes.model');
+const CourseModel = require('../courses/courses.model');
 const { ROLES } = require('../../config/constants');
 
 exports.getDashboardData = async (reqUser) => {
   const role = reqUser.role;
   const instituteId = reqUser.instituteId;
 
-  // SUPER SUPER ADMIN Dashboard (Global View)
-  if (role === ROLES.SUPER_SUPER_ADMIN) {
+  // The initial setup admin has no institute. It can see setup-wide counts.
+  if (role === ROLES.ADMIN && !instituteId) {
     const totalInstitutes = await InstituteModel.countDocuments();
     const activeInstitutes = await InstituteModel.countDocuments({ isActive: true });
     const totalStudentsPlatformWide = await UserModel.countDocuments({ role: ROLES.STUDENT });
@@ -28,7 +29,7 @@ exports.getDashboardData = async (reqUser) => {
   }
 
   // Mock aggregated data depending on role
-  if (role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN_OPERATIONS || role === ROLES.ADMIN_ACADOPS) {
+  if (role === ROLES.ADMIN) {
     const totalStudents = await UserModel.countDocuments({ instituteId, role: ROLES.STUDENT });
     const totalTeachers = await UserModel.countDocuments({ instituteId, role: ROLES.TEACHER });
     
@@ -137,22 +138,81 @@ exports.getDashboardData = async (reqUser) => {
   }
 
   if (role === ROLES.TEACHER) {
-    const totalStudents = await UserModel.countDocuments({ instituteId, role: ROLES.STUDENT });
+    // A teacher must only see the batches and learners explicitly assigned to
+    // them. Institute-wide counts are misleading and leak unrelated rosters.
+    const BatchModel = require('../batches/batches.model');
     const ClassScheduleModel = require('../classes-schedule/classes-schedule.model');
     const ResourceModel = require('../resources/resources.model');
     const TestExamModel = require('../tests-exams/tests-exams.model');
+    const teacherCourseIds = (await CourseModel.find({
+      instituteId,
+      $or: [{ faculties: reqUser.userId }, { 'subjects.teacherId': reqUser.userId }]
+    }).select('_id')).map(course => course._id);
+    const assignedBatches = await BatchModel.find({
+      instituteId,
+      $or: [
+        { batchTeacherId: reqUser.userId },
+        { teachers: reqUser.userId },
+        { courseId: { $in: teacherCourseIds } }
+      ]
+    })
+      .populate('courseId', 'name tag targetExam')
+      .populate('students', 'firstName lastName metadata profilePictureUrl isActive')
+      .sort({ name: 1, section: 1 })
+      .lean();
+
+    const studentsById = new Map();
+    assignedBatches.forEach((batch) => {
+      (batch.students || []).forEach((student) => {
+        if (student?._id) studentsById.set(String(student._id), student);
+      });
+    });
+    const assignedStudents = Array.from(studentsById.values());
+    const totalStudents = assignedStudents.length;
 
     const totalClasses = await ClassScheduleModel.countDocuments({ instituteId, teacherId: reqUser.userId });
     const materialsUploaded = await ResourceModel.countDocuments({ instituteId, uploadedBy: reqUser.userId });
     const totalExams = await TestExamModel.countDocuments({ instituteId, createdBy: reqUser.userId });
+    const todaySchedules = await ClassScheduleModel.find({
+      instituteId,
+      teacherId: reqUser.userId,
+      dayOfWeek: new Date().getDay(),
+      isActive: true
+    })
+      .populate('batchId', 'name section')
+      .populate('subjectId', 'name')
+      .sort({ startTime: 1 })
+      .lean();
 
     return {
       totalStudents,
       totalClasses,
       materialsUploaded,
       totalExams,
-      upcomingClasses: [], // Can be populated dynamically if needed
-      topStudents: [] // Can be populated dynamically if needed
+      assignedBatches: assignedBatches.map((batch) => ({
+        _id: batch._id,
+        name: batch.name,
+        section: batch.section,
+        courseName: batch.courseId?.name || 'Course not linked',
+        courseTag: batch.courseId?.tag || '',
+        studentCount: (batch.students || []).length
+      })),
+      assignedStudents: assignedStudents.slice(0, 5).map((student) => ({
+        _id: student._id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        profilePictureUrl: student.profilePictureUrl,
+        rollNo: student.metadata?.rollNo,
+        isActive: student.isActive
+      })),
+      upcomingClasses: todaySchedules.map((schedule) => ({
+        _id: schedule._id,
+        time: schedule.startTime,
+        subject: schedule.subjectId?.name || 'Class',
+        batch: `${schedule.batchId?.name || 'Batch'}${schedule.batchId?.section ? ` · ${schedule.batchId.section}` : ''}`,
+        status: 'Scheduled'
+      })),
+      topStudents: []
     };
   }
 

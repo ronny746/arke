@@ -91,11 +91,12 @@ const MEDIUMS = [
 ];
 
 export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginModalProps) {
-  // Step: 1 = account identifier, 2 = DOB password, 3 = profile details.
+  // Step: 1 = account identifier, 2 = student OTP or parent DOB, 3 = profile details.
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Auth States
   const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [role, setRole] = useState<"student" | "parent">("student");
   const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +118,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
       queueMicrotask(() => {
         setStep(1);
         setPhone("");
+        setOtp("");
         setEmail("");
         setDateOfBirth("");
       });
@@ -125,21 +127,96 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
 
   const handleContinue = (targetIdentifier = phone) => {
     const identifier = targetIdentifier.trim();
-    const isValid = role === "student"
-      ? identifier.length > 0
-      : identifier.replace(/\D/g, "").length === 10;
+    const isValid = identifier.replace(/\D/g, "").length === 10;
     if (!isValid) {
-      toast.error(role === "student" ? "Enter your roll number or registered mobile number." : "Please enter a valid 10-digit mobile number.");
+      toast.error("Please enter a valid 10-digit mobile number.");
       return;
     }
-    setPhone(role === "parent" ? identifier.replace(/\D/g, "").slice(-10) : identifier);
-    setStep(2);
+    const cleanPhone = identifier.replace(/\D/g, "").slice(-10);
+    setPhone(cleanPhone);
+
+    if (role === "parent") {
+      setStep(2);
+      return;
+    }
+
+    void requestStudentOtp(cleanPhone);
+  };
+
+  const requestStudentOtp = async (mobileNumber: string) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/v1/auth/request-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: mobileNumber, role: "student" })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "OTP could not be sent.");
+      setStep(2);
+      toast.success("OTP sent to your registered mobile number.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "OTP could not be sent.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStudentOtpLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(otp)) {
+      toast.error("Enter the 6-digit OTP.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/v1/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, otp, role: "student" })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "OTP verification failed.");
+      completeAuthenticatedLogin(data, "Mobile verified! Please complete your profile details.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "OTP verification failed.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const completeAuthenticatedLogin = (data: { data: { token: string; user: PortalUser; isNewUser?: boolean }; message?: string }, profileMessage: string) => {
+    const token = data.data.token;
+    const user = data.data.user;
+    const isNewUser = data.data.isNewUser;
+
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+    setAuthToken(token);
+    setLoggedInUser(user);
+
+    if (user.firstName && user.firstName !== "Student") setFullName(`${user.firstName} ${user.lastName || ""}`.trim());
+    const isDummyEmail = user.email && (user.email.includes("@arke.com") || user.email.startsWith("student_"));
+    setEmail(user.email && !isDummyEmail ? user.email : "");
+    if (typeof user.metadata?.targetExam === "string") setSelectedGoal(user.metadata.targetExam);
+    if (typeof user.metadata?.studentClass === "string") setSelectedClass(user.metadata.studentClass);
+    if (typeof user.metadata?.medium === "string") setSelectedMedium(user.metadata.medium);
+
+    const needsDetails = isNewUser || !user.firstName || user.firstName === "Student" || isDummyEmail || !user.metadata?.targetExam || user.metadata?.isProfileIncomplete === true;
+    if (needsDetails) {
+      setStep(3);
+      toast.success(profileMessage);
+    } else {
+      toast.success(data.message || "Welcome back!");
+      finalizeLogin(user);
+    }
   };
 
   const handleDateOfBirthLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!dateOfBirth.trim()) {
-      toast.error("Enter your date of birth as DD/MM/YYYY or YYYY-MM-DD.");
+      toast.error("Select the date of birth from the calendar.");
       return;
     }
 
@@ -157,47 +234,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
       const data = await res.json();
 
       if (data.success) {
-        const token = data.data.token;
-        const user = data.data.user as PortalUser;
-        const isNewUser = data.data.isNewUser;
-
-        // Store tokens
-        localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify(user));
-        setAuthToken(token);
-        setLoggedInUser(user);
-
-        if (user.firstName && user.firstName !== "Student") {
-          setFullName(`${user.firstName} ${user.lastName || ""}`.trim());
-        }
-        
-        const isDummyEmail = user.email && (user.email.includes("@arke.com") || user.email.startsWith("student_"));
-        if (user.email && !isDummyEmail) {
-          setEmail(user.email);
-        } else {
-          setEmail("");
-        }
-
-        if (typeof user.metadata?.targetExam === "string") setSelectedGoal(user.metadata.targetExam);
-        if (typeof user.metadata?.studentClass === "string") setSelectedClass(user.metadata.studentClass);
-        if (typeof user.metadata?.medium === "string") setSelectedMedium(user.metadata.medium);
-
-        // If new user, incomplete profile, or missing real email/preferences, open Provide Details Step
-        const needsDetails = 
-          isNewUser || 
-          !user.firstName || 
-          user.firstName === "Student" || 
-          isDummyEmail ||
-          !user.metadata?.targetExam ||
-          user.metadata?.isProfileIncomplete === true;
-
-        if (needsDetails) {
-          setStep(3);
-          toast.success("Mobile verified! Please complete your profile details.");
-        } else {
-          toast.success(data.message || "Welcome back!");
-          finalizeLogin(user);
-        }
+        completeAuthenticatedLogin(data, "Login successful! Please complete your profile details.");
       } else {
         toast.error(data.message || "Incorrect account details or date of birth.");
       }
@@ -277,7 +314,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
         window.location.href = redirectOnSuccess;
       } else if (user?.role === "parent") {
         window.location.href = "/parent/dashboard";
-      } else if (user?.role === "admin" || user?.role === "super_admin") {
+      } else if (user?.role === "admin") {
         window.location.href = "/admin/dashboard";
       } else {
         window.location.href = "/student/dashboard";
@@ -388,12 +425,12 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                     <div className="mb-6">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0B132B]/5 text-[#0B132B] text-xs font-bold uppercase tracking-wider mb-2">
                         <Sparkles className="w-3.5 h-3.5 text-[#C99A2E]" />
-                        Secure account login
+                        Secure sign in
                       </div>
-                      <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Login / Register</h4>
+                      <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Sign in to ARKE</h4>
                       <p className="text-gray-500 text-xs mt-1">
                         {role === "student"
-                          ? "Use your roll number or registered mobile number, then your date of birth."
+                          ? "Use your registered mobile number and a one-time password."
                           : "Use your registered mobile number and your child's date of birth."}
                       </p>
                     </div>
@@ -435,7 +472,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                     >
                       <div>
                         <label className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">
-                          {role === "student" ? "Roll number or registered mobile" : "Registered mobile number"}
+                          Registered mobile number
                         </label>
                         <div className="relative flex items-center">
                           <div className="absolute left-3.5 flex items-center gap-1.5 pointer-events-none text-gray-500 font-bold text-sm border-r border-gray-200 pr-2">
@@ -444,11 +481,11 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                           </div>
                           <input
                             type="tel"
-                            maxLength={role === "student" ? 30 : 10}
+                            maxLength={10}
                             autoFocus
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                            placeholder={role === "student" ? "e.g. ARKE0001 or 9876543210" : "Enter 10-digit number"}
+                            placeholder="Enter 10-digit number"
                             className="w-full pl-20 pr-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all tracking-wider"
                           />
                         </div>
@@ -457,12 +494,13 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                       {/* Submit Button */}
                       <button
                         type="submit"
-                        disabled={!phone.trim()}
+                        disabled={!phone.trim() || isLoading}
                         className="w-full py-4 rounded-2xl font-black text-white text-sm transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-950/20 flex items-center justify-center gap-2"
                         style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}
                       >
-                        <><span>Continue</span><ArrowRight className="w-4 h-4" /></>
+                        {isLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Sending OTP...</span></> : <><span>{role === "student" ? "Send OTP" : "Continue"}</span><ArrowRight className="w-4 h-4" /></>}
                       </button>
+                      {role === "student" && <p className="text-center text-xs text-gray-500">Enter your mobile number once. Existing students sign in; new students complete registration after OTP verification.</p>}
                     </form>
                   </motion.div>
                 )}
@@ -489,32 +527,29 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                           {phone}
                         </span>
                       </div>
-                      <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Enter Date of Birth</h4>
+                      <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">{role === "student" ? "Enter mobile OTP" : "Enter Date of Birth"}</h4>
                       <p className="text-gray-500 text-xs mt-1">
-                        This is your password. You will not receive an OTP.
+                        {role === "student" ? "Enter the 6-digit code sent to your mobile number." : "This is your password. You will not receive an OTP."}
                       </p>
                     </div>
 
-                    <form noValidate onSubmit={handleDateOfBirthLogin} className="space-y-6">
+                    <form noValidate onSubmit={role === "student" ? handleStudentOtpLogin : handleDateOfBirthLogin} className="space-y-6">
                       <div>
-                        <label htmlFor="login-date-of-birth" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">Date of birth</label>
-                        <input
-                          id="login-date-of-birth"
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="current-password"
-                          value={dateOfBirth}
-                          onChange={(e) => setDateOfBirth(e.target.value)}
-                          placeholder="DD/MM/YYYY or YYYY-MM-DD"
-                          className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all"
-                        />
-                        <p className="mt-2 text-xs text-gray-500">For a parent account, enter the linked child&apos;s date of birth.</p>
+                        {role === "student" ? <>
+                          <label htmlFor="student-login-otp" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">6-digit OTP</label>
+                          <input id="student-login-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} placeholder="Enter 6-digit OTP" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all tracking-[0.35em]" />
+                          <button type="button" disabled={isLoading} onClick={() => void requestStudentOtp(phone)} className="mt-2 text-xs font-bold text-[#0B132B] hover:text-[#9A6E1C] disabled:opacity-50">Resend OTP</button>
+                        </> : <>
+                          <label htmlFor="login-date-of-birth" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">Date of birth</label>
+                          <input id="login-date-of-birth" type="date" autoComplete="bday" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all" />
+                          <p className="mt-2 text-xs text-gray-500">Select the linked child&apos;s date of birth from the calendar.</p>
+                        </>}
                       </div>
 
                       {/* Verify Button */}
                       <button
                         type="submit"
-                        disabled={!dateOfBirth.trim() || isLoading}
+                        disabled={(role === "student" ? !/^\d{6}$/.test(otp) : !dateOfBirth.trim()) || isLoading}
                         className="w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
                         style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}
                       >

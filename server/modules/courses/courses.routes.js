@@ -12,7 +12,7 @@ router.use(authMiddleware);
 
 router.post(
   '/',
-  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS]),
+  rbacMiddleware.requireRole([ROLES.SUPER_SUPER_ADMIN, ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS]),
   validate(createCourseSchema),
   CourseController.createCourse
 );

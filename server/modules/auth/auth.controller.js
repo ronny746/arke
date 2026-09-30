@@ -42,10 +42,10 @@ exports.changePassword = async (req, res, next) => {
 
 exports.requestOtp = async (req, res, next) => {
     try {
-        // Student and parent credentials are DOB-based by product decision. OTP
-        // flows remain available only for the separate teacher login journey.
-        if ((req.body.role || '').toLowerCase() !== 'teacher') {
-            return errorResponse(res, 'Students and parents must sign in with their registered account and date of birth.', null, 400);
+        // Students sign in directly with a mobile OTP. Parent login remains
+        // DOB-based; teacher OTP support is retained for the teacher portal.
+        if (!['student', 'teacher'].includes((req.body.role || '').toLowerCase())) {
+            return errorResponse(res, 'Mobile OTP is available for students and teachers only. Parents must use the linked child\'s date of birth.', null, 400);
         }
         const rawPhone = req.body.mobileNumber || req.body.phone || req.body.phoneNumber || req.body.mobile;
         
@@ -79,8 +79,8 @@ exports.verifyOtp = async (req, res, next) => {
         const rawPhone = req.body.phone || req.body.mobileNumber || req.body.phoneNumber || req.body.mobile;
         const requestedRole = role || 'student';
 
-        if (['student', 'parent'].includes(String(requestedRole).toLowerCase())) {
-            return errorResponse(res, 'OTP login is not available for students or parents. Use date of birth as the password.', null, 400);
+        if (!['student', 'teacher'].includes(String(requestedRole).toLowerCase())) {
+            return errorResponse(res, 'Mobile OTP is available for students and teachers only. Parents must use the linked child\'s date of birth.', null, 400);
         }
 
         if (!rawPhone || !otp) {
@@ -118,7 +118,8 @@ exports.verifyOtp = async (req, res, next) => {
             }
 
             if (!user) {
-                // Create new barebones user if they don't exist
+                // A matching phone signs in; an unknown student phone starts
+                // the registration flow with a minimal profile.
                 const Institute = require('../institutes/institutes.model');
                 const defaultInstitute = await Institute.findOne();
                 
@@ -219,10 +220,7 @@ exports.requestEmailOtp = async (req, res, next) => {
             return errorResponse(res, "Email is required", null, 400);
         }
         
-        let roleQuery = role;
-        if (role === 'admin' || role === 'super_admin') {
-            roleQuery = { $in: ['admin', 'super_admin', 'super_super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'] };
-        }
+        const roleQuery = role === 'admin' ? 'admin' : role;
 
         const user = await User.findOne({ email: email.toLowerCase(), role: roleQuery });
         if (!user) {
@@ -257,10 +255,7 @@ exports.verifyEmailOtp = async (req, res, next) => {
             return errorResponse(res, "Email and OTP are required", null, 400);
         }
 
-        let roleQuery = role;
-        if (role === 'admin' || role === 'super_admin') {
-            roleQuery = { $in: ['admin', 'super_admin', 'super_super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'] };
-        }
+        const roleQuery = role === 'admin' ? 'admin' : role;
 
         const user = await User.findOne({ email: email.toLowerCase(), role: roleQuery });
         if (!user) {

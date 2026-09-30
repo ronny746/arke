@@ -1,20 +1,65 @@
 const CourseModel = require('./courses.model');
 const BatchModel = require('../batches/batches.model');
 const { FeeRecord, PaymentTransaction } = require('../fees-payments/fees-payments.model');
+const InstituteModel = require('../institutes/institutes.model');
+const UserModel = require('../users/users.model');
+
+async function validateSubjectTeachers(payload, instituteId) {
+  if (!Array.isArray(payload.subjects)) return;
+
+  const teacherIds = [...new Set(
+    payload.subjects.map(subject => subject.teacherId).filter(Boolean).map(String)
+  )];
+  if (!teacherIds.length) return;
+
+  const matchingTeachers = await UserModel.countDocuments({
+    _id: { $in: teacherIds },
+    instituteId,
+    role: 'teacher',
+    isActive: true
+  });
+
+  if (matchingTeachers !== teacherIds.length) {
+    throw new Error('Each subject teacher must be an active teacher in this institute.');
+  }
+}
+
+function includeSubjectTeachersAsFaculty(payload, existingFacultyIds = []) {
+  if (!Array.isArray(payload.subjects)) return payload;
+  const subjectTeacherIds = payload.subjects.map(subject => subject.teacherId).filter(Boolean).map(String);
+  if (subjectTeacherIds.length) {
+    payload.faculties = Array.from(new Set([
+      ...(payload.faculties || existingFacultyIds).map(String),
+      ...subjectTeacherIds
+    ]));
+  }
+  return payload;
+}
 
 exports.createCourse = async (reqUser, payload) => {
+  let instituteId = reqUser.instituteId;
+  // A setup admin may not be attached to an institute yet. For a brand-new
+  // database safely target the only active institute.
+  if (reqUser.role === 'admin' && !instituteId) {
+    const institutes = await InstituteModel.find({ isActive: true }).select('_id').limit(2);
+    if (institutes.length !== 1) {
+      throw new Error('Select an institute before creating a course.');
+    }
+    instituteId = institutes[0]._id;
+  }
+  if (!instituteId) throw new Error('An institute is required before creating a course.');
+  await validateSubjectTeachers(payload, instituteId);
+  includeSubjectTeachersAsFaculty(payload);
   const course = new CourseModel({
     ...payload,
-    instituteId: reqUser.instituteId
+    instituteId
   });
   return await course.save();
 };
 
 exports.getCourses = async (reqUser, filters = {}) => {
   const query = {};
-  if (reqUser.role !== 'super_super_admin') {
-    query.instituteId = reqUser.instituteId;
-  }
+  if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
   if (reqUser.role === 'student') {
     query.isPublished = { $ne: false };
   }
@@ -51,23 +96,32 @@ exports.getCourses = async (reqUser, filters = {}) => {
   }
   return await CourseModel.find(query)
     .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
+    .populate('subjects.teacherId', 'firstName lastName profilePictureUrl')
     .sort({ createdAt: -1 });
 };
 
 exports.getCourseById = async (id, reqUser) => {
   const query = { _id: id };
-  if (reqUser && reqUser.role !== 'super_super_admin' && reqUser.role !== 'student') {
+  if (reqUser?.instituteId && reqUser.role !== 'student') {
     query.instituteId = reqUser.instituteId;
   }
-  return await CourseModel.findOne(query).populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role');
+  return await CourseModel.findOne(query)
+    .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
+    .populate('subjects.teacherId', 'firstName lastName profilePictureUrl');
 };
 
 exports.updateCourse = async (id, payload, reqUser) => {
+  const existingCourse = await CourseModel.findOne({ _id: id, instituteId: reqUser.instituteId }).select('faculties');
+  if (!existingCourse) return null;
+  await validateSubjectTeachers(payload, reqUser.instituteId);
+  includeSubjectTeachersAsFaculty(payload, existingCourse.faculties || []);
   return await CourseModel.findOneAndUpdate(
     { _id: id, instituteId: reqUser.instituteId },
     payload,
     { new: true }
-  ).populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role');
+  )
+    .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
+    .populate('subjects.teacherId', 'firstName lastName profilePictureUrl');
 };
 
 exports.deleteCourse = async (id, reqUser) => {
@@ -83,7 +137,6 @@ exports.enrollCourse = async (id, reqUser, payload) => {
   }
   
   const studentId = reqUser.userId || reqUser.id || reqUser._id;
-  const UserModel = require('../users/users.model');
   const user = await UserModel.findById(studentId);
   if (!user) throw new Error('User not found');
 
@@ -113,11 +166,14 @@ exports.enrollCourse = async (id, reqUser, payload) => {
   if (!assignedBatchId) {
     let firstBatch = await BatchModel.findOne({ courseId: id });
     if (!firstBatch) {
+      const courseTeachers = (course.faculties || []).filter(Boolean);
       firstBatch = new BatchModel({
         instituteId: course.instituteId || user.instituteId,
         name: `${course.name} Batch 1`,
         section: 'A',
         courseId: course._id,
+        teachers: courseTeachers,
+        ...(courseTeachers[0] ? { batchTeacherId: courseTeachers[0] } : {}),
         students: [],
         type: 'online',
         isActive: true
@@ -215,4 +271,3 @@ exports.getCourseExams = async (id, reqUser) => {
     };
   });
 };
-

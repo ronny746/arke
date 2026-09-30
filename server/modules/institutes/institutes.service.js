@@ -19,7 +19,7 @@ exports.createInstitute = async (payload) => {
       lastName: adminLastName,
       email: adminEmail,
       password: adminPassword,
-      role: ROLES.SUPER_ADMIN,
+      role: ROLES.ADMIN,
       instituteId: institute._id,
       isActive: true
     });

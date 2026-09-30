@@ -88,8 +88,8 @@ export default function LandingPage() {
       return;
     }
     const role = user.role || "student";
-    if (role === "admin" || role === "super_admin") router.push("/admin/dashboard");
-    else if (role === "teacher" || role === "arke-teacher" || role === "arke-teacher") router.push("/teacher/dashboard");
+    if (role === "admin") router.push("/admin/dashboard");
+    else if (role === "teacher") router.push("/teacher/dashboard");
     else router.push("/student/dashboard");
   };
 
@@ -167,21 +167,13 @@ export default function LandingPage() {
                 <ArrowRight className="h-4 w-4" />
               </button>
             ) : (
-              <>
-                <button
-                  onClick={() => setIsLoginModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2 text-sm font-bold text-white hover:bg-white/20 transition-colors"
-                >
-                  Log In
-                </button>
-                <button
-                  onClick={() => setIsLoginModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-6 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
-                >
-                  Get Started
-                  <Sparkles className="h-4 w-4" />
-                </button>
-              </>
+              <button
+                onClick={() => setIsLoginModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-6 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-95 transition-all duration-200 hover:scale-[1.02]"
+              >
+                Sign in / Register
+                <Sparkles className="h-4 w-4" />
+              </button>
             )}
           </div>
 
@@ -257,20 +249,12 @@ export default function LandingPage() {
                     Go to Dashboard
                   </button>
                 ) : (
-                  <>
-                    <button
-                      onClick={() => { setMobileMenuOpen(false); setIsLoginModalOpen(true); }}
-                      className="w-full text-center rounded-full border border-white/30 bg-white/10 py-3 text-sm font-bold text-white hover:bg-white/20 transition-colors"
-                    >
-                      Log In
-                    </button>
-                    <button
-                      onClick={() => { setMobileMenuOpen(false); setIsLoginModalOpen(true); }}
-                      className="w-full text-center rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] py-3 text-sm font-bold text-white shadow-lg"
-                    >
-                      Get Started
-                    </button>
-                  </>
+                  <button
+                    onClick={() => { setMobileMenuOpen(false); setIsLoginModalOpen(true); }}
+                    className="w-full text-center rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] py-3 text-sm font-bold text-white shadow-lg"
+                  >
+                    Sign in / Register
+                  </button>
                 )}
               </div>
             </motion.div>
@@ -312,7 +296,7 @@ export default function LandingPage() {
                   onClick={() => user ? router.push("/student/dashboard") : setIsLoginModalOpen(true)}
                   className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-7 py-3.5 text-sm md:text-base font-bold text-white shadow-lg shadow-emerald-950/20 hover:scale-[1.02] transition-all"
                 >
-                  {user ? "Explore Courses" : "Get Started"}
+                  {user ? "Explore Courses" : "Sign in / Register"}
                   <ArrowRight className="h-4 w-4" />
                 </button>
                 <a

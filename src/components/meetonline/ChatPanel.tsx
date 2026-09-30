@@ -22,7 +22,7 @@ const QUICK_EMOJIS = ['👍', '❤️', '🔥', '😂', '🎉', '👏', '🙋‍
 
 const getRoleColor = (role: string) => {
   if (role === 'teacher') return 'from-violet-600 to-purple-700';
-  if (role === 'super_admin' || role === 'admin') return 'from-amber-500 to-orange-600';
+  if (role === 'admin') return 'from-amber-500 to-orange-600';
   return 'from-sky-500 to-blue-600';
 };
 
@@ -113,7 +113,7 @@ export default function ChatPanel({ roomCode, socket, userRole, commentsEnabled 
           </div>
         ) : (
           messages.map((msg) => {
-            const isTeacher = msg.role === 'teacher' || msg.role === 'admin' || msg.role === 'super_admin';
+            const isTeacher = msg.role === 'teacher' || msg.role === 'admin';
             const initials = (msg.senderName || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
             const likesCount = messageLikes[msg._id] || 0;
 

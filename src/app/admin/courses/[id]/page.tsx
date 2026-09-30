@@ -432,18 +432,21 @@ function ManageSubjectsModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [dbSubjects, setDbSubjects] = useState<any[]>([]);
+  const [allTeachers, setAllTeachers] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<Array<{
     name: string;
     icon: string;
     chaptersCount: number | '';
     dppsCount: number | '';
     testsCount: number | '';
+    teacherId: string;
     description: string;
     topics: string[];
   }>>(
     course.subjects?.map((s: any) => ({
       name: s.name || '',
       icon: s.icon || '📖',
+      teacherId: s.teacherId?._id || s.teacherId || '',
       chaptersCount: s.chaptersCount ?? '',
       dppsCount: s.dppsCount ?? '',
       testsCount: s.testsCount ?? '',
@@ -458,6 +461,10 @@ function ManageSubjectsModal({
         if (res.data?.data) setDbSubjects(res.data.data);
       })
       .catch(() => {});
+    fetch('/api/v1/users?role=teacher', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(data => { if (data.success) setAllTeachers(data.data || []); })
+      .catch(() => {});
   }, []);
 
   const addSubject = (preset?: any) => {
@@ -466,6 +473,7 @@ function ManageSubjectsModal({
       {
         name: preset?.name || '',
         icon: preset?.icon || '📖',
+        teacherId: '',
         chaptersCount: preset?.chaptersCount ?? '',
         dppsCount: preset?.dppsCount ?? '',
         testsCount: preset?.testsCount ?? '',
@@ -480,6 +488,7 @@ function ManageSubjectsModal({
     const mapped = presets.map(p => ({
       name: p.name,
       icon: p.icon,
+      teacherId: '',
       chaptersCount: p.chaptersCount,
       dppsCount: p.dppsCount,
       testsCount: p.testsCount,
@@ -499,6 +508,7 @@ function ManageSubjectsModal({
     const mapped = dbSubjects.map(s => ({
       name: s.name,
       icon: s.icon || '📖',
+      teacherId: '',
       chaptersCount: s.chaptersCount || 20,
       dppsCount: s.dppsCount || 100,
       testsCount: s.testsCount || 15,
@@ -698,8 +708,8 @@ function ManageSubjectsModal({
                     </button>
                   </div>
 
-                  {/* Row 2: Metrics Grid */}
-                  <div className="grid grid-cols-3 gap-3">
+                  {/* Row 2: Metrics and subject teacher */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">Chapters Count</label>
                       <input
@@ -709,6 +719,13 @@ function ManageSubjectsModal({
                         placeholder="e.g. 28"
                         className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-800 focus:outline-none focus:border-[#059669]"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">Subject Teacher</label>
+                      <select value={sub.teacherId} onChange={e => updateSubject(idx, 'teacherId', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-800 focus:outline-none focus:border-[#059669]">
+                        <option value="">Assign later</option>
+                        {allTeachers.map((teacher: any) => <option key={teacher._id} value={teacher._id}>{teacher.firstName} {teacher.lastName}</option>)}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">DPP Sets</label>
@@ -1150,6 +1167,13 @@ export default function CourseDetailsPage() {
                       </div>
                       <div>
                         <h4 className="font-black text-gray-900 text-base group-hover:text-[#059669] transition-colors">{sub.name}</h4>
+                        {sub.teacherId && typeof sub.teacherId === 'object' ? (
+                          <p className="mt-0.5 text-[11px] font-semibold text-indigo-700">
+                            Teacher: {[sub.teacherId.firstName, sub.teacherId.lastName].filter(Boolean).join(' ')}
+                          </p>
+                        ) : (
+                          <p className="mt-0.5 text-[11px] text-gray-400">Teacher not assigned</p>
+                        )}
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                           Syllabus Configured
                         </span>

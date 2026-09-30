@@ -71,9 +71,6 @@ export default function StudentDashboard() {
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Filter Tabs
-  const [selectedFilterTab, setSelectedFilterTab] = useState('RECOMMENDED');
-
   // Preference Switcher Modal State
   const [showPreferenceModal, setShowPreferenceModal] = useState(false);
   const [prefGoal, setPrefGoal] = useState('NEET');
@@ -123,7 +120,13 @@ export default function StudentDashboard() {
 
         try {
           const uInstId = parsedUser?.instituteId || parsedUser?.institute?._id || '';
-          const url = '/api/v1/public/courses' + (uInstId ? `?instituteId=${uInstId}` : '');
+          const query = new URLSearchParams();
+          if (uInstId) query.set('instituteId', uInstId);
+          if (parsedUser?.metadata?.targetExam) {
+            query.set('targetExam', parsedUser.metadata.targetExam);
+            query.set('strictGoal', 'true');
+          }
+          const url = `/api/v1/public/courses${query.size ? `?${query}` : ''}`;
           const coursesRes = await fetch(url).then(r => r.json());
           if (coursesRes.success) {
             const seenIds = new Set<string>();
@@ -209,6 +212,11 @@ export default function StudentDashboard() {
   const currentClass = user?.metadata?.studentClass || 'Class 11';
   const currentMedium = user?.metadata?.medium || 'Hinglish';
 
+  const matchesCurrentGoal = (course: any) => {
+    const courseGoals = Array.isArray(course.targetExams) ? course.targetExams : [];
+    return course.targetExam === currentGoal || courseGoals.includes(currentGoal);
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: 0.08 } }
@@ -220,6 +228,10 @@ export default function StudentDashboard() {
   };
 
   const filteredCourses = unenrolledCourses.filter((course: any) => {
+    // A student should only be offered courses explicitly configured for their goal.
+    // Global / legacy courses are not upgrades until an admin targets them.
+    if (!matchesCurrentGoal(course)) return false;
+
     // Search query match
     if (courseSearchQuery.trim()) {
       const q = courseSearchQuery.trim().toLowerCase();
@@ -234,19 +246,7 @@ export default function StudentDashboard() {
       if (!matchesSearch) return false;
     }
 
-    // Tab filter match
-    if (selectedFilterTab === 'RECOMMENDED') {
-      return (
-        !course.targetExam ||
-        course.targetExam === 'ALL' ||
-        course.targetExam === currentGoal ||
-        (course.targetExams && (course.targetExams.includes(currentGoal) || course.targetExams.includes('ALL')))
-      );
-    }
-
-    if (selectedFilterTab === 'ALL') return true;
-
-    return course.targetExam === selectedFilterTab || course.targetExam === 'ALL' || !course.targetExam;
+    return true;
   });
 
   return (
@@ -326,43 +326,6 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Goal Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
-          <button
-            onClick={() => setSelectedFilterTab('RECOMMENDED')}
-            className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all flex items-center gap-1.5 border ${
-              selectedFilterTab === 'RECOMMENDED'
-                ? 'bg-[#0B132B] text-white border-[#C99A2E] shadow-sm'
-                : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200'
-            }`}
-          >
-            <Sparkles size={13} className="text-[#C99A2E]" /> Recommended ({currentGoal})
-          </button>
-          <button
-            onClick={() => setSelectedFilterTab('ALL')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
-              selectedFilterTab === 'ALL'
-                ? 'bg-[#0B132B] text-white border-[#C99A2E] shadow-sm'
-                : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200'
-            }`}
-          >
-            All Courses
-          </button>
-          {EXAM_GOALS.map(goal => (
-            <button
-              key={goal.id}
-              onClick={() => setSelectedFilterTab(goal.id)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
-                selectedFilterTab === goal.id
-                  ? 'bg-[#0B132B] text-white border-[#C99A2E] shadow-sm'
-                  : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200'
-              }`}
-            >
-              {goal.title}
-            </button>
-          ))}
-        </div>
-
         {/* Courses Grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -380,12 +343,12 @@ export default function StudentDashboard() {
               <BookOpen size={26} />
             </div>
             <p className="font-bold text-[#0B132B] text-base">No courses found</p>
-            <p className="text-xs text-gray-400 mt-1">Try changing your search query or selecting "All Courses".</p>
+            <p className="text-xs text-gray-400 mt-1">No upgrade course is configured for your current goal yet.</p>
             <button
-              onClick={() => setSelectedFilterTab('ALL')}
+              onClick={() => setShowPreferenceModal(true)}
               className="mt-4 px-4 py-2 rounded-xl bg-[#0B132B] text-white text-xs font-bold hover:bg-[#C99A2E] transition-all"
             >
-              View All Courses
+              Change Learning Goal
             </button>
           </div>
         ) : (
@@ -397,7 +360,7 @@ export default function StudentDashboard() {
           >
             {filteredCourses.map((plan: any) => {
               const planColor = plan.color || '#0B132B';
-              const isGoalMatch = plan.targetExam === currentGoal || plan.targetExam === 'ALL' || !plan.targetExam;
+              const isGoalMatch = matchesCurrentGoal(plan);
 
               return (
                 <motion.div

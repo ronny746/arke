@@ -30,6 +30,7 @@ import {
   Info
 } from 'lucide-react';
 import { adminAPI } from '@/api/index.js';
+import toast from 'react-hot-toast';
 
 const EXAM_OPTIONS = [
   { id: 'ALL', label: 'All Exams (Global)', tagline: 'Visible to all students' },
@@ -119,6 +120,7 @@ function CourseBuilderContent() {
     subjects: [] as Array<{
       name: string;
       icon: string;
+      teacherId: string;
       chaptersCount: number | '';
       dppsCount: number | '';
       testsCount: number | '';
@@ -185,6 +187,7 @@ function CourseBuilderContent() {
               subjects: Array.isArray(c.subjects) ? c.subjects.map((s: any) => ({
                 name: s.name || '',
                 icon: s.icon || '📖',
+                teacherId: s.teacherId?._id || s.teacherId || '',
                 chaptersCount: s.chaptersCount ?? '',
                 dppsCount: s.dppsCount ?? '',
                 testsCount: s.testsCount ?? '',
@@ -242,6 +245,7 @@ function CourseBuilderContent() {
     const newSubject = {
       name: preset?.name || '',
       icon: preset?.icon || '📖',
+      teacherId: '',
       chaptersCount: preset?.chaptersCount ?? '',
       dppsCount: preset?.dppsCount ?? '',
       testsCount: preset?.testsCount ?? '',
@@ -255,6 +259,13 @@ function CourseBuilderContent() {
     const updated = [...form.subjects];
     updated[index] = { ...updated[index], [field]: value };
     set('subjects', updated);
+  };
+
+  const assignSubjectTeacher = (index: number, teacherId: string) => {
+    updateSubject(index, 'teacherId', teacherId);
+    if (teacherId && !form.faculties.includes(teacherId)) {
+      set('faculties', [...form.faculties, teacherId]);
+    }
   };
 
   const removeSubject = (index: number) => {
@@ -284,6 +295,7 @@ function CourseBuilderContent() {
       const mapped = dbSubjects.map((s: any) => ({
         name: s.name,
         icon: s.icon || '📖',
+        teacherId: '',
         chaptersCount: s.chaptersCount || 20,
         dppsCount: s.dppsCount || 100,
         testsCount: s.testsCount || 15,
@@ -300,6 +312,7 @@ function CourseBuilderContent() {
     const mapped = presets.map(p => ({
       name: p.name,
       icon: p.icon,
+      teacherId: '',
       chaptersCount: p.chaptersCount,
       dppsCount: p.dppsCount,
       testsCount: p.testsCount,
@@ -416,6 +429,7 @@ function CourseBuilderContent() {
         subjects: form.subjects.map(s => ({
           name: s.name.trim(),
           icon: s.icon || '📖',
+          teacherId: s.teacherId || null,
           chaptersCount: s.chaptersCount !== '' ? Number(s.chaptersCount) : 0,
           dppsCount: s.dppsCount !== '' ? Number(s.dppsCount) : 0,
           testsCount: s.testsCount !== '' ? Number(s.testsCount) : 0,
@@ -833,6 +847,21 @@ function CourseBuilderContent() {
                             className="w-full px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-800"
                           />
                         </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Subject Teacher</label>
+                        <select
+                          value={sub.teacherId}
+                          onChange={e => assignSubjectTeacher(idx, e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#0B132B]"
+                        >
+                          <option value="">Assign later</option>
+                          {allTeachers.map((teacher: any) => (
+                            <option key={teacher._id} value={teacher._id}>{teacher.firstName} {teacher.lastName}</option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-[10px] text-gray-400">Selecting a teacher also adds them to this course&apos;s faculty list.</p>
                       </div>
 
                       {/* Topics / Syllabus List */}

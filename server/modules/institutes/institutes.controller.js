@@ -14,7 +14,7 @@ exports.create = async (req, res, next) => {
 exports.getAll = async (req, res, next) => {
   try {
     let data;
-    if (req.user.role === ROLES.SUPER_SUPER_ADMIN) {
+    if (!req.user.instituteId) {
       data = await InstituteService.getAllInstitutes();
     } else {
       const institute = await InstituteService.getInstituteById(req.user.instituteId);
@@ -29,7 +29,7 @@ exports.getAll = async (req, res, next) => {
 exports.getById = async (req, res, next) => {
   try {
     const targetId = req.params.id;
-    if (req.user.role !== ROLES.SUPER_SUPER_ADMIN && req.user.instituteId.toString() !== targetId) {
+    if (req.user.instituteId && req.user.instituteId.toString() !== targetId) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
     const data = await InstituteService.getInstituteById(targetId);
@@ -43,7 +43,7 @@ exports.getById = async (req, res, next) => {
 exports.update = async (req, res, next) => {
   try {
     const targetId = req.params.id;
-    if (req.user.role !== ROLES.SUPER_SUPER_ADMIN && req.user.instituteId.toString() !== targetId) {
+    if (req.user.instituteId && req.user.instituteId.toString() !== targetId) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
     const data = await InstituteService.updateInstitute(targetId, req.body);

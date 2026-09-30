@@ -289,7 +289,7 @@ exports.getRemedialDpps = async (req, res) => {
 exports.getSession = async (req, res) => {
   try {
     const query = { _id: req.params.id };
-    if (req.user.role !== 'admin' && req.user.role !== 'super_admin' && req.user.role !== 'teacher') {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
       query.student = req.user.userId;
     }
     const session = await PracticeSession.findOne(query);

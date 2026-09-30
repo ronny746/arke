@@ -18,13 +18,22 @@ router.get('/', async (req, res, next) => {
       query.instituteId = req.query.instituteId;
     }
     if (req.query.targetExam && req.query.targetExam !== 'ALL') {
-      query.$or = [
-        { targetExam: req.query.targetExam },
-        { targetExam: 'ALL' },
-        { targetExam: { $exists: false } },
-        { targetExams: req.query.targetExam },
-        { targetExams: 'ALL' }
-      ];
+      const strictGoal = req.query.strictGoal === 'true';
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: strictGoal
+          ? [
+              { targetExam: req.query.targetExam },
+              { targetExams: req.query.targetExam }
+            ]
+          : [
+              { targetExam: req.query.targetExam },
+              { targetExam: 'ALL' },
+              { targetExam: { $exists: false } },
+              { targetExams: req.query.targetExam },
+              { targetExams: 'ALL' }
+            ]
+      });
     }
     if (req.query.targetClass && req.query.targetClass !== 'ALL') {
       query.$and = query.$and || [];

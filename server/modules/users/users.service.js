@@ -2,10 +2,10 @@ const UserModel = require('./users.model');
 const { ROLES } = require('../../config/constants');
 
 exports.createUser = async (reqUser, payload) => {
-  // Associate user with the same institute as the admin who is creating them, 
-  // unless the creator is a SUPER_SUPER_ADMIN who provides an explicit instituteId.
+  // Associate the account with the creator's institute. Only the initial
+  // setup admin (which has no institute yet) may explicitly choose one.
   let instituteId = reqUser.instituteId;
-  if (reqUser.role === ROLES.SUPER_SUPER_ADMIN && payload.instituteId) {
+  if (!instituteId && payload.instituteId) {
     instituteId = payload.instituteId;
   }
   
@@ -51,9 +51,7 @@ exports.createUser = async (reqUser, payload) => {
 
 exports.getDistinctClasses = async (reqUser) => {
   const query = { role: ROLES.STUDENT };
-  if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN) {
-    query.instituteId = reqUser.instituteId;
-  }
+  if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
   const dbClasses = await UserModel.distinct('metadata.class', query);
   const defaultClasses = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'Dropper', 'Foundation'];
   const merged = Array.from(new Set([...defaultClasses, ...(dbClasses.filter(Boolean))]));
@@ -63,9 +61,7 @@ exports.getDistinctClasses = async (reqUser) => {
 exports.getDistinctSections = async (reqUser, className) => {
   const query = { role: ROLES.STUDENT };
   if (className) query['metadata.class'] = className;
-  if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN) {
-    query.instituteId = reqUser.instituteId;
-  }
+  if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
   const dbSections = await UserModel.distinct('metadata.section', query);
   const defaultSections = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   const merged = Array.from(new Set([...defaultSections, ...(dbSections.filter(Boolean))]));
@@ -73,17 +69,24 @@ exports.getDistinctSections = async (reqUser, className) => {
 };
 
 exports.getAllUsers = async (reqUser, query = {}) => {
-  // If not super_super_admin, enforce tenant isolation
-  if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN) {
-    query.instituteId = reqUser.instituteId;
-  }
+  // Admin, teacher, student and parent accounts are tenant-isolated.
+  if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
   
   // If a teacher is requesting the list of students, only return students from their assigned batches
   if (reqUser.role === 'teacher' && (query.role === 'student' || !query.role)) {
     const BatchModel = require('../batches/batches.model');
+    const CourseModel = require('../courses/courses.model');
+    const teacherCourseIds = (await CourseModel.find({
+      instituteId: reqUser.instituteId,
+      $or: [{ faculties: reqUser.userId }, { 'subjects.teacherId': reqUser.userId }]
+    }).select('_id')).map(course => course._id);
     const teacherBatches = await BatchModel.find({
       instituteId: reqUser.instituteId,
-      $or: [{ batchTeacherId: reqUser.userId }, { teachers: reqUser.userId }]
+      $or: [
+        { batchTeacherId: reqUser.userId },
+        { teachers: reqUser.userId },
+        { courseId: { $in: teacherCourseIds } }
+      ]
     });
     
     const studentIds = new Set();
@@ -134,9 +137,7 @@ exports.getAllUsers = async (reqUser, query = {}) => {
 
 exports.getUserById = async (id, reqUser) => {
   const query = { _id: id };
-  if (reqUser && reqUser.role !== ROLES.SUPER_SUPER_ADMIN) {
-    query.instituteId = reqUser.instituteId;
-  }
+  if (reqUser?.instituteId) query.instituteId = reqUser.instituteId;
   
   let queryBuilder = UserModel.findOne(query).select(
     reqUser && (reqUser.role === ROLES.TEACHER || reqUser.role === 'teacher')
@@ -154,17 +155,13 @@ exports.getUserById = async (id, reqUser) => {
 
 exports.updateUser = async (id, payload, reqUser) => {
   const query = { _id: id };
-  if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN) {
-    query.instituteId = reqUser.instituteId;
-  }
+  if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
   return await UserModel.findOneAndUpdate(query, payload, { new: true }).select('-password');
 };
 
 exports.deleteUser = async (id, reqUser) => {
   const query = { _id: id };
-  if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN) {
-    query.instituteId = reqUser.instituteId;
-  }
+  if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
   return await UserModel.findOneAndDelete(query);
 };
 
@@ -174,14 +171,14 @@ exports.suspendStudent = async (id, endDate, reqUser) => {
     throw new Error('Suspension end date must be in the future.');
   }
   const query = { _id: id, role: ROLES.STUDENT };
-  if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN) query.instituteId = reqUser.instituteId;
+  if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
   const student = await UserModel.findOneAndUpdate(query, { $set: { suspensionEndsAt } }, { new: true }).select('-password');
   if (!student) throw new Error('Student not found.');
   return student;
 };
 
 exports.linkParentStudent = async (parentId, studentId, reqUser) => {
-  const queryBase = reqUser.role === ROLES.SUPER_SUPER_ADMIN ? {} : { instituteId: reqUser.instituteId };
+  const queryBase = reqUser.instituteId ? { instituteId: reqUser.instituteId } : {};
   
   const parent = await UserModel.findOne({ _id: parentId, role: 'parent', ...queryBase });
   const student = await UserModel.findOne({ _id: studentId, role: 'student', ...queryBase });

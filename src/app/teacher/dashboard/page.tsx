@@ -2,16 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, Video, FileText, MessageSquare, CheckCircle, Plus, ArrowUpRight, BookOpen, Star, Clock, TrendingUp } from 'lucide-react';
+import { Users, Video, FileText, CheckCircle, ArrowUpRight, BookOpen, Star, Clock, GraduationCap } from 'lucide-react';
 import { motion } from 'framer-motion';
-import toast from 'react-hot-toast';
 import NeetCountdownCard from '@/components/NeetCountdownCard';
-
-const statusStyle = {
-  done:     { label: 'Done', color: '#059669', bg: '#ecfdf5' },
-  ongoing:  { label: '🔴 Live', color: '#dc2626', bg: '#fef2f2' },
-  upcoming: { label: 'Upcoming', color: '#6b7280', bg: '#f3f4f6' },
-};
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -70,17 +63,20 @@ export default function TeacherDashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'My Students', value: dashboardData?.totalStudents || 0, change: 'Total assigned students', icon: Users, color: '#1a7a35', bg: '#ecfdf5' },
-          { label: 'Classes Given', value: dashboardData?.totalClasses || 0, change: 'Total scheduled classes', icon: Video, color: '#0033a0', bg: '#eef2ff' },
-          { label: 'Materials Uploaded', value: dashboardData?.materialsUploaded || 0, change: 'Total resources', icon: FileText, color: '#7b3fa0', bg: '#f5f3ff' },
-          { label: 'Exams Conducted', value: dashboardData?.totalExams || 0, change: 'Total assigned exams', icon: BookOpen, color: '#e8470a', bg: '#fff7ed' },
+          { label: 'My Students', value: dashboardData?.totalStudents || 0, change: 'Total assigned students', icon: Users, color: '#1a7a35', bg: '#ecfdf5', to: '/teacher/students' },
+          { label: 'Classes Given', value: dashboardData?.totalClasses || 0, change: 'Total scheduled classes', icon: Video, color: '#0033a0', bg: '#eef2ff', to: '/teacher/live-classes' },
+          { label: 'Materials Uploaded', value: dashboardData?.materialsUploaded || 0, change: 'Total resources', icon: FileText, color: '#7b3fa0', bg: '#f5f3ff', to: '/teacher/study-materials' },
+          { label: 'Exams Conducted', value: dashboardData?.totalExams || 0, change: 'Total assigned exams', icon: BookOpen, color: '#e8470a', bg: '#fff7ed', to: '/teacher/exams' },
         ].map((stat, i) => (
-          <motion.div
+          <motion.button
             key={i}
+            type="button"
+            onClick={() => router.push(stat.to)}
+            aria-label={`Open ${stat.label}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08 }}
-            className="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg transition-all group"
+            className="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg transition-all group text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a7a35] focus-visible:ring-offset-2"
             style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             <div className="flex items-start justify-between mb-4">
@@ -92,11 +88,42 @@ export default function TeacherDashboard() {
             <p className="text-2xl font-black text-gray-800">{stat.value}</p>
             <p className="text-xs font-semibold text-gray-500 mt-0.5">{stat.label}</p>
             <p className="text-[11px] mt-2 font-medium" style={{ color: stat.color }}>{stat.change}</p>
-          </motion.div>
+          </motion.button>
         ))}
       </div>
 
-      {/* Schedule + Top Students */}
+      {/* Assigned course context */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="font-bold text-gray-800 text-sm">My Courses & Batches</h2>
+            <p className="text-[11px] text-gray-500 mt-0.5">Courses and learners assigned to you by the admin.</p>
+          </div>
+          <button onClick={() => router.push('/teacher/students')} className="text-xs font-bold text-[#1a7a35] hover:underline">Open student roster →</button>
+        </div>
+        {(dashboardData?.assignedBatches || []).length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {dashboardData.assignedBatches.map((batch) => (
+              <button key={batch._id} onClick={() => router.push('/teacher/students')} className="text-left rounded-xl border border-gray-100 bg-[#f8fafc] p-4 hover:border-[#1a7a35]/40 hover:bg-[#ecfdf5] transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-gray-800 truncate">{batch.courseName}</p>
+                    <p className="text-xs text-gray-500 mt-1">{batch.name}{batch.section ? ` · ${batch.section}` : ''}</p>
+                  </div>
+                  <GraduationCap size={18} className="text-[#1a7a35] shrink-0" />
+                </div>
+                <p className="mt-3 text-xs font-semibold text-[#1a7a35]">{batch.studentCount} assigned {batch.studentCount === 1 ? 'student' : 'students'}</p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-600">
+            No course or batch is assigned to you yet. Ask an admin to assign you to a batch; its enrolled students will appear here and under <strong>My Students</strong>.
+          </div>
+        )}
+      </section>
+
+      {/* Schedule + Assigned students */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
         {/* Today's Schedule */}
@@ -131,27 +158,27 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
-        {/* Top Students */}
+        {/* Assigned students */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-gray-800 text-sm">Top Students</h2>
+            <h2 className="font-bold text-gray-800 text-sm">Assigned Students</h2>
             <Star size={14} className="text-yellow-400" />
           </div>
           <div className="space-y-4">
-            {(dashboardData?.topStudents || []).map((student: any, i: number) => (
+            {(dashboardData?.assignedStudents || []).map((student: any, i: number) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-surface-100 flex items-center justify-center text-xs font-bold text-surface-600">
-                  {student.name.charAt(0)}
+                  {(student.firstName || '?').charAt(0)}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800">{student.name}</p>
-                  <p className="text-xs text-gray-500">{student.subject}</p>
+                  <p className="text-sm font-semibold text-gray-800">{student.firstName} {student.lastName || ''}</p>
+                  <p className="text-xs text-gray-500">{student.rollNo || 'Roll number pending'}</p>
                 </div>
-                <p className="text-sm font-bold text-primary">{student.score}%</p>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${student.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{student.isActive ? 'Active' : 'Inactive'}</span>
               </div>
             ))}
-            {(!dashboardData?.topStudents || dashboardData.topStudents.length === 0) && (
-              <p className="text-sm text-gray-500 text-center py-4">No top students found.</p>
+            {(!dashboardData?.assignedStudents || dashboardData.assignedStudents.length === 0) && (
+              <p className="text-sm text-gray-500 text-center py-4">No students in your assigned batches yet.</p>
             )}
           </div>
           <button

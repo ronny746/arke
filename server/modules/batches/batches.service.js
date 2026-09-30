@@ -1,4 +1,13 @@
 const BatchModel = require('./batches.model');
+const CourseModel = require('../courses/courses.model');
+
+async function teacherCourseIds(reqUser) {
+  const courses = await CourseModel.find({
+    instituteId: reqUser.instituteId,
+    $or: [{ faculties: reqUser.userId }, { 'subjects.teacherId': reqUser.userId }]
+  }).select('_id');
+  return courses.map(course => course._id);
+}
 
 exports.createBatch = async (reqUser, payload) => {
   const batch = new BatchModel({
@@ -10,7 +19,7 @@ exports.createBatch = async (reqUser, payload) => {
 
 exports.getBatches = async (reqUser, filters = {}) => {
   const query = {};
-  if (reqUser.role !== 'super_super_admin') {
+  if (reqUser.instituteId) {
     query.instituteId = reqUser.instituteId;
   } else if (filters.instituteId) {
     query.instituteId = filters.instituteId;
@@ -18,7 +27,12 @@ exports.getBatches = async (reqUser, filters = {}) => {
   
   // If the user is a teacher, restrict batches to the ones they are assigned to
   if (reqUser.role === 'teacher') {
-    query.$or = [{ batchTeacherId: reqUser.userId }, { teachers: reqUser.userId }];
+    const courseIds = await teacherCourseIds(reqUser);
+    query.$or = [
+      { batchTeacherId: reqUser.userId },
+      { teachers: reqUser.userId },
+      { courseId: { $in: courseIds } }
+    ];
   }
   
   if (filters.courseId) query.courseId = filters.courseId;
@@ -34,7 +48,12 @@ exports.getMyBatches = async (reqUser) => {
   if (reqUser.role === 'student') {
     query.students = reqUser.userId;
   } else if (['teacher', 'admin_acadops', 'admin_operations'].includes(reqUser.role)) {
-    query.$or = [{ batchTeacherId: reqUser.userId }, { teachers: reqUser.userId }];
+    const courseIds = await teacherCourseIds(reqUser);
+    query.$or = [
+      { batchTeacherId: reqUser.userId },
+      { teachers: reqUser.userId },
+      { courseId: { $in: courseIds } }
+    ];
   }
   return await BatchModel.find(query)
     .populate('courseId', 'name tag access startDate endDate fee duration')

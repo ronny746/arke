@@ -1,19 +1,20 @@
 const jwt = require('jsonwebtoken');
 const UserModel = require('../users/users.model');
 const env = require('../../config/env');
+const { dobPasswordCandidates } = require('../arke-portal/portal.rules');
 
 exports.login = async (email, password, expectedRole) => {
+  const identity = String(email || '').trim();
+  const normalizedPhone = identity.replace(/\D/g, '').slice(-10);
   const query = { 
     $or: [
-      { email },
-      { 'metadata.rollNo': email }, // "email" parameter can also hold roll no
-      { phone: email } // "email" parameter can also hold phone number
+      { email: identity },
+      { 'metadata.rollNo': identity }, // "email" parameter can also hold roll no
+      { phone: { $in: [identity, normalizedPhone, normalizedPhone ? `+91${normalizedPhone}` : identity] } }
     ],
     isActive: true 
   };
-  if (expectedRole) {
-    query.role = expectedRole;
-  }
+  if (expectedRole) query.role = expectedRole === 'admin' ? 'admin' : expectedRole;
 
   const user = await UserModel.findOne(query).select('+password').populate('instituteId', 'name');
   
@@ -27,7 +28,20 @@ exports.login = async (email, password, expectedRole) => {
     await user.save();
   }
 
-  const isMatch = await user.comparePassword(password);
+  const isDobLogin = ['student', 'parent'].includes(String(user.role).toLowerCase());
+  let passwordCandidates;
+  try {
+    passwordCandidates = isDobLogin ? dobPasswordCandidates(password) : [password];
+  } catch {
+    throw new Error('Invalid email or password');
+  }
+  let isMatch = false;
+  for (const candidate of passwordCandidates) {
+    if (await user.comparePassword(candidate)) {
+      isMatch = true;
+      break;
+    }
+  }
   if (!isMatch) {
     throw new Error('Invalid email or password');
   }

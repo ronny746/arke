@@ -225,6 +225,7 @@ export default function StudentCourseDetailPage() {
   // Auth & Modals State
   const [user, setUser] = useState<any>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
   const [showPayment, setShowPayment] = useState(false);
 
   // Explore other courses state
@@ -260,6 +261,13 @@ export default function StudentCourseDetailPage() {
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data) {
+          const ids = new Set<string>();
+          data.data.forEach((batch: any) => {
+            const courseId = typeof batch.courseId === 'object' ? batch.courseId?._id : batch.courseId;
+            if (courseId) ids.add(courseId.toString());
+            if (batch._id) ids.add(batch._id.toString());
+          });
+          setEnrolledCourseIds(ids);
           const isUserEnrolled = data.data.some((batch: any) => 
             (typeof batch.courseId === 'object' ? batch.courseId?._id : batch.courseId) === id ||
             batch._id === id
@@ -330,7 +338,15 @@ export default function StudentCourseDetailPage() {
     const fetchOtherCourses = async () => {
       try {
         setLoadingOtherCourses(true);
-        const res = await fetch('/api/v1/public/courses');
+        const query = new URLSearchParams();
+        const instituteId = user?.instituteId || user?.institute?._id;
+        if (instituteId) query.set('instituteId', instituteId);
+        const studentGoal = user?.metadata?.targetExam;
+        if (studentGoal) {
+          query.set('targetExam', studentGoal);
+          query.set('strictGoal', 'true');
+        }
+        const res = await fetch(`/api/v1/public/courses${query.size ? `?${query}` : ''}`);
         const data = await res.json();
         if (data && data.success && Array.isArray(data.data)) {
           setAllCourses(data.data);
@@ -343,7 +359,7 @@ export default function StudentCourseDetailPage() {
     };
 
     fetchOtherCourses();
-  }, []);
+  }, [user?.instituteId, user?.institute?._id, user?.metadata?.targetExam]);
 
   const handleAuthError = () => {
     localStorage.removeItem('token');
@@ -408,20 +424,25 @@ export default function StudentCourseDetailPage() {
     : null;
 
   // Active preferences
-  const targetGoal = course.targetExam || user?.metadata?.targetExam || 'NEET';
+  const targetGoal = user?.metadata?.targetExam || course.targetExam || 'NEET';
   const targetClass = course.targetClass || user?.metadata?.studentClass || 'Class 11';
 
   // Filter other courses (exclude current course)
-  const otherCourses = allCourses.filter(c => (c._id || c.id) !== id);
+  const otherCourses = allCourses.filter(c => {
+    const courseId = (c._id || c.id)?.toString();
+    return courseId !== id && !enrolledCourseIds.has(courseId);
+  });
 
   const filteredExploreCourses = otherCourses.filter(c => {
+    const courseGoals = Array.isArray(c.targetExams) ? c.targetExams : [];
+    if (c.targetExam !== targetGoal && !courseGoals.includes(targetGoal)) return false;
     if (exploreFilter === 'GOAL') {
-      return !c.targetExam || c.targetExam === targetGoal || c.targetExam === 'ALL';
+      return true;
     }
     if (exploreFilter === 'CLASS') {
       return !c.targetClass || c.targetClass === targetClass || c.targetClass === 'ALL';
     }
-    return true; // ALL
+    return true;
   });
 
   // Real configured subjects from DB
@@ -1241,16 +1262,6 @@ export default function StudentCourseDetailPage() {
                 📚 {targetClass}
               </button>
 
-              <button
-                onClick={() => setExploreFilter('ALL')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all border ${
-                  exploreFilter === 'ALL'
-                    ? 'bg-[#0B132B] text-[#C99A2E] border-[#0B132B] shadow-md ring-2 ring-[#C99A2E]/30'
-                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                🌟 All Available Batches
-              </button>
             </div>
           </div>
 
@@ -1270,13 +1281,13 @@ export default function StudentCourseDetailPage() {
               <div className="w-12 h-12 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center mx-auto">
                 <BookOpen size={24} />
               </div>
-              <h4 className="font-black text-gray-800 text-base">No other courses found under this filter</h4>
-              <p className="text-xs text-gray-500">Try switching the filter to "All Available Batches" to see our complete catalogue.</p>
+              <h4 className="font-black text-gray-800 text-base">No other upgrade courses found</h4>
+              <p className="text-xs text-gray-500">Only not-yet-enrolled courses matching your learning goal are shown.</p>
               <button
-                onClick={() => setExploreFilter('ALL')}
+                onClick={() => setExploreFilter('GOAL')}
                 className="px-5 py-2 rounded-xl bg-[#0B132B] text-[#C99A2E] text-xs font-black hover:bg-[#1C2541] transition-all"
               >
-                View All Batches
+                Show goal courses
               </button>
             </div>
           ) : (

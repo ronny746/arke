@@ -87,7 +87,7 @@ async function runSeed() {
     console.log('Institute already exists: ARKE Scholars (ID:', institute._id.toString(), ')');
   }
 
-  // 2. Create or Update Superadmin User
+  // 2. Create or update the institute admin user.
   const superAdminEmail = 'geniusattechie@gmail.com';
   let superAdmin = await User.findOne({ email: superAdminEmail });
   const salt = await bcrypt.genSalt(10);
@@ -101,24 +101,24 @@ async function runSeed() {
       email: superAdminEmail,
       password: hashedPassword,
       phone: '9876543210',
-      role: 'super_admin',
+      role: 'admin',
       isActive: true
     });
-    console.log('Superadmin created:', superAdminEmail);
+    console.log('Admin created:', superAdminEmail);
   } else {
     superAdmin.instituteId = institute._id;
-    superAdmin.role = 'super_admin';
+    superAdmin.role = 'admin';
     superAdmin.password = hashedPassword;
     superAdmin.isActive = true;
     await superAdmin.save();
-    console.log('Superadmin updated to super_admin role & linked to institute:', superAdminEmail);
+    console.log('Admin updated and linked to institute:', superAdminEmail);
   }
 
   console.log('\n=============================================');
-  console.log('SUCCESS: Institute & Superadmin ready!');
+  console.log('SUCCESS: Institute & admin ready!');
   console.log('Institute ID   :', institute._id.toString());
-  console.log('Superadmin ID  :', superAdmin._id.toString());
-  console.log('Superadmin Email:', superAdminEmail);
+  console.log('Admin ID       :', superAdmin._id.toString());
+  console.log('Admin Email    :', superAdminEmail);
   console.log('Default Password:', 'Admin@123');
   console.log('Login Portal   : http://localhost:3000/arke-admin');
   console.log('=============================================\n');

@@ -9,6 +9,8 @@
     "lint": "next lint",
     "test": "node --test $(find server -name '*.test.js' -type f)",
     "seed:arke": "node server/seed-arke.js",
+    "bootstrap:platform-admin": "node server/seed-platform-admin.js",
+    "migrate:roles": "node server/migrate-roles.js",
     "postinstall": "patch-package"
   },
   "dependencies": {

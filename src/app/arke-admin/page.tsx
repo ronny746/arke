@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Lock, Mail, Shield, BookOpen, Users, BarChart2, CheckCircle } from 'lucide-react';
+import { Lock, Mail, Shield, BookOpen, Users, BarChart2, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
@@ -21,34 +21,39 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const saveAdminSession = (data: Record<string, unknown>) => {
+      const payload = (data.data || data) as { tokens?: { access?: { token?: string } }; user?: { role?: string }; token?: string };
+      const { tokens, user, token } = payload;
+
+      if (tokens?.access?.token) localStorage.setItem('token', tokens.access.token);
+      else if (token) localStorage.setItem('token', token);
+      if (user) localStorage.setItem('user', JSON.stringify(user));
+
+      if (user?.role === 'admin') {
+        toast.success('Welcome back, Admin!');
+        router.push('/admin/dashboard');
+      } else {
+        toast.error('Unauthorized: Admin access only.');
+        localStorage.clear();
+      }
+  };
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) { toast.error('Please enter your email'); return; }
+    if (!email) { toast.error('Enter your admin email address.'); return; }
     setLoading(true);
     try {
-      let res = await fetch('/api/v1/auth/email/request-otp', {
+      const res = await fetch('/api/v1/auth/email/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role: 'super_admin' })
+        body: JSON.stringify({ email: email.trim(), role: 'admin' })
       });
-      let data = await res.json();
-
-      if (!res.ok) {
-        // Fallback to role: 'admin'
-        res = await fetch('/api/v1/auth/email/request-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, role: 'admin' })
-        });
-        data = await res.json();
-      }
-
-      if (!res.ok) throw new Error(data.message || 'Failed to send OTP');
-      
-      toast.success('OTP sent to your email!');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'OTP could not be sent.');
       setShowOtpInput(true);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to send OTP');
+      toast.success('OTP has been sent to your email.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'OTP could not be sent.');
     } finally {
       setLoading(false);
     }
@@ -56,52 +61,19 @@ export default function AdminLogin() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otp) { toast.error('Please enter the OTP'); return; }
+    if (!/^\d{6}$/.test(otp.trim())) { toast.error('Enter the 6-digit OTP.'); return; }
     setLoading(true);
     try {
-      // The role sent here is purely for verification, though our controller checks if the user's role matches admin-level
-      // To bypass strict single-role matching in frontend if the user is a super_admin or admin_acadops, we might need a generic admin check or send 'admin'.
-      // Let's send 'super_admin' or generic, wait, the backend `requestEmailOtp` checks `role`. We might need to try common admin roles if they use the same portal, or backend should handle array of roles.
-      // Assuming 'super_admin' is the main one for this page. Let's just not send role and let backend verify any admin. Wait, backend requires `role`.
-      // I'll send 'super_admin' for now, or maybe the portal supports 'admin' too.
-      // Let's change backend to accept array of roles or check permissions. For now, I'll send role: 'super_admin' as fallback. Let's send role: 'super_admin'.
-      
-      let res = await fetch('/api/v1/auth/email/verify-otp', {
+      const res = await fetch('/api/v1/auth/email/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp, role: 'super_admin' }) 
+        body: JSON.stringify({ email: email.trim(), otp: otp.trim(), role: 'admin' })
       });
-      let data = await res.json();
-
-      if (!res.ok) {
-        res = await fetch('/api/v1/auth/email/verify-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, otp, role: 'admin' })
-        });
-        data = await res.json();
-      }
-
-      if (!res.ok) throw new Error(data.message || 'Login failed');
-      
-      const payload = data.data || data;
-      const { tokens, user, token } = payload;
-      
-      if (tokens?.access) localStorage.setItem('token', tokens.access.token);
-      else if (token) localStorage.setItem('token', token);
-      
-      if (user) localStorage.setItem('user', JSON.stringify(user));
-      
-      toast.success('Welcome back, Admin!');
-      
-      if (user && ['admin', 'super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'].includes(user.role)) {
-        router.push('/admin/dashboard');
-      } else {
-        toast.error('Unauthorized: Admin access only.');
-        localStorage.clear();
-      }
-    } catch (error: any) {
-      toast.error(error.message || 'Invalid OTP');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'OTP verification failed.');
+      saveAdminSession(data);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'OTP verification failed.');
     } finally {
       setLoading(false);
     }
@@ -194,12 +166,11 @@ export default function AdminLogin() {
 
           <div className="mb-8">
             <h2 className="text-2xl font-black text-gray-900">Admin Sign In</h2>
-            <p className="text-gray-500 text-sm mt-1">Enter your credentials to access the admin dashboard</p>
+            <p className="text-gray-500 text-sm mt-1">Use your registered email to receive a secure OTP</p>
           </div>
 
-          <form onSubmit={showOtpInput ? handleVerifyOtp : handleSendOtp} className="space-y-5">
-            {/* Email */}
-            {!showOtpInput && (
+          <form noValidate onSubmit={showOtpInput ? handleVerifyOtp : handleSendOtp} className="space-y-5">
+            {!showOtpInput ? (
               <div>
                 <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Email Address</label>
                 <div className="relative">
@@ -213,56 +184,28 @@ export default function AdminLogin() {
                     required
                   />
                 </div>
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <span className="text-[11px] text-gray-400">Quick fill:</span>
-                  <button
-                    type="button"
-                    onClick={() => setEmail('geniusattechie@gmail.com')}
-                    className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-2.5 py-1 rounded-md transition-colors"
-                  >
-                    geniusattechie@gmail.com
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEmail('rkrana6631@gmail.com')}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-md transition-colors font-medium"
-                  >
-                    rkrana6631@gmail.com
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEmail('maan.satyacars@gmail.com')}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-md transition-colors font-medium"
-                  >
-                    maan.satyacars@gmail.com
-                  </button>
-                </div>
               </div>
-            )}
-
-            {/* OTP */}
-            {showOtpInput && (
+            ) : (
               <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Enter OTP</label>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider">Email OTP</label>
+                  <button type="button" onClick={() => { setShowOtpInput(false); setOtp(''); }} className="text-xs font-semibold text-blue-700 hover:underline">Change email</button>
+                </div>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
                     maxLength={6}
                     value={otp}
-                    onChange={e => setOtp(e.target.value)}
+                    onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
                     placeholder="Enter 6-digit OTP"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-100 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium tracking-widest text-center"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-100 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium tracking-[0.3em]"
                     required
                   />
                 </div>
-                <button 
-                  type="button" 
-                  onClick={() => setShowOtpInput(false)}
-                  className="text-xs text-blue-600 mt-2 hover:underline"
-                >
-                  Change Email
-                </button>
+                <p className="mt-2 text-xs text-gray-500">Code sent to <span className="font-semibold text-gray-700">{email}</span></p>
               </div>
             )}
 
@@ -276,12 +219,12 @@ export default function AdminLogin() {
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  {showOtpInput ? 'Verifying...' : 'Sending OTP...'}
+                  {showOtpInput ? 'Verifying OTP...' : 'Sending OTP...'}
                 </>
               ) : (
                 <>
                   <Shield size={16} />
-                  {showOtpInput ? 'Sign In to Admin Portal' : 'Request OTP'}
+                  {showOtpInput ? 'Verify OTP & Sign In' : 'Send Email OTP'}
                 </>
               )}
             </button>

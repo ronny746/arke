@@ -26,14 +26,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import { studentAPI } from "@/api/index.js";
 
-const EXAM_GOALS = [
-  { id: "NEET", title: "NEET UG", tagline: "Medical Entrance" },
-  { id: "IIT-JEE", title: "IIT JEE", tagline: "Engineering (Mains & Adv)" },
-  { id: "BOARDS-11-12", title: "Class 11 & 12", tagline: "Boards Prep" },
-  { id: "FOUNDATION-9-10", title: "Class 9 & 10", tagline: "Foundation & Olympiad" },
-  { id: "CUET-GOVT", title: "CUET & Govt", tagline: "Central Univ & Aptitude" }
-];
-
 export default function MyBatchesPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -81,7 +73,16 @@ export default function MyBatchesPage() {
     const fetchCourses = async () => {
       try {
         setLoadingCourses(true);
-        const res = await fetch('/api/v1/public/courses');
+        const stored = localStorage.getItem('user');
+        const parsedUser = stored ? JSON.parse(stored) : null;
+        const query = new URLSearchParams();
+        const instituteId = parsedUser?.instituteId || parsedUser?.institute?._id;
+        if (instituteId) query.set('instituteId', instituteId);
+        if (parsedUser?.metadata?.targetExam) {
+          query.set('targetExam', parsedUser.metadata.targetExam);
+          query.set('strictGoal', 'true');
+        }
+        const res = await fetch(`/api/v1/public/courses${query.size ? `?${query}` : ''}`);
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           setAvailableCourses(data.data);
@@ -97,17 +98,29 @@ export default function MyBatchesPage() {
 
   // Enrolled course IDs set for quick lookup
   const enrolledCourseIds = new Set<string>();
+  const enrolledCourseNames = new Set<string>();
   batches.forEach((b: any) => {
     const cId = typeof b.courseId === 'object' ? b.courseId?._id : b.courseId;
     if (cId) enrolledCourseIds.add(cId.toString());
     if (b._id) enrolledCourseIds.add(b._id.toString());
+    const courseName = typeof b.courseId === 'object' ? b.courseId?.name : (b.courseName || b.name);
+    if (courseName) enrolledCourseNames.add(courseName.toString().trim().toLowerCase());
   });
 
   const studentGoal = user?.metadata?.targetExam || 'NEET';
   const studentClass = user?.metadata?.studentClass || 'Class 11';
+  const matchesStudentGoal = (course: any) => {
+    const courseGoals = Array.isArray(course.targetExams) ? course.targetExams : [];
+    return course.targetExam === studentGoal || courseGoals.includes(studentGoal);
+  };
 
   // Filter Available Courses
   const filteredAvailableCourses = availableCourses.filter((course: any) => {
+    const courseId = (course._id || course.id)?.toString();
+    const courseName = (course.name || '').toString().trim().toLowerCase();
+    if ((courseId && enrolledCourseIds.has(courseId)) || (courseName && enrolledCourseNames.has(courseName))) return false;
+    if (!matchesStudentGoal(course)) return false;
+
     // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -117,15 +130,9 @@ export default function MyBatchesPage() {
       if (!matchName && !matchSub && !matchExam) return false;
     }
 
-    // Tab Goal Filter
-    if (selectedGoalFilter === 'RECOMMENDED') {
-      return !course.targetExam || course.targetExam === studentGoal || course.targetExam === 'ALL';
-    }
+    // Optional class narrowing never expands beyond the student's goal.
     if (selectedGoalFilter === 'CLASS') {
       return !course.targetClass || course.targetClass === studentClass || course.targetClass === 'ALL';
-    }
-    if (selectedGoalFilter !== 'ALL') {
-      return course.targetExam === selectedGoalFilter;
     }
     return true;
   });
@@ -212,7 +219,7 @@ export default function MyBatchesPage() {
             }`}
           >
             <Compass size={16} className={activeTab === 'EXPLORE' ? 'text-[#C99A2E]' : ''} />
-            <span>Explore All Batches</span>
+            <span>Explore goal-based batches</span>
             <span className="w-2 h-2 rounded-full bg-[#C99A2E] animate-pulse"></span>
           </button>
         </div>
@@ -389,7 +396,7 @@ export default function MyBatchesPage() {
               className="px-6 py-3 rounded-2xl bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] font-black text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 shrink-0"
             >
               <Compass size={16} />
-              <span>Explore All Batches</span>
+              <span>Explore {studentGoal} Batches</span>
               <ArrowRight size={14} />
             </button>
           </div>
@@ -425,32 +432,6 @@ export default function MyBatchesPage() {
               📚 Same Class ({studentClass})
             </button>
 
-            <button
-              onClick={() => setSelectedGoalFilter('ALL')}
-              className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all border ${
-                selectedGoalFilter === 'ALL'
-                  ? 'bg-[#0B132B] text-[#C99A2E] border-[#0B132B] shadow-md ring-2 ring-[#C99A2E]/30'
-                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              🌟 All Batches
-            </button>
-
-            <div className="w-px h-6 bg-gray-300 mx-1 shrink-0 hidden sm:block"></div>
-
-            {EXAM_GOALS.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => setSelectedGoalFilter(g.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
-                  selectedGoalFilter === g.id
-                    ? 'bg-[#0B132B] text-[#C99A2E] border-[#0B132B] shadow-md'
-                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                {g.title}
-              </button>
-            ))}
           </div>
 
           {/* Available Batches Grid */}
@@ -467,13 +448,13 @@ export default function MyBatchesPage() {
               </div>
               <h4 className="font-black text-gray-800 text-base">No batches found for this selection</h4>
               <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                Try clearing your search query or switching to "All Batches" to explore available programs.
+                Try clearing your search query. Only courses matching {studentGoal} are shown here.
               </p>
               <button
-                onClick={() => { setSelectedGoalFilter('ALL'); setSearchQuery(''); }}
+                onClick={() => { setSelectedGoalFilter('RECOMMENDED'); setSearchQuery(''); }}
                 className="px-5 py-2.5 rounded-xl bg-[#0B132B] text-[#C99A2E] text-xs font-black hover:bg-[#1C2541] transition-all"
               >
-                View All Batches
+                Reset search
               </button>
             </div>
           ) : (
@@ -486,7 +467,7 @@ export default function MyBatchesPage() {
               {filteredAvailableCourses.map((course: any) => {
                 const cId = course._id || course.id;
                 const isAlreadyEnrolled = enrolledCourseIds.has(cId?.toString());
-                const isGoalMatch = course.targetExam === studentGoal || !course.targetExam || course.targetExam === 'ALL';
+                const isGoalMatch = matchesStudentGoal(course);
                 
                 const discount = course.actualFee && course.fee && course.actualFee > course.fee
                   ? Math.round(((course.actualFee - course.fee) / course.actualFee) * 100)

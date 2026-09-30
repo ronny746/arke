@@ -311,7 +311,7 @@ module.exports = function setupSocketIO(server) {
     // paired phone or tablet contributes only ink data to the same class room.
     socket.on('start-app-share', ({ roomCode }, callback) => {
       const info = peerInfo.get(socket.id);
-      if (!info || !['teacher', 'admin', 'super_admin'].includes(String(info.role).toLowerCase())) {
+      if (!info || !['teacher', 'admin'].includes(String(info.role).toLowerCase())) {
         return callback({ error: 'Only the class host can share with the app.' });
       }
       if (info.roomCode !== String(roomCode).toUpperCase()) {

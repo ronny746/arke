@@ -13,7 +13,7 @@ exports.getDeletedItems = async (reqUser) => {
 
     const query = { isDeleted: true };
     
-    if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN && Model.schema.path('instituteId')) {
+    if (reqUser.instituteId && Model.schema.path('instituteId')) {
       query.instituteId = reqUser.instituteId;
     }
 
@@ -50,7 +50,7 @@ exports.restoreItem = async (modelName, id, reqUser) => {
   if (!Model) throw new Error('Invalid collection name');
   
   const query = { _id: id, isDeleted: true };
-  if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN && Model.schema.path('instituteId')) {
+  if (reqUser.instituteId && Model.schema.path('instituteId')) {
     query.instituteId = reqUser.instituteId;
   }
 
@@ -64,7 +64,7 @@ exports.permanentlyDeleteItem = async (modelName, id, reqUser) => {
   if (!Model) throw new Error('Invalid collection name');
   
   const query = { _id: id, isDeleted: true };
-  if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN && Model.schema.path('instituteId')) {
+  if (reqUser.instituteId && Model.schema.path('instituteId')) {
     query.instituteId = reqUser.instituteId;
   }
 

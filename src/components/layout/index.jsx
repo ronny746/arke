@@ -100,7 +100,7 @@ export function Sidebar({ title, subtitle, navGroups, user, portalInitial = 'S' 
             {/* User Info */}
             <Link 
               href={
-                ['admin', 'super_admin', 'institute_admin', 'admin_acadops', 'admin_operations'].includes(user.role)
+                user.role === 'admin'
                   ? '/admin/profile'
                   : `/${user.role}/profile`
               } 

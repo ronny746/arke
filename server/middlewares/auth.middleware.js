@@ -25,12 +25,6 @@ module.exports = async (req, res, next) => {
 
     req.user = decoded;
     
-    // Impersonation Support for Maha Super Admin
-    if (req.user.role === 'super_super_admin' && req.headers['x-institute-id']) {
-      req.user.instituteId = req.headers['x-institute-id'];
-      req.user.role = 'super_admin'; // Temporarily downgrade to institute owner for this request
-    }
-    
     next();
   } catch (ex) {
     return errorResponse(res, 'Invalid token.', ex.message, 401);

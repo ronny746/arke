@@ -36,10 +36,23 @@ function normalizeDob(value) {
   return normalized;
 }
 
+function dobPasswordCandidates(value) {
+  const raw = String(value || '').trim();
+  const normalized = normalizeDob(raw);
+  const [year, month, day] = normalized.split('-');
+  return [...new Set([
+    raw,
+    normalized,
+    `${day}/${month}/${year}`,
+    `${day}-${month}-${year}`,
+    `${normalized}T00:00:00.000Z`,
+  ])];
+}
+
 function makeWelcomeMessage({ courseName, batchName, amountPaid, amountDue, timetableUrl }) {
   const remaining = Math.max(0, Number(amountDue || 0) - Number(amountPaid || 0));
   const timetable = timetableUrl ? ` Your first-week timetable: ${timetableUrl}` : ' Your first-week timetable will appear in the app.';
   return `Welcome to ${courseName}. You are enrolled in ${batchName}. Fee paid: ₹${Number(amountPaid || 0)}. Fee remaining: ₹${remaining}.${timetable}`;
 }
 
-module.exports = { DEFAULT_FLAG_THRESHOLDS, normalizeThresholds, getTopicFlag, normalizeDob, makeWelcomeMessage };
+module.exports = { DEFAULT_FLAG_THRESHOLDS, normalizeThresholds, getTopicFlag, normalizeDob, dobPasswordCandidates, makeWelcomeMessage };

@@ -28,6 +28,8 @@
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 |---|---|---|---|---|
 | Form | React Hook Form/manual validated forms | shared form classes | create / edit | browser validation |
+| Student sign-in | Mobile number + 6-digit OTP | `LoginModal` and auth OTP routes | Student only; resend is available | mobile number, OTP and expiry handling |
+| Parent sign-in date | Native `input[type=date]` for linked-child DOB | `LoginModal` | Parent only; platform calendar is intentional | desktop and mobile picker |
 | Scrollbar | `src/app/globals.css` | global stylesheet | geometry exceptions | computed style |
 | Toast | `react-hot-toast` | existing provider usage | success / warning / info / error | live-region test |
 | CRUD | API service modules | route/controller/service | return / stay | API integration |

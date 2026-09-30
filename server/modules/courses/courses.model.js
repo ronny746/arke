@@ -33,6 +33,9 @@ const courseSchema = new mongoose.Schema({
   subjects: [{
     name: { type: String, required: true },
     icon: { type: String, default: '📖' },
+    // Course-level subject owner. This is used to grant the assigned teacher
+    // access to the course's batches and learners.
+    teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     chaptersCount: { type: Number, default: 0 },
     dppsCount: { type: Number, default: 0 },
     testsCount: { type: Number, default: 0 },
