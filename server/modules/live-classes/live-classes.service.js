@@ -1,7 +1,6 @@
 const LiveClass = require('./live-classes.model');
 const ClassSchedule = require('../classes-schedule/classes-schedule.model');
 const ZoomService = require('../integrations/zoom.service');
-const jwt = require('jsonwebtoken');
 
 const deriveRoomCode = (liveClass) => {
   if (!liveClass) return null;
@@ -236,56 +235,6 @@ exports.getActiveClasses = async (reqUser, filters) => {
     }
     return liveClasses;
   }
-};
-
-/**
- * Returns a short-lived Meeting SDK JWT only to a user who can already see
- * this ongoing class. The Zoom client secret never leaves the server.
- */
-exports.getMeetingSdkJoinConfig = async (liveClassId, reqUser) => {
-  const visibleClasses = await exports.getActiveClasses(reqUser, { status: 'ONGOING' });
-  const liveClass = visibleClasses.find((item) => String(item._id || item.id) === String(liveClassId));
-
-  if (!liveClass) {
-    const error = new Error('This live class is not available to your account.');
-    error.statusCode = 403;
-    throw error;
-  }
-
-  const meetingNumber = String(liveClass.meetingId || '').replace(/\D/g, '');
-  if (!meetingNumber) {
-    const error = new Error('This class does not use a Zoom meeting.');
-    error.statusCode = 422;
-    throw error;
-  }
-
-  // The existing values can be used when they belong to the Marketplace app
-  // with Meeting SDK enabled. Dedicated names take priority for production.
-  const clientId = process.env.ZOOM_MEETING_SDK_CLIENT_ID || process.env.ZOOM_CLIENT_ID;
-  const clientSecret = process.env.ZOOM_MEETING_SDK_CLIENT_SECRET || process.env.ZOOM_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    const error = new Error('Zoom Meeting SDK credentials are not configured.');
-    error.statusCode = 503;
-    throw error;
-  }
-
-  const iat = Math.floor(Date.now() / 1000) - 30;
-  const exp = iat + (60 * 60);
-  const sdkJwt = jwt.sign({
-    appKey: clientId,
-    mn: meetingNumber,
-    role: 0,
-    iat,
-    exp,
-    tokenExp: exp
-  }, clientSecret, { algorithm: 'HS256' });
-
-  return {
-    meetingNumber,
-    password: liveClass.meetingPassword || '',
-    jwt: sdkJwt,
-    domain: 'zoom.us'
-  };
 };
 
 exports.endLiveClass = async (id, reqUser, payload = {}) => {

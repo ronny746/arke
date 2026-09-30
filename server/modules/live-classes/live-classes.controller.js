@@ -44,12 +44,3 @@ exports.syncZoomData = async (req, res, next) => {
     next(error);
   }
 };
-
-exports.getMeetingSdkJoinConfig = async (req, res, next) => {
-  try {
-    const data = await LiveClassesService.getMeetingSdkJoinConfig(req.params.id, req.user);
-    return successResponse(res, 'Zoom Meeting SDK join configuration created', data);
-  } catch (error) {
-    next(error);
-  }
-};
