@@ -3,6 +3,7 @@
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
 import { Home, Users, LineChart, CreditCard, Calendar, MessageSquare, Bell } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
 
 export default function ParentLayout({ children }) {
   const [user, setUser] = useState(null);
@@ -25,11 +26,13 @@ export default function ParentLayout({ children }) {
       label: 'Academics',
       items: [
         { icon: LineChart, label: 'Performance', to: '/parent/exams' },
+        { icon: Bell, label: 'Progress & Remedies', to: '/parent/progress' },
       ]
     },
   ];
 
   return (
+    <PortalAccessGuard allowedRoles={["parent"]}>
     <DashboardLayout sidebar={
       <Sidebar
         title="ARKE Scholars"
@@ -44,5 +47,6 @@ export default function ParentLayout({ children }) {
         {children}
       </main>
     </DashboardLayout>
+    </PortalAccessGuard>
   );
 }

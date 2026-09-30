@@ -7,6 +7,10 @@ exports.updateConfigSchema = Joi.object({
   authSettings: Joi.object({
     enableRollNumberLogin: Joi.boolean().optional()
   }).unknown(true).optional(),
+  performanceSettings: Joi.object({
+    redBelow: Joi.number().min(0).max(99).optional(),
+    yellowBelow: Joi.number().min(1).max(100).optional()
+  }).optional(),
   appUpdate: Joi.object({
     latestVersion: Joi.string().optional().allow('', null),
     minRequiredVersion: Joi.string().optional().allow('', null),

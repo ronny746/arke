@@ -1,9 +1,10 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, Users, BookOpen, Video, FileText, Settings, CreditCard, LayoutDashboard, Database, UserCheck, UserCircle, Briefcase, FileCheck, MessageSquare, Archive } from 'lucide-react';
+import { Home, Users, BookOpen, Video, FileText, Settings, CreditCard, LayoutDashboard, Database, UserCheck, UserCircle, Briefcase, FileCheck, MessageSquare, Archive, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DeveloperModeListener from '@/components/common/DeveloperModeListener';
+import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
 
 export default function AdminLayout({ children }) {
   const [user, setUser] = useState(null);
@@ -43,6 +44,7 @@ export default function AdminLayout({ children }) {
       label: 'Management',
       items: [
         { icon: CreditCard, label: 'Fees & Payments', to: '/admin/fees' },
+        { icon: SlidersHorizontal, label: 'Academic Operations', to: '/admin/operations' },
         { icon: MessageSquare, label: 'Doubts Monitor', to: '/admin/doubts' },
         { icon: Archive, label: 'Recycle Bin', to: '/admin/recycle-bin' }
       ]
@@ -50,6 +52,7 @@ export default function AdminLayout({ children }) {
   ];
 
   return (
+    <PortalAccessGuard allowedRoles={["admin", "super_admin", "super_super_admin", "institute_admin", "admin_acadops", "admin_operations"]}>
     <DashboardLayout sidebar={
       <Sidebar
         title="ARKE Scholars"
@@ -65,5 +68,6 @@ export default function AdminLayout({ children }) {
         {children}
       </main>
     </DashboardLayout>
+    </PortalAccessGuard>
   );
 }

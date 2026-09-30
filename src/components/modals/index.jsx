@@ -1,11 +1,12 @@
 "use client";
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { X, Trash2, AlertTriangle } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 export * from './VisualMathModal';
 export function Modal({ isOpen, onClose, children, size = 'md' }) {
+  const panelRef = useRef(null);
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -16,6 +17,16 @@ export function Modal({ isOpen, onClose, children, size = 'md' }) {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previouslyFocused = document.activeElement;
+    const timer = window.setTimeout(() => panelRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(timer);
+      previouslyFocused?.focus?.();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -32,7 +43,7 @@ export function Modal({ isOpen, onClose, children, size = 'md' }) {
       <div className={cn(
         'relative w-full max-h-[90vh] flex flex-col bg-white dark:bg-surface-800 rounded-2xl shadow-2xl overflow-hidden animate-slide-up',
         sizes[size]
-      )}>
+      )} ref={panelRef} role="dialog" aria-modal="true" aria-label="Dialog" tabIndex={-1}>
         {children}
       </div>
     </div>

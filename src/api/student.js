@@ -12,6 +12,7 @@ export const studentAPI = {
   submitHomework: (id, data) => axiosInstance.post(`/homework/${id}/submit`, data),
   getResults: (params) => axiosInstance.get('/results', { params }),
   getMyPerformance: () => axiosInstance.get('/analytics-reports/student/me/performance'),
+  getTopicFlags: (params) => axiosInstance.get('/performance-flags/me', { params }),
   getTransactions: (params) => axiosInstance.get('/fees-payments/transactions', { params }),
   getMyBatches: () => axiosInstance.get('/batches/my-batches'),
   getLiveClasses: (params) => axiosInstance.get('/live-classes', { params }),

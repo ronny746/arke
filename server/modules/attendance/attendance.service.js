@@ -16,7 +16,21 @@ exports.markAttendance = async (reqUser, payload) => {
     date: new Date(payload.date).setHours(0, 0, 0, 0)
   };
 
-  return await AttendanceModel.findOneAndUpdate(query, update, { new: true, upsert: true });
+  const attendance = await AttendanceModel.findOneAndUpdate(query, update, { new: true, upsert: true });
+
+  const absentStudentIds = payload.records.filter(record => record.status === 'absent').map(record => record.studentId);
+  if (absentStudentIds.length) {
+    const User = require('../users/users.model');
+    const Notification = require('../notifications/notifications.model');
+    const students = await User.find({ _id: { $in: absentStudentIds }, instituteId: reqUser.instituteId }).select('_id parentId');
+    const dateLabel = new Date(payload.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const notifications = students.flatMap(student => [
+      { instituteId: reqUser.instituteId, userId: student._id, title: 'Marked absent', message: `You were marked absent on ${dateLabel}.`, type: 'ALERT' },
+      ...(student.parentId ? [{ instituteId: reqUser.instituteId, userId: student.parentId, title: 'Child marked absent', message: `Your child was marked absent on ${dateLabel}.`, type: 'ALERT' }] : [])
+    ]);
+    if (notifications.length) await Notification.insertMany(notifications, { ordered: false });
+  }
+  return attendance;
 };
 
 exports.geoCheckin = async (reqUser, payload) => {

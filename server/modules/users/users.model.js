@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema({
   phone: { type: String },
   profilePictureUrl: { type: String },
   isActive: { type: Boolean, default: true },
+  suspensionEndsAt: { type: Date, default: null },
   rfid: { 
     type: String
   },

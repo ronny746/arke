@@ -111,6 +111,15 @@ exports.delete = async (req, res, next) => {
   }
 };
 
+exports.suspendStudent = async (req, res, next) => {
+  try {
+    const data = await UserService.suspendStudent(req.params.id, req.body.endDate, req.user);
+    return successResponse(res, 'Student suspended until the selected end date', data);
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 exports.linkParentStudent = async (req, res, next) => {
   try {
     const data = await UserService.linkParentStudent(req.body.parentId, req.body.studentId, req.user);

@@ -1,6 +1,9 @@
 const Exam = require('./exam.model');
 const ExamQuestion = require('./exam-question.model');
 const ExamService = require('./exam.service');
+const { getTopicFlag } = require('../arke-portal/portal.rules');
+const FlagService = require('../performance-flags/performance-flags.service');
+const { createRemedialSessions } = require('../arke-portal/remedial.service');
 
 const calculateAnalysisData = (submission, questions) => {
   let totalMarks = 0;
@@ -827,11 +830,14 @@ exports.submitExam = async (req, res) => {
     submission.status = req.body.isAutoSubmit ? 'AUTO_SUBMITTED' : 'SUBMITTED';
     submission.endTime = new Date();
 
-    const questions = await ExamQuestion.find({ exam: examId });
+    const questions = await ExamQuestion.find({ exam: examId })
+      .populate('subject', 'name')
+      .populate('topic', 'name');
     let score = 0;
     let correct = 0;
     let wrong = 0;
     let unattempted = 0;
+    const topicScoresByKey = new Map();
 
     questions.forEach(q => {
       const studentAns = submission.answers.find(a => a?.questionId && q?._id && a.questionId?.toString() === q._id?.toString());
@@ -854,6 +860,14 @@ exports.submitExam = async (req, res) => {
           studentAns.marksObtained = -qNegativeMarks;
         }
       }
+
+      const subjectName = q.subject?.name || 'General';
+      const topicName = q.topic?.name || 'General';
+      const key = `${subjectName}::${topicName}`;
+      const topicScore = topicScoresByKey.get(key) || { subjectName, topicName, score: 0, totalMarks: 0 };
+      topicScore.totalMarks += qMarks;
+      topicScore.score += studentAns?.marksObtained || 0;
+      topicScoresByKey.set(key, topicScore);
     });
 
     submission.score = score;
@@ -867,10 +881,36 @@ exports.submitExam = async (req, res) => {
 
     await submission.save();
 
+    const topicScores = Array.from(topicScoresByKey.values()).map(topic => ({
+      ...topic,
+      // Negative marking must not turn a progress percentage into an invalid negative value.
+      percentage: Math.max(0, Math.min(100, Number(((topic.score / topic.totalMarks) * 100).toFixed(2))))
+    }));
+    const SystemConfig = require('../system-config/system-config.model');
+    const config = await SystemConfig.findOne({ instituteId: req.user.instituteId }).select('performanceSettings').lean();
+    const thresholds = config?.performanceSettings;
+    await FlagService.upsertFlags({
+      instituteId: req.user.instituteId,
+      studentId,
+      examId,
+      topicScores,
+      thresholds,
+      getTopicFlag
+    });
+    const remedialSessions = await createRemedialSessions({
+      instituteId: req.user.instituteId,
+      studentId,
+      examId,
+      topicScores,
+      thresholds
+    });
+    await FlagService.attachRemedialSessions({ studentId, examId, sessions: remedialSessions });
+
     res.status(200).json({
       success: true,
       message: 'Exam submitted successfully',
-      data: submission
+      data: submission,
+      remedialSessionsCreated: remedialSessions.length
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

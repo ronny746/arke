@@ -21,6 +21,12 @@ exports.login = async (email, password, expectedRole) => {
     throw new Error('Invalid email, password, or you do not have access to this portal.');
   }
 
+  if (user.suspensionEndsAt) {
+    if (user.suspensionEndsAt > new Date()) throw new Error('This student account is suspended until the configured end date.');
+    user.suspensionEndsAt = null;
+    await user.save();
+  }
+
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
     throw new Error('Invalid email or password');

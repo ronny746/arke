@@ -115,7 +115,14 @@ exports.getAllUsers = async (reqUser, query = {}) => {
     query._id = { $in: Array.from(teacherIds) };
   }
 
-  let queryBuilder = UserModel.find(query).select('-password');
+  // Teachers may identify learners in their own batches, but must never receive
+  // student or parent contact details (ARKE portal permission matrix).
+  const teacherSafeProjection = 'firstName lastName role metadata profilePictureUrl instituteId isActive';
+  let queryBuilder = UserModel.find(query).select(
+    reqUser.role === ROLES.TEACHER || reqUser.role === 'teacher'
+      ? teacherSafeProjection
+      : '-password'
+  );
   
   if (query.role === ROLES.PARENT || query.role === 'parent') {
     queryBuilder = queryBuilder.populate('childrenIds', 'firstName lastName metadata profilePictureUrl');
@@ -131,7 +138,11 @@ exports.getUserById = async (id, reqUser) => {
     query.instituteId = reqUser.instituteId;
   }
   
-  let queryBuilder = UserModel.findOne(query).select('-password');
+  let queryBuilder = UserModel.findOne(query).select(
+    reqUser && (reqUser.role === ROLES.TEACHER || reqUser.role === 'teacher')
+      ? 'firstName lastName role metadata profilePictureUrl instituteId isActive'
+      : '-password'
+  );
   
   // If we are fetching a parent profile, populate their children to show on the dashboard
   if (reqUser && reqUser.role === ROLES.PARENT) {
@@ -155,6 +166,18 @@ exports.deleteUser = async (id, reqUser) => {
     query.instituteId = reqUser.instituteId;
   }
   return await UserModel.findOneAndDelete(query);
+};
+
+exports.suspendStudent = async (id, endDate, reqUser) => {
+  const suspensionEndsAt = new Date(endDate);
+  if (Number.isNaN(suspensionEndsAt.getTime()) || suspensionEndsAt <= new Date()) {
+    throw new Error('Suspension end date must be in the future.');
+  }
+  const query = { _id: id, role: ROLES.STUDENT };
+  if (reqUser.role !== ROLES.SUPER_SUPER_ADMIN) query.instituteId = reqUser.instituteId;
+  const student = await UserModel.findOneAndUpdate(query, { $set: { suspensionEndsAt } }, { new: true }).select('-password');
+  if (!student) throw new Error('Student not found.');
+  return student;
 };
 
 exports.linkParentStudent = async (parentId, studentId, reqUser) => {

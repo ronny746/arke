@@ -45,6 +45,8 @@ const publicConfigRouter = require('../../modules/system-config/public-config.ro
 const bannersRouter = require('../../modules/banners/banners.routes');
 const publicBannersRouter = require('../../modules/banners/public.banners.routes');
 const recycleBinRouter = require('../../modules/recycle-bin/recycle-bin.routes');
+const performanceFlagsRouter = require('../../modules/performance-flags/performance-flags.routes');
+const operationsRouter = require('../../modules/operations/operations.routes');
 
 // Mount routes
 router.use('/recycle-bin', recycleBinRouter);
@@ -90,4 +92,6 @@ router.use('/public/exams', publicExamsRouter);
 router.use('/public/courses', publicCoursesRouter);
 router.use('/leads', leadsRouter);
 router.use('/student/practice', practiceRouter);
+router.use('/performance-flags', performanceFlagsRouter);
+router.use('/operations', operationsRouter);
 module.exports = router;

@@ -117,6 +117,7 @@ export const adminAPI = {
   getUserById: (id) => axiosInstance.get(`/users/${id}`),
   updateUser: (id, data) => axiosInstance.put(`/users/${id}`, data),
   deleteUser: (id) => axiosInstance.delete(`/users/${id}`),
+  suspendStudent: (id, endDate) => axiosInstance.post(`/users/${id}/suspend`, { endDate }),
   linkParentStudent: (data) => axiosInstance.post('/users/link-parent-student', data),
   importStudents: (formData, config = {}) => axiosInstance.post('/users/import-students', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

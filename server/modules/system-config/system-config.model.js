@@ -8,6 +8,10 @@ const systemConfigSchema = new mongoose.Schema({
   authSettings: {
     enableRollNumberLogin: { type: Boolean, default: true }
   },
+  performanceSettings: {
+    redBelow: { type: Number, default: 40, min: 0, max: 99 },
+    yellowBelow: { type: Number, default: 70, min: 1, max: 100 }
+  },
   appUpdate: {
     latestVersion: { type: String, default: "1.0.0" },
     minRequiredVersion: { type: String, default: "1.0.0" },

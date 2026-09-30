@@ -5,6 +5,7 @@ import { Home, FileCheck, Video, LineChart, BookOpen, PenTool, LayoutList, Messa
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ProfileCompletionModal } from '@/components/ProfileCompletionModal';
+import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
 
 export default function StudentLayout({ children }) {
   const pathname = usePathname();
@@ -147,6 +148,7 @@ export default function StudentLayout({ children }) {
   );
 
   return (
+    <PortalAccessGuard allowedRoles={["student"]}>
     <DashboardLayout sidebar={
       <Sidebar
         title="ARKE Scholars"
@@ -179,5 +181,6 @@ export default function StudentLayout({ children }) {
       </main>
       <ProfileCompletionModal user={user} onComplete={setUser} />
     </DashboardLayout>
+    </PortalAccessGuard>
   );
 }

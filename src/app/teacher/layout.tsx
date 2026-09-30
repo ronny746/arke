@@ -1,8 +1,9 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, FileCheck, Video, Users, BookOpen, PenTool, LayoutList, MessageSquare } from 'lucide-react';
+import { Home, FileCheck, Video, Users, BookOpen, PenTool, LayoutList, MessageSquare, LineChart } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
 
 export default function TeacherLayout({ children }) {
   const [user, setUser] = useState(null);
@@ -18,6 +19,7 @@ export default function TeacherLayout({ children }) {
       items: [
         { icon: Home, label: 'Dashboard', to: '/teacher/dashboard' },
         { icon: Users, label: 'My Students', to: '/teacher/students' },
+        { icon: LineChart, label: 'Topic Analysis', to: '/teacher/flags' },
       ]
     },
     {
@@ -37,6 +39,7 @@ export default function TeacherLayout({ children }) {
   ];
 
   return (
+    <PortalAccessGuard allowedRoles={["teacher"]}>
     <DashboardLayout sidebar={
       <Sidebar
         title="ARKE Scholars"
@@ -51,5 +54,6 @@ export default function TeacherLayout({ children }) {
         {children}
       </main>
     </DashboardLayout>
+    </PortalAccessGuard>
   );
 }

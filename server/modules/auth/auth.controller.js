@@ -42,6 +42,11 @@ exports.changePassword = async (req, res, next) => {
 
 exports.requestOtp = async (req, res, next) => {
     try {
+        // Student and parent credentials are DOB-based by product decision. OTP
+        // flows remain available only for the separate teacher login journey.
+        if ((req.body.role || '').toLowerCase() !== 'teacher') {
+            return errorResponse(res, 'Students and parents must sign in with their registered account and date of birth.', null, 400);
+        }
         const rawPhone = req.body.mobileNumber || req.body.phone || req.body.phoneNumber || req.body.mobile;
         
         if (!rawPhone) {
@@ -73,6 +78,10 @@ exports.verifyOtp = async (req, res, next) => {
         const { otp, isSignup, name, role } = req.body;
         const rawPhone = req.body.phone || req.body.mobileNumber || req.body.phoneNumber || req.body.mobile;
         const requestedRole = role || 'student';
+
+        if (['student', 'parent'].includes(String(requestedRole).toLowerCase())) {
+            return errorResponse(res, 'OTP login is not available for students or parents. Use date of birth as the password.', null, 400);
+        }
 
         if (!rawPhone || !otp) {
             return errorResponse(res, "Phone and OTP are required", null, 400);

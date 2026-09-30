@@ -4,6 +4,8 @@ const { FeeRecord, PaymentTransaction } = require('../fees-payments/fees-payment
 const CourseModel = require('../courses/courses.model');
 const BatchModel = require('../batches/batches.model');
 const UserModel = require('../users/users.model');
+const Notification = require('../notifications/notifications.model');
+const { normalizeDob, makeWelcomeMessage } = require('../arke-portal/portal.rules');
 
 class PaymentsService {
   /**
@@ -30,6 +32,7 @@ class PaymentsService {
       !user.firstName ||
       !user.lastName ||
       !user.phone ||
+      (user.role === 'student' && !user.metadata?.dob && !user.metadata?.dateOfBirth) ||
       (user.role !== 'parent' && !user.email) ||
       user.lastName === '.' ||
       user.metadata?.isProfileIncomplete === true ||
@@ -402,6 +405,31 @@ class PaymentsService {
         });
       }
 
+      const studentDob = user.metadata?.dob || user.metadata?.dateOfBirth || user.dob;
+      const parentPhone = user.metadata?.parentPhone || user.metadata?.parentMobile || user.metadata?.guardianPhone;
+      let parent = user.parentId ? await UserModel.findById(user.parentId) : null;
+      if (!parent && parentPhone) {
+        const normalizedPhone = String(parentPhone).replace(/\D/g, '').slice(-10);
+        parent = await UserModel.findOne({ instituteId: user.instituteId, role: 'parent', phone: normalizedPhone });
+        if (!parent) {
+          const parentName = String(user.metadata?.parentName || user.metadata?.fatherName || 'Parent').trim().split(/\s+/);
+          parent = await UserModel.create({
+            firstName: parentName[0] || 'Parent',
+            lastName: parentName.slice(1).join(' '),
+            role: 'parent',
+            phone: normalizedPhone,
+            instituteId: user.instituteId,
+            // The agreed parent credential is the child's DOB. The model hashes it on save.
+            password: normalizeDob(studentDob),
+            childrenIds: [user._id]
+          });
+        } else {
+          await UserModel.updateOne({ _id: parent._id }, { $addToSet: { childrenIds: user._id } });
+        }
+        user.parentId = parent._id;
+        await user.save();
+      }
+
       // Check if FeeRecord already exists
       let feeRecord = await FeeRecord.findOne({
         studentId,
@@ -433,6 +461,27 @@ class PaymentsService {
       if (paymentTxn && feeRecord) {
         paymentTxn.feeRecordId = feeRecord._id;
         await paymentTxn.save();
+      }
+
+      const batch = assignedBatchId ? await BatchModel.findById(assignedBatchId).select('name') : null;
+      const welcomeMessage = makeWelcomeMessage({
+        courseName: course.name,
+        batchName: batch?.name || 'your assigned batch',
+        amountPaid: feeRecord?.amountPaid || course.fee,
+        amountDue: feeRecord?.amountDue || course.fee,
+        timetableUrl: '/student/timetable'
+      });
+      await Notification.updateOne(
+        { instituteId: user.instituteId, userId: user._id, title: 'Course enrollment confirmed', message: welcomeMessage },
+        { $setOnInsert: { instituteId: user.instituteId, userId: user._id, title: 'Course enrollment confirmed', message: welcomeMessage, type: 'SUCCESS' } },
+        { upsert: true }
+      );
+      if (parent) {
+        await Notification.updateOne(
+          { instituteId: user.instituteId, userId: parent._id, title: 'Course enrollment confirmed', message: welcomeMessage },
+          { $setOnInsert: { instituteId: user.instituteId, userId: parent._id, title: 'Course enrollment confirmed', message: welcomeMessage, type: 'SUCCESS' } },
+          { upsert: true }
+        );
       }
     } catch (err) {
       console.error('[PaymentsService] Error fulfilling enrollment:', err);

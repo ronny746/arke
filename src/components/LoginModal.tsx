@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
-  Phone,
   ArrowRight,
   Pencil,
   Sparkles,
@@ -14,9 +13,7 @@ import {
   BookOpen,
   Building2,
   Check,
-  CheckCircle2,
   ShieldCheck,
-  RotateCcw,
   User,
   Mail,
   Compass,
@@ -32,6 +29,14 @@ interface LoginModalProps {
   onSwitchToSignup?: () => void;
   redirectOnSuccess?: boolean | string;
 }
+
+type PortalUser = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: string;
+  metadata?: Record<string, unknown>;
+};
 
 const EXAM_GOALS = [
   {
@@ -86,20 +91,18 @@ const MEDIUMS = [
 ];
 
 export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginModalProps) {
-  // Step: 1 = Phone, 2 = OTP, 3 = Goal & Preferences ("Provide Details")
+  // Step: 1 = account identifier, 2 = DOB password, 3 = profile details.
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Auth States
   const [phone, setPhone] = useState("");
-  const [otpValues, setOtpValues] = useState<string[]>(["", "", "", "", "", ""]);
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [role, setRole] = useState<"student" | "parent">("student");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [resendTimer, setResendTimer] = useState(30);
 
   // Authenticated User Temp Storage
   const [authToken, setAuthToken] = useState<string>("");
-  const [loggedInUser, setLoggedInUser] = useState<any>(null);
+  const [loggedInUser, setLoggedInUser] = useState<PortalUser | null>(null);
 
   // Preferences & Profile States (ARKE Profile Details)
   const [fullName, setFullName] = useState("");
@@ -108,130 +111,46 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
   const [selectedClass, setSelectedClass] = useState("Class 11");
   const [selectedMedium, setSelectedMedium] = useState("Hinglish");
 
-  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
   // Reset state on modal open
   useEffect(() => {
     if (isOpen) {
-      setStep(1);
-      setPhone("");
-      setEmail("");
-      setOtpValues(["", "", "", "", "", ""]);
-      setResendTimer(30);
+      queueMicrotask(() => {
+        setStep(1);
+        setPhone("");
+        setEmail("");
+        setDateOfBirth("");
+      });
     }
   }, [isOpen]);
 
-  // Countdown timer for OTP
-  useEffect(() => {
-    let interval: any;
-    if (step === 2 && resendTimer > 0) {
-      interval = setInterval(() => {
-        setResendTimer((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [step, resendTimer]);
-
-  // Auto focus first OTP input when reaching step 2
-  useEffect(() => {
-    if (step === 2) {
-      setTimeout(() => {
-        otpInputRefs.current[0]?.focus();
-      }, 100);
-    }
-  }, [step]);
-
-  // Send OTP handler
-  const handleSendOtp = async (targetPhone = phone) => {
-    const cleanNumber = targetPhone.replace(/\D/g, "").slice(-10);
-    if (cleanNumber.length !== 10) {
-      toast.error("Please enter a valid 10-digit mobile number.");
+  const handleContinue = (targetIdentifier = phone) => {
+    const identifier = targetIdentifier.trim();
+    const isValid = role === "student"
+      ? identifier.length > 0
+      : identifier.replace(/\D/g, "").length === 10;
+    if (!isValid) {
+      toast.error(role === "student" ? "Enter your roll number or registered mobile number." : "Please enter a valid 10-digit mobile number.");
       return;
     }
-
-    setIsSendingOtp(true);
-    try {
-      const res = await fetch("/api/v1/auth/request-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobileNumber: cleanNumber })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success("OTP sent successfully to +91 " + cleanNumber);
-        setPhone(cleanNumber);
-        setStep(2);
-        setResendTimer(30);
-        setOtpValues(["", "", "", "", "", ""]);
-      } else {
-        toast.error(data.message || "Failed to send OTP");
-      }
-    } catch (err) {
-      toast.error("Something went wrong while sending OTP.");
-    } finally {
-      setIsSendingOtp(false);
-    }
+    setPhone(role === "parent" ? identifier.replace(/\D/g, "").slice(-10) : identifier);
+    setStep(2);
   };
 
-  // OTP Input Change Handler
-  const handleOtpChange = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, "").slice(-1);
-    const newOtp = [...otpValues];
-    newOtp[index] = digit;
-    setOtpValues(newOtp);
-
-    // Auto-advance
-    if (digit && index < 5) {
-      otpInputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  // Handle Backspace and Navigation
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace") {
-      if (!otpValues[index] && index > 0) {
-        otpInputRefs.current[index - 1]?.focus();
-      }
-    } else if (e.key === "ArrowLeft" && index > 0) {
-      otpInputRefs.current[index - 1]?.focus();
-    } else if (e.key === "ArrowRight" && index < 5) {
-      otpInputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  // Handle Paste
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pastedData = e.clipboardData.getData("text/plain").replace(/\D/g, "").slice(0, 6);
-    if (pastedData) {
-      const newOtp = ["", "", "", "", "", ""];
-      for (let i = 0; i < pastedData.length; i++) {
-        newOtp[i] = pastedData[i];
-      }
-      setOtpValues(newOtp);
-      const nextIndex = Math.min(pastedData.length, 5);
-      otpInputRefs.current[nextIndex]?.focus();
-    }
-  };
-
-  // Verify OTP Handler
-  const handleVerifyOtp = async (e?: React.FormEvent) => {
+  const handleDateOfBirthLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const fullOtp = otpValues.join("").trim();
-
-    if (fullOtp.length !== 6) {
-      toast.error("Please enter the complete 6-digit OTP");
+    if (!dateOfBirth.trim()) {
+      toast.error("Enter your date of birth as DD/MM/YYYY or YYYY-MM-DD.");
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await fetch("/api/v1/auth/verify-otp", {
+      const res = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: phone,
-          otp: fullOtp,
+          email: phone,
+          password: dateOfBirth.trim(),
           role: role
         })
       });
@@ -239,7 +158,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
 
       if (data.success) {
         const token = data.data.token;
-        const user = data.data.user;
+        const user = data.data.user as PortalUser;
         const isNewUser = data.data.isNewUser;
 
         // Store tokens
@@ -259,9 +178,9 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
           setEmail("");
         }
 
-        if (user.metadata?.targetExam) setSelectedGoal(user.metadata.targetExam);
-        if (user.metadata?.studentClass) setSelectedClass(user.metadata.studentClass);
-        if (user.metadata?.medium) setSelectedMedium(user.metadata.medium);
+        if (typeof user.metadata?.targetExam === "string") setSelectedGoal(user.metadata.targetExam);
+        if (typeof user.metadata?.studentClass === "string") setSelectedClass(user.metadata.studentClass);
+        if (typeof user.metadata?.medium === "string") setSelectedMedium(user.metadata.medium);
 
         // If new user, incomplete profile, or missing real email/preferences, open Provide Details Step
         const needsDetails = 
@@ -280,10 +199,10 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
           finalizeLogin(user);
         }
       } else {
-        toast.error(data.message || "Invalid OTP. Please try again.");
+        toast.error(data.message || "Incorrect account details or date of birth.");
       }
-    } catch (err) {
-      toast.error("Failed to verify OTP. Please try again.");
+    } catch {
+      toast.error("Unable to sign in right now. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -330,7 +249,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
         })
       });
 
-      const resData = await res.json();
+      await res.json();
 
       const finalUser = {
         ...(loggedInUser || {}),
@@ -343,7 +262,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
       localStorage.setItem("user", JSON.stringify(finalUser));
       toast.success("Profile setup complete! Welcome to ARKE Scholars 🚀");
       finalizeLogin(finalUser);
-    } catch (err) {
+    } catch {
       toast.error("Starting your dashboard...");
       finalizeLogin(loggedInUser);
     } finally {
@@ -351,7 +270,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
     }
   };
 
-  const finalizeLogin = (user: any) => {
+  const finalizeLogin = (user: PortalUser | null) => {
     onClose();
     if (redirectOnSuccess) {
       if (typeof redirectOnSuccess === "string") {
@@ -469,11 +388,13 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                     <div className="mb-6">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0B132B]/5 text-[#0B132B] text-xs font-bold uppercase tracking-wider mb-2">
                         <Sparkles className="w-3.5 h-3.5 text-[#C99A2E]" />
-                        Quick OTP Login
+                        Secure account login
                       </div>
                       <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Login / Register</h4>
                       <p className="text-gray-500 text-xs mt-1">
-                        Enter your mobile number to receive a 6-digit verification code.
+                        {role === "student"
+                          ? "Use your roll number or registered mobile number, then your date of birth."
+                          : "Use your registered mobile number and your child's date of birth."}
                       </p>
                     </div>
 
@@ -503,17 +424,18 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                       </button>
                     </div>
 
-                    {/* Phone Input Form */}
+                    {/* Account identifier form */}
                     <form
+                      noValidate
                       onSubmit={(e) => {
                         e.preventDefault();
-                        handleSendOtp();
+                        handleContinue();
                       }}
                       className="space-y-5"
                     >
                       <div>
                         <label className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">
-                          Mobile Number
+                          {role === "student" ? "Roll number or registered mobile" : "Registered mobile number"}
                         </label>
                         <div className="relative flex items-center">
                           <div className="absolute left-3.5 flex items-center gap-1.5 pointer-events-none text-gray-500 font-bold text-sm border-r border-gray-200 pr-2">
@@ -522,11 +444,11 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                           </div>
                           <input
                             type="tel"
-                            maxLength={10}
+                            maxLength={role === "student" ? 30 : 10}
                             autoFocus
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                            placeholder="Enter 10-digit number"
+                            placeholder={role === "student" ? "e.g. ARKE0001 or 9876543210" : "Enter 10-digit number"}
                             className="w-full pl-20 pr-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all tracking-wider"
                           />
                         </div>
@@ -535,21 +457,11 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                       {/* Submit Button */}
                       <button
                         type="submit"
-                        disabled={phone.length !== 10 || isSendingOtp}
+                        disabled={!phone.trim()}
                         className="w-full py-4 rounded-2xl font-black text-white text-sm transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-950/20 flex items-center justify-center gap-2"
                         style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}
                       >
-                        {isSendingOtp ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Sending OTP...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Get OTP Verification Code</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </>
-                        )}
+                        <><span>Continue</span><ArrowRight className="w-4 h-4" /></>
                       </button>
                     </form>
                   </motion.div>
@@ -571,74 +483,49 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                           onClick={() => setStep(1)}
                           className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-[#0B132B] transition-colors"
                         >
-                          <Pencil className="w-3.5 h-3.5" /> Edit Number
+                          <Pencil className="w-3.5 h-3.5" /> Edit account
                         </button>
                         <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-[#0B132B]">
-                          +91 {phone}
+                          {phone}
                         </span>
                       </div>
-                      <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Enter Verification Code</h4>
+                      <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Enter Date of Birth</h4>
                       <p className="text-gray-500 text-xs mt-1">
-                        We sent a 6-digit code to your mobile number.
+                        This is your password. You will not receive an OTP.
                       </p>
                     </div>
 
-                    <form onSubmit={handleVerifyOtp} className="space-y-6">
-                      {/* 6-box OTP input */}
-                      <div className="flex justify-between gap-2 sm:gap-2.5">
-                        {otpValues.map((val, idx) => (
-                          <input
-                            key={idx}
-                            ref={(el) => {
-                              otpInputRefs.current[idx] = el;
-                            }}
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            maxLength={1}
-                            value={val}
-                            onChange={(e) => handleOtpChange(idx, e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(idx, e)}
-                            onPaste={handlePaste}
-                            className="w-11 h-13 sm:w-12 sm:h-14 text-center text-xl font-black text-[#0B132B] bg-gray-50 border-2 border-gray-200 rounded-2xl focus:border-[#0B132B] focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-900/10 transition-all shadow-sm"
-                          />
-                        ))}
-                      </div>
-
-                      {/* Resend OTP Bar */}
-                      <div className="flex items-center justify-between text-xs font-medium">
-                        {resendTimer > 0 ? (
-                          <span className="text-gray-500">
-                            Resend code in <strong className="text-[#0B132B]">{resendTimer}s</strong>
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleSendOtp(phone)}
-                            className="text-[#C99A2E] font-black hover:underline flex items-center gap-1"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Resend Code
-                          </button>
-                        )}
-                        <span className="text-gray-400 text-[11px]">(Auto-logged in terminal)</span>
+                    <form noValidate onSubmit={handleDateOfBirthLogin} className="space-y-6">
+                      <div>
+                        <label htmlFor="login-date-of-birth" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">Date of birth</label>
+                        <input
+                          id="login-date-of-birth"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="current-password"
+                          value={dateOfBirth}
+                          onChange={(e) => setDateOfBirth(e.target.value)}
+                          placeholder="DD/MM/YYYY or YYYY-MM-DD"
+                          className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all"
+                        />
+                        <p className="mt-2 text-xs text-gray-500">For a parent account, enter the linked child&apos;s date of birth.</p>
                       </div>
 
                       {/* Verify Button */}
                       <button
                         type="submit"
-                        disabled={otpValues.join("").length !== 6 || isLoading}
+                        disabled={!dateOfBirth.trim() || isLoading}
                         className="w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
                         style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}
                       >
                         {isLoading ? (
                           <>
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Verifying...</span>
+                            <span>Signing in...</span>
                           </>
                         ) : (
                           <>
-                            <span>Verify & Continue</span>
+                            <span>Sign in</span>
                             <ArrowRight className="w-4 h-4" />
                           </>
                         )}

@@ -1,0 +1,15 @@
+const express = require('express');
+const router = express.Router();
+const controller = require('./operations.controller');
+const auth = require('../../middlewares/auth.middleware');
+const { requireRole } = require('../../middlewares/rbac.middleware');
+const { ROLES } = require('../../config/constants');
+router.use(auth);
+router.get('/leave', requireRole([ROLES.TEACHER, ROLES.SUPER_ADMIN]), controller.listLeave);
+router.post('/leave', requireRole([ROLES.TEACHER]), controller.requestLeave);
+router.put('/leave/:id', requireRole([ROLES.SUPER_ADMIN]), controller.reviewLeave);
+router.get('/mentors', requireRole([ROLES.SUPER_ADMIN]), controller.listMentors);
+router.post('/mentors', requireRole([ROLES.SUPER_ADMIN]), controller.createMentors);
+router.post('/mentor-sessions', requireRole([ROLES.SUPER_ADMIN]), controller.scheduleMentorSession);
+router.put('/mentor-sessions/:id/swap', requireRole([ROLES.SUPER_ADMIN]), controller.swapMentor);
+module.exports = router;

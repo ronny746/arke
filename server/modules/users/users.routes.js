@@ -90,6 +90,12 @@ router.put(
   UserController.update
 );
 
+router.post(
+  '/:id/suspend',
+  rbacMiddleware.requireRole([ROLES.SUPER_SUPER_ADMIN, ROLES.SUPER_ADMIN]),
+  UserController.suspendStudent
+);
+
 router.delete(
   '/:id', requireDeveloperToken,
   rbacMiddleware.requireRole([ROLES.SUPER_SUPER_ADMIN, ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS]),

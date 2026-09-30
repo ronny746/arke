@@ -1,4 +1,5 @@
 const SystemConfig = require('./system-config.model');
+const { normalizeThresholds } = require('../arke-portal/portal.rules');
 
 exports.updateConfig = async (reqUser, payload) => {
   let query = reqUser?.instituteId ? { instituteId: reqUser.instituteId } : {};
@@ -20,6 +21,12 @@ exports.updateConfig = async (reqUser, payload) => {
     if (payload.activeTerm) config.activeTerm = payload.activeTerm;
     if (payload.preferences) config.preferences = payload.preferences;
     if (payload.authSettings) config.authSettings = payload.authSettings;
+    if (payload.performanceSettings) {
+      config.performanceSettings = normalizeThresholds({
+        ...config.performanceSettings?.toObject?.(),
+        ...payload.performanceSettings
+      });
+    }
     if (payload.appUpdate) {
       config.appUpdate = {
         ...config.appUpdate?.toObject?.() || config.appUpdate,
@@ -54,7 +61,8 @@ exports.getConfig = async (reqUser) => {
   if (!config) {
     return {
       academicYear: "2025-2026",
-      authSettings: { enableRollNumberLogin: true },
+    authSettings: { enableRollNumberLogin: true },
+      performanceSettings: { redBelow: 40, yellowBelow: 70 },
       neetExamConfig: {
         examTitle: "NEET UG 2026 COUNTDOWN",
         examDate: new Date("2026-05-03T10:00:00.000Z"),

@@ -2,6 +2,7 @@ import axiosInstance from './axiosInstance';
 
 export const parentAPI = {
   getDashboard: () => axiosInstance.get('/dashboard'),
+  getChildTopicFlags: (childId, params) => axiosInstance.get(`/performance-flags/children/${childId}`, { params }),
   getChildrenAttendance: (params) => axiosInstance.get('/attendance/my-children', { params }),
   getChildrenHomework: (params) => axiosInstance.get('/homework/my-children', { params }),
   getChildrenAssignments: (params) => axiosInstance.get('/assignments/my-children', { params }),
