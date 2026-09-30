@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, FileCheck, Video, LineChart, BookOpen, LayoutList, MessageSquare, ShieldAlert, CreditCard } from 'lucide-react';
+import { Home, FileCheck, Video, LineChart, BookOpen, LayoutList, MessageSquare, ShieldAlert, CreditCard, Sparkles } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ProfileCompletionModal } from '@/components/ProfileCompletionModal';
@@ -130,8 +130,9 @@ export default function StudentLayout({ children }) {
       ]
     },
     {
-      label: 'Examinations',
+      label: 'Examinations & Practice',
       items: [
+        { icon: Sparkles, label: 'Daily Practice (DPP)', to: '/student/dpp' },
         { icon: FileCheck, label: 'Online Tests', to: '/student/exams' },
       ]
     }

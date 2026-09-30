@@ -142,7 +142,8 @@ export default function ExamAnalysis() {
               <h3 className="text-xl font-bold text-gray-800">Comprehensive Performance Breakdown</h3>
               <p className="text-sm text-gray-500 mt-1">Detailed analysis by Subject, Topic, and Difficulty Level. Note: 'Weak' means accuracy &lt; 50%.</p>
             </div>
-            {remedialDpps.length === 0 && (
+            {/* DPP Generation Feature Hidden as requested */}
+            {false && remedialDpps.length === 0 && (
               <Button 
                 size="sm" 
                 onClick={() => handleGenerateDPP()} 
@@ -269,7 +270,8 @@ export default function ExamAnalysis() {
         </Card>
       </div>
 
-      {remedialDpps.length > 0 && (
+      {/* Adaptive Remedial Track / DPP Generation Hidden as requested */}
+      {false && remedialDpps.length > 0 && (
         <Card className="p-6 mt-6 border-primary-100 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center gap-3 mb-6">
             <PlayCircle className="w-6 h-6 text-primary-600" />

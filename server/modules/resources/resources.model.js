@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 
 const resourceSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
+  isBankMaterial: { type: Boolean, default: true }, // Part of Material Bank
+  courseIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }], // Assigned courses from bank
+  unlockedBatches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }], // Batches where teacher/admin unlocked this material
   batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }, // Legacy, for backward compatibility
   batchIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }], // Empty array means Global/All Batches
   subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },

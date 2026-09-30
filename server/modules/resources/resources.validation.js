@@ -3,6 +3,9 @@ const Joi = require('joi');
 exports.createResourceSchema = Joi.object({
   batchId: Joi.string().allow('', null).optional(),
   batchIds: Joi.array().items(Joi.string().allow('', null)).optional(),
+  courseIds: Joi.array().items(Joi.string().allow('', null)).optional(),
+  isBankMaterial: Joi.boolean().optional(),
+  unlockedBatches: Joi.array().items(Joi.string().allow('', null)).optional(),
   subjectId: Joi.string().allow('', null).optional(),
   title: Joi.string().required(),
   description: Joi.string().allow('', null).optional(),

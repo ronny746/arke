@@ -36,3 +36,42 @@ exports.updateResource = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.assignCourses = async (req, res, next) => {
+  try {
+    const data = await ResourcesService.assignCourses(req.user, req.params.id, req.body.courseIds);
+    return successResponse(res, 'Courses assigned successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.toggleUnlock = async (req, res, next) => {
+  try {
+    const data = await ResourcesService.toggleUnlock(req.user, req.params.id, req.body);
+    return successResponse(res, 'Unlock status updated successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.streamPdf = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { url } = req.query;
+    const { buffer, contentType } = await ResourcesService.streamResourcePdf(req.user, id, url);
+    
+    res.set({
+      'Content-Type': contentType.includes('pdf') ? 'application/pdf' : contentType,
+      'Content-Disposition': 'inline; filename="document.pdf"',
+      'Content-Length': buffer.length,
+      'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'X-Content-Type-Options': 'nosniff'
+    });
+    
+    return res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+};

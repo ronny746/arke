@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 // Removed recharts
-import { Award, BookOpen, Clock, Target, CheckCircle, XCircle, AlertCircle, FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { Award, BookOpen, Clock, Target, CheckCircle, XCircle, AlertCircle, FileText, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 import { Card } from '@/components/ui/index.jsx';
 import axiosInstance from '@/api/axiosInstance.js';
 import toast from 'react-hot-toast';
-
-import { ChevronUp } from 'lucide-react';
 
 const ComprehensiveAccordion = ({ data }) => {
   const [expandedSubject, setExpandedSubject] = useState(null);
@@ -125,18 +124,27 @@ const ComprehensiveAccordion = ({ data }) => {
   );
 };
 
-export default function StudentPerformanceDashboard({ studentId, onExamClick, onDppClick }) {
-  const [data, setData] = useState(null);
+export default function StudentPerformanceDashboard({ studentId, onExamClick, onDppClick }: any) {
+  const router = useRouter();
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('EXAMS'); // 'EXAMS' | 'DPPS'
+  const [activeTab, setActiveTab] = useState<'EXAMS' | 'DPPS'>('EXAMS');
 
   useEffect(() => {
     const fetchPerformance = async () => {
       try {
         setLoading(true);
         const res = await axiosInstance.get(`/analytics-reports/student/${studentId}/performance`);
-        setData(res.data.data);
-      } catch (err) {
+        const perfData = res.data?.data;
+        setData(perfData);
+
+        // Auto-switch to DPPs if student has DPP records but no exams yet
+        const totalExams = perfData?.overall?.totalExamsTaken || 0;
+        const totalDpps = perfData?.dppData?.overall?.totalDppsTaken || 0;
+        if (totalExams === 0 && totalDpps > 0) {
+          setActiveTab('DPPS');
+        }
+      } catch (err: any) {
         console.error(err);
         toast.error(err.response?.data?.message || 'Failed to fetch student performance data');
       } finally {
@@ -151,26 +159,29 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
-        <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-12 h-12 border-4 border-[#1a7a35] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  if (!data || data.overall.totalExamsTaken === 0) {
+  const totalExamsTaken = data?.overall?.totalExamsTaken || 0;
+  const totalDppsTaken = data?.dppData?.overall?.totalDppsTaken || 0;
+
+  if (!data || (totalExamsTaken === 0 && totalDppsTaken === 0)) {
     return (
-      <div className="text-center py-16 bg-surface-50 dark:bg-surface-900/50 rounded-2xl border-2 border-dashed border-surface-200 dark:border-surface-700">
-        <div className="w-20 h-20 bg-primary-100 dark:bg-primary-900/30 text-primary-500 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="text-center py-16 bg-surface-50 dark:bg-surface-900/50 rounded-2xl border-2 border-dashed border-surface-200 dark:border-surface-700 space-y-3">
+        <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 text-[#1a7a35] rounded-full flex items-center justify-center mx-auto mb-2">
           <BookOpen size={32} />
         </div>
-        <h3 className="text-xl font-bold mb-2">No Performance Data Yet</h3>
-        <p className="text-surface-500 max-w-md mx-auto">
-          Take some exams to start seeing your performance analytics, subject-wise strengths, and detailed reports here.
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white">No Performance Data Yet</h3>
+        <p className="text-surface-500 max-w-md mx-auto text-sm">
+          Complete assigned DPPs or take online tests to start seeing your performance analytics, accuracy trends, and subject-wise reports here.
         </p>
       </div>
     );
   }
 
-  const { overall, subjectWise, recentExams, dppData } = data;
+  const { overall = { totalExamsTaken: 0, averageScore: 0, overallPercentage: 0 }, subjectWise = [], recentExams = [], dppData } = data;
   const dppOverall = dppData?.overall || { totalDppsTaken: 0, averageScore: 0, overallPercentage: 0 };
   const recentDpps = dppData?.recentDpps || [];
 
@@ -182,198 +193,251 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
 
   const renderExamsTab = () => (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {statCards.map((stat, i) => (
-          <motion.div
-            key={i}
-            whileHover={{ y: -5 }}
-            className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-2xl p-6 flex items-center gap-5 shadow-sm"
-          >
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center ${stat.bg} ${stat.color}`}>
-              <stat.icon size={28} />
-            </div>
-            <div>
-              <p className="text-surface-500 font-medium text-sm uppercase tracking-wider mb-1">{stat.label}</p>
-              <h4 className="text-3xl font-bold text-surface-900 dark:text-white">{stat.value}</h4>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      <Card className="p-6 overflow-hidden">
-        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-          <Target className="text-primary-500" /> Comprehensive Exam Performance Breakdown
-        </h3>
-        <ComprehensiveAccordion data={subjectWise} />
-      </Card>
-
-      <Card className="p-6 overflow-hidden">
-        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-          <Clock className="text-primary-500" /> Past Exams History
-        </h3>
-        {recentExams && recentExams.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-surface-200 dark:border-surface-700">
-                  <th className="pb-3 font-semibold text-surface-500">Exam Title</th>
-                  <th className="pb-3 font-semibold text-surface-500">Date</th>
-                  <th className="pb-3 font-semibold text-surface-500">Score</th>
-                  <th className="pb-3 font-semibold text-surface-500">Accuracy</th>
-                  <th className="pb-3 font-semibold text-surface-500 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentExams.map((exam, idx) => {
-                  const accuracy = exam.totalCorrect + exam.totalWrong > 0 
-                    ? ((exam.totalCorrect / (exam.totalCorrect + exam.totalWrong)) * 100).toFixed(1) 
-                    : 0;
-                    
-                  return (
-                    <motion.tr 
-                      key={exam.submissionId}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
-                    >
-                      <td className="py-4">
-                        <p className="font-semibold text-surface-900 dark:text-surface-100">{exam.examTitle}</p>
-                        <p className="text-xs text-surface-500">{exam.examType}</p>
-                      </td>
-                      <td className="py-4 text-surface-600 dark:text-surface-400 text-sm">
-                        {new Date(exam.date).toLocaleDateString()}
-                      </td>
-                      <td className="py-4 font-medium">
-                        <span className={exam.score < 0 ? 'text-rose-500' : 'text-primary-600 dark:text-primary-400'}>{exam.score}</span>
-                        <span className="text-surface-400 text-xs ml-1">/ {exam.totalMarks}</span>
-                      </td>
-                      <td className="py-4">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          accuracy >= 80 ? 'bg-success-100 text-success-700' : 
-                          accuracy >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
-                        }`}>
-                          {accuracy}%
-                        </span>
-                      </td>
-                      <td className="py-4 text-right">
-                        <button 
-                          onClick={() => onExamClick && onExamClick(exam.examId, exam.submissionId)}
-                          className="text-primary-600 hover:text-primary-700 text-sm font-medium hover:underline"
-                        >
-                          Analysis
-                        </button>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {totalExamsTaken === 0 ? (
+        <div className="p-10 rounded-2xl bg-white dark:bg-surface-800 border border-gray-100 dark:border-surface-700 text-center space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+            <FileText size={28} />
           </div>
-        ) : (
-          <p className="text-center text-surface-500 py-6">No past exams found.</p>
-        )}
-      </Card>
+          <h4 className="text-base font-bold text-gray-800 dark:text-white">No Exam Submissions Found</h4>
+          <p className="text-xs text-gray-500 max-w-md mx-auto">
+            You haven't submitted any scheduled exams yet. When you take online tests, your detailed subject breakdowns and exam analysis will appear here.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {statCards.map((stat, i) => (
+              <motion.div
+                key={i}
+                whileHover={{ y: -5 }}
+                className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-2xl p-6 flex items-center gap-5 shadow-sm"
+              >
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center ${stat.bg} ${stat.color}`}>
+                  <stat.icon size={28} />
+                </div>
+                <div>
+                  <p className="text-surface-500 font-medium text-sm uppercase tracking-wider mb-1">{stat.label}</p>
+                  <h4 className="text-3xl font-bold text-surface-900 dark:text-white">{stat.value}</h4>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <Card className="p-6 overflow-hidden">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+              <Target className="text-primary-500" /> Comprehensive Exam Performance Breakdown
+            </h3>
+            <ComprehensiveAccordion data={subjectWise} />
+          </Card>
+
+          <Card className="p-6 overflow-hidden">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+              <Clock className="text-primary-500" /> Past Exams History
+            </h3>
+            {recentExams && recentExams.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-surface-200 dark:border-surface-700">
+                      <th className="pb-3 font-semibold text-surface-500">Exam Title</th>
+                      <th className="pb-3 font-semibold text-surface-500">Date</th>
+                      <th className="pb-3 font-semibold text-surface-500">Score</th>
+                      <th className="pb-3 font-semibold text-surface-500">Accuracy</th>
+                      <th className="pb-3 font-semibold text-surface-500 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentExams.map((exam, idx) => {
+                      const accuracy = exam.totalCorrect + exam.totalWrong > 0 
+                        ? ((exam.totalCorrect / (exam.totalCorrect + exam.totalWrong)) * 100).toFixed(1) 
+                        : 0;
+                        
+                      return (
+                        <motion.tr 
+                          key={exam.submissionId || idx}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+                        >
+                          <td className="py-4">
+                            <p className="font-semibold text-surface-900 dark:text-surface-100">{exam.examTitle}</p>
+                            <p className="text-xs text-surface-500">{exam.examType}</p>
+                          </td>
+                          <td className="py-4 text-surface-600 dark:text-surface-400 text-sm">
+                            {new Date(exam.date).toLocaleDateString()}
+                          </td>
+                          <td className="py-4 font-medium">
+                            <span className={exam.score < 0 ? 'text-rose-500' : 'text-primary-600 dark:text-primary-400'}>{exam.score}</span>
+                            <span className="text-surface-400 text-xs ml-1">/ {exam.totalMarks}</span>
+                          </td>
+                          <td className="py-4">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              Number(accuracy) >= 80 ? 'bg-success-100 text-success-700' : 
+                              Number(accuracy) >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                            }`}>
+                              {accuracy}%
+                            </span>
+                          </td>
+                          <td className="py-4 text-right">
+                            <button 
+                              onClick={() => onExamClick && onExamClick(exam.examId, exam.submissionId)}
+                              className="text-primary-600 hover:text-primary-700 text-sm font-medium hover:underline"
+                            >
+                              Analysis
+                            </button>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center text-surface-500 py-6">No past exams found.</p>
+            )}
+          </Card>
+        </>
+      )}
     </>
   );
 
   const renderDppsTab = () => (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-2xl p-6 flex items-center gap-5 shadow-sm">
-          <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-100 text-blue-500">
-            <FileText size={28} />
-          </div>
-          <div>
-            <p className="text-surface-500 font-medium text-sm uppercase tracking-wider mb-1">DPPs Taken</p>
-            <h4 className="text-3xl font-bold text-surface-900 dark:text-white">{dppOverall.totalDppsTaken}</h4>
-          </div>
-        </motion.div>
-        <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-2xl p-6 flex items-center gap-5 shadow-sm">
-          <div className="w-14 h-14 rounded-full flex items-center justify-center bg-green-100 text-green-500">
+      {totalDppsTaken === 0 ? (
+        <div className="p-10 rounded-2xl bg-white dark:bg-surface-800 border border-gray-100 dark:border-surface-700 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#1a7a35] flex items-center justify-center mx-auto">
             <Target size={28} />
           </div>
           <div>
-            <p className="text-surface-500 font-medium text-sm uppercase tracking-wider mb-1">Avg Score</p>
-            <h4 className="text-3xl font-bold text-surface-900 dark:text-white">{dppOverall.averageScore}</h4>
+            <h4 className="text-base font-bold text-gray-800 dark:text-white">No Completed DPPs Yet</h4>
+            <p className="text-xs text-gray-500 max-w-md mx-auto mt-1">
+              Complete assigned teacher DPPs or generate custom self-practice sets in the Daily Practice module to start tracking your DPP accuracy and scores.
+            </p>
           </div>
-        </motion.div>
-        <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-2xl p-6 flex items-center gap-5 shadow-sm">
-          <div className="w-14 h-14 rounded-full flex items-center justify-center bg-purple-100 text-purple-500">
-            <Award size={28} />
-          </div>
-          <div>
-            <p className="text-surface-500 font-medium text-sm uppercase tracking-wider mb-1">Overall Acc.</p>
-            <h4 className="text-3xl font-bold text-surface-900 dark:text-white">{dppOverall.overallPercentage}%</h4>
-          </div>
-        </motion.div>
-      </div>
-
-      <Card className="p-6 overflow-hidden">
-        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-          <Target className="text-primary-500" /> Comprehensive DPP Performance Breakdown
-        </h3>
-        <ComprehensiveAccordion data={dppData?.subjectWise || []} />
-      </Card>
-
-      <Card className="p-6 overflow-hidden">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <FileText className="text-purple-500" /> DPP Performance History
-          </h3>
+          <button
+            onClick={() => onDppClick ? onDppClick() : window.location.assign('/student/dpp')}
+            className="px-5 py-2.5 rounded-xl font-bold text-xs bg-[#1a7a35] hover:bg-[#146029] text-white shadow-md transition-all inline-flex items-center gap-2"
+          >
+            <BookOpen size={14} /> Go to DPP Practice
+          </button>
         </div>
-        
-        {recentDpps && recentDpps.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-surface-200 dark:border-surface-700 text-surface-500">
-                  <th className="pb-4 font-semibold p-4">DPP Title</th>
-                  <th className="pb-4 font-semibold p-4">Date</th>
-                  <th className="pb-4 font-semibold p-4 text-center">Score</th>
-                  <th className="pb-4 font-semibold p-4 text-center">Time Spent</th>
-                  <th className="pb-4 font-semibold p-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
-                {recentDpps.map((dpp, i) => (
-                  <motion.tr 
-                    key={dpp.sessionId || i}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="hover:bg-surface-50 dark:hover:bg-surface-900/50 transition-colors"
-                  >
-                    <td className="p-4">
-                      <div className="font-semibold text-surface-900 dark:text-white">{dpp.title || 'Practice Session'}</div>
-                    </td>
-                    <td className="p-4 text-surface-600 dark:text-surface-300 text-sm">
-                      {new Date(dpp.date).toLocaleDateString()}
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="font-bold text-purple-600 dark:text-purple-400 text-lg">{dpp.score} / {dpp.totalMarks}</div>
-                      <div className="text-xs text-surface-500">{dpp.percentage}%</div>
-                    </td>
-                    <td className="p-4 text-center text-surface-600 text-sm">
-                      {Math.floor((dpp.totalTimeSpentSeconds || 0) / 60)}m {(dpp.totalTimeSpentSeconds || 0) % 60}s
-                    </td>
-                    <td className="p-4 text-right">
-                      <button 
-                        onClick={() => onDppClick ? onDppClick(dpp.sessionId) : window.open(`/student/dpp/${dpp.sessionId}/play`, '_blank')}
-                        className="text-primary-600 hover:text-primary-700 text-sm font-medium hover:underline"
-                      >
-                        Review
-                      </button>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-2xl p-6 flex items-center gap-5 shadow-sm">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-100 text-blue-500">
+                <FileText size={28} />
+              </div>
+              <div>
+                <p className="text-surface-500 font-medium text-sm uppercase tracking-wider mb-1">DPPs Completed</p>
+                <h4 className="text-3xl font-bold text-surface-900 dark:text-white">{dppOverall.totalDppsTaken}</h4>
+              </div>
+            </motion.div>
+            <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-2xl p-6 flex items-center gap-5 shadow-sm">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center bg-green-100 text-green-500">
+                <Target size={28} />
+              </div>
+              <div>
+                <p className="text-surface-500 font-medium text-sm uppercase tracking-wider mb-1">Avg Score</p>
+                <h4 className="text-3xl font-bold text-surface-900 dark:text-white">{dppOverall.averageScore}</h4>
+              </div>
+            </motion.div>
+            <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-2xl p-6 flex items-center gap-5 shadow-sm">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center bg-purple-100 text-purple-500">
+                <Award size={28} />
+              </div>
+              <div>
+                <p className="text-surface-500 font-medium text-sm uppercase tracking-wider mb-1">Overall Acc.</p>
+                <h4 className="text-3xl font-bold text-surface-900 dark:text-white">{dppOverall.overallPercentage}%</h4>
+              </div>
+            </motion.div>
           </div>
-        ) : (
-          <p className="text-center text-surface-500 py-6">No past DPPs found.</p>
-        )}
-      </Card>
+
+          <Card className="p-6 overflow-hidden">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+              <Target className="text-primary-500" /> Comprehensive DPP Performance Breakdown
+            </h3>
+            <ComprehensiveAccordion data={dppData?.subjectWise || []} />
+          </Card>
+
+          <Card className="p-6 overflow-hidden">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <FileText className="text-purple-500" /> DPP Performance & Results History
+              </h3>
+            </div>
+            
+            {recentDpps && recentDpps.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-surface-200 dark:border-surface-700 text-surface-500 text-xs">
+                      <th className="pb-4 font-semibold p-4">DPP Title</th>
+                      <th className="pb-4 font-semibold p-4">Date Completed</th>
+                      <th className="pb-4 font-semibold p-4 text-center">Score / Marks</th>
+                      <th className="pb-4 font-semibold p-4 text-center">Accuracy</th>
+                      <th className="pb-4 font-semibold p-4 text-center">Time Spent</th>
+                      <th className="pb-4 font-semibold p-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
+                    {recentDpps.map((dpp, i) => (
+                      <motion.tr 
+                        key={dpp.sessionId || i}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="hover:bg-surface-50 dark:hover:bg-surface-900/50 transition-colors"
+                      >
+                        <td className="p-4">
+                          <div className="font-semibold text-surface-900 dark:text-white">{dpp.title || 'DPP Session'}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            {dpp.isTeacherAssigned && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Teacher Assigned
+                              </span>
+                            )}
+                            <span className="text-xs text-surface-500">{dpp.subject || 'General'}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-surface-600 dark:text-surface-300 text-sm">
+                          {new Date(dpp.date).toLocaleDateString()}
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="font-bold text-purple-600 dark:text-purple-400 text-base">{dpp.score} / {dpp.totalMarks}</div>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                            Number(dpp.percentage) >= 70 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                            Number(dpp.percentage) >= 40 ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                            'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}>
+                            {dpp.percentage}%
+                          </span>
+                        </td>
+                        <td className="p-4 text-center text-surface-600 text-sm">
+                          {Math.floor((dpp.totalTimeSpentSeconds || 0) / 60)}m {(dpp.totalTimeSpentSeconds || 0) % 60}s
+                        </td>
+                        <td className="p-4 text-right">
+                          <button 
+                            onClick={() => onDppClick ? onDppClick(dpp.sessionId) : router.push(`/student/dpp/${dpp.sessionId}/play`)}
+                            className="text-[#1a7a35] hover:underline text-sm font-bold"
+                          >
+                            Review
+                          </button>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center text-surface-500 py-6">No past DPPs found.</p>
+            )}
+          </Card>
+        </>
+      )}
     </>
   );
 
@@ -381,16 +445,16 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
     <div className="space-y-6 animate-fade-in">
       <div className="flex border-b border-surface-200 dark:border-surface-700 overflow-x-auto no-scrollbar">
         <button
-          className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors border-b-2 ${activeTab === 'EXAMS' ? 'border-primary-500 text-primary-600' : 'border-transparent text-surface-500 hover:text-surface-700'}`}
+          className={`px-6 py-3 font-bold text-sm whitespace-nowrap transition-colors border-b-2 ${activeTab === 'EXAMS' ? 'border-[#1a7a35] text-[#1a7a35]' : 'border-transparent text-surface-500 hover:text-surface-700'}`}
           onClick={() => setActiveTab('EXAMS')}
         >
-          Exam Performance
+          Exam Performance {totalExamsTaken > 0 ? `(${totalExamsTaken})` : ''}
         </button>
         <button
-          className={`px-6 py-3 font-medium text-sm whitespace-nowrap transition-colors border-b-2 ${activeTab === 'DPPS' ? 'border-primary-500 text-primary-600' : 'border-transparent text-surface-500 hover:text-surface-700'}`}
+          className={`px-6 py-3 font-bold text-sm whitespace-nowrap transition-colors border-b-2 ${activeTab === 'DPPS' ? 'border-[#1a7a35] text-[#1a7a35]' : 'border-transparent text-surface-500 hover:text-surface-700'}`}
           onClick={() => setActiveTab('DPPS')}
         >
-          DPP Performance
+          DPP Performance {totalDppsTaken > 0 ? `(${totalDppsTaken})` : ''}
         </button>
       </div>
 

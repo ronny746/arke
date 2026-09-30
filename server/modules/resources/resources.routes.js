@@ -20,6 +20,21 @@ const { checkAccess } = require('../../middlewares/contentAccess.middleware');
 const requireDeveloperToken = require('../../middlewares/developer.middleware');
 
 router.get(
+  '/stream',
+  ResourcesController.streamPdf
+);
+
+router.get(
+  '/stream/:id',
+  ResourcesController.streamPdf
+);
+
+router.get(
+  '/:id/stream',
+  ResourcesController.streamPdf
+);
+
+router.get(
   '/',
   checkAccess('studyMaterials'),
   ResourcesController.getResources
@@ -29,6 +44,18 @@ router.delete(
   '/:id', requireDeveloperToken,
   rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.TEACHER]),
   ResourcesController.deleteResource
+);
+
+router.put(
+  '/:id/assign-courses',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS]),
+  ResourcesController.assignCourses
+);
+
+router.put(
+  '/:id/toggle-unlock',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.TEACHER]),
+  ResourcesController.toggleUnlock
 );
 
 router.put(

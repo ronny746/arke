@@ -3,6 +3,7 @@ const ExamQuestion = require('../exams/exam-question.model');
 const OnlineExam = require('../exams/exam.model');
 const mongoose = require('mongoose');
 const PracticeSession = require('../practice/practice-session.model');
+require('../exams/category.model');
 
 exports.getStudentPerformance = async (studentId) => {
   // 1. Fetch all completed submissions for the student
@@ -184,10 +185,14 @@ exports.getStudentPerformance = async (studentId) => {
     return {
       sessionId: session._id,
       title: session.title,
+      isTeacherAssigned: Boolean(session.isTeacherAssigned || session.assignedBy || session.title?.toLowerCase().includes('remedial')),
+      subject: session.filters?.subject || 'General',
+      topics: session.filters?.topics || (session.filters?.topic ? [session.filters.topic] : []),
       date: session.completedAt || session.createdAt,
-      score: session.score,
-      totalMarks: subTotalMarks,
-      percentage: subTotalMarks > 0 ? ((session.score / subTotalMarks) * 100).toFixed(2) : 0,
+      score: session.score || 0,
+      totalMarks: subTotalMarks || session.totalMarks || (session.totalQuestions * 4),
+      totalQuestions: session.totalQuestions || session.questions?.length || 0,
+      percentage: subTotalMarks > 0 ? ((session.score / subTotalMarks) * 100).toFixed(1) : 0,
       totalTimeSpentSeconds: session.totalTimeSpentSeconds || 0
     };
   });

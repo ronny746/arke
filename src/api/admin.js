@@ -181,6 +181,9 @@ export const adminAPI = {
   // Resources (Study Materials)
   getResources: (params) => axiosInstance.get('/resources', { params }),
   createResource: (data) => axiosInstance.post('/resources', data),
+  updateResource: (id, data) => axiosInstance.put(`/resources/${id}`, data),
+  assignCoursesToResource: (id, courseIds) => axiosInstance.put(`/resources/${id}/assign-courses`, { courseIds }),
+  toggleUnlockResource: (id, data) => axiosInstance.put(`/resources/${id}/toggle-unlock`, data),
   deleteResource: (id) => axiosInstance.delete(`/resources/${id}`),
 
   // System Configuration (including NEET Countdown)

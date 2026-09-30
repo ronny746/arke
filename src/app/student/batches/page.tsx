@@ -365,11 +365,11 @@ export default function MyBatchesPage() {
 
                       {/* View Overview Link */}
                       <button
-                        onClick={() => router.push(`/student/course/${courseId}`)}
-                        className="w-full py-3 rounded-xl text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 hover:opacity-95"
+                        onClick={() => router.push(`/student/course/${courseId}?tab=classroom`)}
+                        className="w-full py-3 rounded-xl text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 hover:opacity-95 cursor-pointer"
                         style={{ background: '#059669' }}
                       >
-                        <span>View Batch Overview & Schedule</span>
+                        <span>View Course Content & Schedule</span>
                         <ArrowRight size={14} />
                       </button>
 

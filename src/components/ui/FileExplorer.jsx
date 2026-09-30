@@ -1,10 +1,44 @@
 import React, { useState, useMemo } from 'react';
-import { Folder, FileText, Video, ChevronRight, File as FileIcon, Trash, Download, MoveRight, Eye, EyeOff, Edit2, MoreVertical } from 'lucide-react';
+import { 
+  Folder, 
+  FileText, 
+  Video, 
+  ChevronRight, 
+  File as FileIcon, 
+  Trash, 
+  Download, 
+  MoveRight, 
+  Eye, 
+  EyeOff, 
+  Edit2, 
+  MoreVertical,
+  Layers,
+  Lock,
+  Unlock,
+  CheckCircle2,
+  BookOpen
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button.jsx';
 import { cn } from '@/utils/helpers.js';
 import { useDeveloperStore } from '@/store';
 
-export function FileExplorer({ files, onDelete, onEdit, onView, onMove, onToggleActive, currentPath, onNavigate, onCreateFolder, readOnly = false }) {
+export function FileExplorer({ 
+  files = [], 
+  onDelete, 
+  onEdit, 
+  onView, 
+  onMove, 
+  onToggleActive, 
+  onAssignCourses,
+  onToggleUnlock,
+  selectedBatchId,
+  isTeacherView = false,
+  isAdminView = false,
+  currentPath = '/', 
+  onNavigate, 
+  onCreateFolder, 
+  readOnly = false 
+}) {
   const { isDeveloperMode } = useDeveloperStore();
 
   // Parse files into folder structure based on currentPath
@@ -12,7 +46,7 @@ export function FileExplorer({ files, onDelete, onEdit, onView, onMove, onToggle
     const currentFiles = [];
     const currentFolders = [];
 
-    files.forEach(file => {
+    (files || []).forEach(file => {
       let path = file.folderPath || '/';
       if (!path.startsWith('/')) path = '/' + path;
       if (!path.endsWith('/')) path = path + '/';
@@ -27,8 +61,8 @@ export function FileExplorer({ files, onDelete, onEdit, onView, onMove, onToggle
     });
 
     return {
-      folders: currentFolders.sort((a, b) => a.title.localeCompare(b.title)),
-      currentFiles: currentFiles.sort((a, b) => a.title.localeCompare(b.title))
+      folders: currentFolders.sort((a, b) => (a.title || '').localeCompare(b.title || '')),
+      currentFiles: currentFiles.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
     };
   }, [files, currentPath]);
 
@@ -49,6 +83,12 @@ export function FileExplorer({ files, onDelete, onEdit, onView, onMove, onToggle
       case 'NOTES': return <FileText className="w-14 h-14 text-blue-500 fill-blue-100" strokeWidth={1.5} />;
       default: return <FileIcon className="w-14 h-14 text-gray-500 fill-gray-100" strokeWidth={1.5} />;
     }
+  };
+
+  const isItemUnlockedForBatch = (item) => {
+    if (!selectedBatchId || selectedBatchId === 'all') return false;
+    const batchList = item.unlockedBatches || [];
+    return batchList.some(b => (b?._id || b)?.toString() === selectedBatchId?.toString());
   };
 
   return (
@@ -86,139 +126,278 @@ export function FileExplorer({ files, onDelete, onEdit, onView, onMove, onToggle
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {folders.map(folder => (
-              <div 
-                key={folder._id}
-                className="group relative flex flex-col bg-white dark:bg-surface-800 rounded-2xl border border-gray-100 hover:border-yellow-200 hover:shadow-lg hover:-translate-y-1 transition-all overflow-hidden cursor-pointer"
-                onClick={() => onNavigate(currentPath + folder.title + '/')}
-              >
+            {folders.map(folder => {
+              const isUnlocked = isItemUnlockedForBatch(folder);
+              const assignedCourses = folder.courseIds || [];
+
+              return (
+                <div 
+                  key={folder._id}
+                  className="group relative flex flex-col bg-white dark:bg-surface-800 rounded-2xl border border-gray-100 hover:border-yellow-200 hover:shadow-lg hover:-translate-y-1 transition-all overflow-hidden cursor-pointer"
+                  onClick={() => onNavigate(currentPath + folder.title + '/')}
+                >
+                  {/* Status Overlay Badges */}
+                  <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5 pointer-events-none">
+                    {isTeacherView && selectedBatchId && selectedBatchId !== 'all' && (
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm backdrop-blur-md",
+                        isUnlocked
+                          ? "bg-emerald-500/90 text-white"
+                          : "bg-amber-500/90 text-white"
+                      )}>
+                        {isUnlocked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                        {isUnlocked ? "Unlocked for Batch" : "Locked for Batch"}
+                      </span>
+                    )}
+                  </div>
+
                   {!readOnly && (
-                    <div className="absolute top-0 left-0 right-0 p-2.5 bg-gradient-to-b from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all flex flex-wrap justify-end gap-1.5 z-20">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onEdit && onEdit(folder); }}
-                        className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
-                      >
-                        <Edit2 className="w-3 h-3" /> Edit
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onMove && onMove(folder); }}
-                        className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-indigo-50 text-gray-700 hover:text-indigo-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
-                      >
-                        <MoveRight className="w-3 h-3" /> Move
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onToggleActive && onToggleActive(folder); }}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 bg-white/95 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm",
-                          folder.isActive !== false 
-                            ? "hover:bg-yellow-50 text-gray-700 hover:text-yellow-600" 
-                            : "hover:bg-green-50 text-gray-700 hover:text-green-600"
-                        )}
-                      >
-                        {folder.isActive !== false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                        {folder.isActive !== false ? "Unpublish" : "Publish"}
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onDelete && onDelete(folder._id); }}
-                        className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
-                      >
-                        <Trash className="w-3 h-3" /> Delete
-                      </button>
+                    <div className="absolute top-0 left-0 right-0 p-2.5 bg-gradient-to-b from-black/60 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all flex flex-wrap justify-end gap-1.5 z-20">
+                      {isTeacherView && selectedBatchId && selectedBatchId !== 'all' && onToggleUnlock && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onToggleUnlock(folder, !isUnlocked); }}
+                          className={cn(
+                            "flex items-center gap-1 px-3 py-1.5 rounded-lg shadow-md text-xs font-black transition-all backdrop-blur-md",
+                            isUnlocked 
+                              ? "bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300" 
+                              : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/30"
+                          )}
+                          title={isUnlocked ? "Lock this folder for this batch" : "Unlock this folder for this batch"}
+                        >
+                          {isUnlocked ? <Lock className="w-3.5 h-3.5 text-amber-700" /> : <Unlock className="w-3.5 h-3.5" />}
+                          {isUnlocked ? "Lock for Batch" : "Unlock for Batch"}
+                        </button>
+                      )}
+
+                      {!isTeacherView && onAssignCourses && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onAssignCourses(folder); }}
+                          className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-amber-50 text-gray-700 hover:text-amber-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
+                          title="Assign to Courses"
+                        >
+                          <Layers className="w-3 h-3 text-amber-500" /> Assign Courses
+                        </button>
+                      )}
+
+                      {!isTeacherView && onEdit && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onEdit(folder); }}
+                          className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
+                        >
+                          <Edit2 className="w-3 h-3" /> Edit
+                        </button>
+                      )}
+
+                      {!isTeacherView && onMove && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onMove(folder); }}
+                          className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-indigo-50 text-gray-700 hover:text-indigo-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
+                        >
+                          <MoveRight className="w-3 h-3" /> Move
+                        </button>
+                      )}
+
+                      {!isTeacherView && onToggleActive && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onToggleActive(folder); }}
+                          className={cn(
+                            "flex items-center gap-1 px-2 py-1 bg-white/95 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm",
+                            folder.isActive !== false 
+                              ? "hover:bg-yellow-50 text-gray-700 hover:text-yellow-600" 
+                              : "hover:bg-green-50 text-gray-700 hover:text-green-600"
+                          )}
+                        >
+                          {folder.isActive !== false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          {folder.isActive !== false ? "Unpublish" : "Publish"}
+                        </button>
+                      )}
+
+                      {!isTeacherView && onDelete && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onDelete(folder._id); }}
+                          className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
+                        >
+                          <Trash className="w-3 h-3" /> Delete
+                        </button>
+                      )}
                     </div>
                   )}
 
-                <div className="h-32 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-surface-700 dark:to-surface-800 flex items-center justify-center relative overflow-hidden group-hover:from-blue-100/80 group-hover:to-indigo-100/80 transition-colors">
-                  <div className="p-3.5 bg-white/70 dark:bg-black/20 rounded-2xl backdrop-blur-md shadow-sm group-hover:scale-110 transition-transform duration-300 group-hover:shadow-md">
-                    <Folder className="w-10 h-10 text-indigo-500 fill-indigo-100/50" strokeWidth={1.5} />
+                  <div className="h-32 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-surface-700 dark:to-surface-800 flex items-center justify-center relative overflow-hidden group-hover:from-blue-100/80 group-hover:to-indigo-100/80 transition-colors">
+                    <div className="p-3.5 bg-white/70 dark:bg-black/20 rounded-2xl backdrop-blur-md shadow-sm group-hover:scale-110 transition-transform duration-300 group-hover:shadow-md">
+                      <Folder className="w-10 h-10 text-indigo-500 fill-indigo-100/50" strokeWidth={1.5} />
+                    </div>
                   </div>
-                </div>
-                
-                <div className="p-3.5 bg-white dark:bg-surface-800 flex flex-col items-center justify-center">
-                  <span className="text-[15px] font-medium text-gray-800 dark:text-gray-100 line-clamp-1 w-full text-center" title={folder.title}>{folder.title}</span>
-                  {!readOnly && !folder.batchId && (!folder.batchIds || folder.batchIds.length === 0) && (
-                    <span className="text-[10px] text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full font-semibold mt-1">All Classes</span>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {currentFiles.map(file => (
-              <div 
-                key={file._id}
-                className="group relative flex flex-col bg-white dark:bg-surface-800 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer"
-                onClick={() => onView(file)}
-              >
-                {/* Actions overlay */}
-                {!readOnly && (
-                  <div className="absolute top-0 left-0 right-0 p-2.5 bg-gradient-to-b from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all flex flex-wrap justify-end gap-1.5 z-20">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onEdit && onEdit(file); }}
-                      className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
-                    >
-                      <Edit2 className="w-3 h-3" /> Edit
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onMove && onMove(file); }}
-                      className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-indigo-50 text-gray-700 hover:text-indigo-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
-                    >
-                      <MoveRight className="w-3 h-3" /> Move
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onToggleActive && onToggleActive(file); }}
-                      className={cn(
-                        "flex items-center gap-1 px-2 py-1 bg-white/95 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm",
-                        file.isActive !== false 
-                          ? "hover:bg-yellow-50 text-gray-700 hover:text-yellow-600" 
-                          : "hover:bg-green-50 text-gray-700 hover:text-green-600"
-                      )}
-                    >
-                      {file.isActive !== false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                      {file.isActive !== false ? "Unpublish" : "Publish"}
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onDelete && onDelete(file._id); }}
-                      className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
-                    >
-                      <Trash className="w-3 h-3" /> Delete
-                    </button>
-                  </div>
-                )}
-
-                {/* Top Half: White Preview Area */}
-                <div className="h-32 bg-white flex items-center justify-center p-4 relative overflow-hidden">
-                   {/* Fake text lines for document preview effect */}
-                   <div className="absolute inset-0 p-5 opacity-[0.03] flex flex-col gap-3">
-                     <div className="h-2 w-3/4 bg-black rounded"></div>
-                     <div className="h-2 w-full bg-black rounded"></div>
-                     <div className="h-2 w-5/6 bg-black rounded"></div>
-                     <div className="h-2 w-full bg-black rounded mt-2"></div>
-                     <div className="h-2 w-4/5 bg-black rounded"></div>
-                   </div>
-                   {/* Centered Large Icon */}
-                   <div className="transform group-hover:scale-110 transition-transform duration-300 z-10 opacity-80 group-hover:opacity-100">
-                     {getFileIcon(file.type)}
-                   </div>
-                </div>
-                
-                {/* Bottom Half: Colored Footer (WhatsApp style) */}
-                 <div className={cn("p-3 flex flex-col gap-1 relative z-20", file.isActive === false ? "bg-gray-600" : "bg-primary-700")}>
-                   <div className="flex items-center gap-3">
-                      {/* Mini Icon next to title */}
-                      <div className="bg-white p-1.5 rounded shrink-0 shadow-sm flex items-center justify-center">
-                         {file.type === 'VIDEO' ? <Video className="w-5 h-5 text-red-500 fill-red-100" /> : <FileText className="w-5 h-5 text-red-500 fill-red-100" />}
+                  
+                  <div className="p-3.5 bg-white dark:bg-surface-800 flex flex-col items-center justify-center gap-1">
+                    <span className="text-[15px] font-medium text-gray-800 dark:text-gray-100 line-clamp-1 w-full text-center" title={folder.title}>
+                      {folder.title}
+                    </span>
+                    
+                    {/* Course Assignments Badges */}
+                    {assignedCourses.length > 0 && (
+                      <div className="flex flex-wrap items-center justify-center gap-1 mt-0.5">
+                        {assignedCourses.slice(0, 2).map((c, i) => (
+                          <span key={i} className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full font-bold">
+                            {c.name || c}
+                          </span>
+                        ))}
+                        {assignedCourses.length > 2 && (
+                          <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full font-bold">
+                            +{assignedCourses.length - 2}
+                          </span>
+                        )}
                       </div>
-                      <span className="text-[15px] font-medium text-white line-clamp-1 w-full" title={file.title}>
-                        {file.title} {file.isActive === false && "(Unpublished)"}
+                    )}
+
+                    {!readOnly && !isTeacherView && !folder.batchId && (!folder.batchIds || folder.batchIds.length === 0) && assignedCourses.length === 0 && (
+                      <span className="text-[10px] text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full font-semibold mt-0.5">
+                        Material Bank
                       </span>
-                   </div>
-                   <div className="flex items-center justify-between mt-1.5 pl-11">
-                     <span className="text-[11px] text-primary-100/80 line-clamp-1 font-medium">
-                       {file.type} • {(file.batchId?.name || file.subjectId?.name) ? (file.batchId?.name || 'Global') : 'Global Material'}
-                     </span>
-                   </div>
-                 </div>
-              </div>
-            ))}
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {currentFiles.map(file => {
+              const isUnlocked = isItemUnlockedForBatch(file);
+              const assignedCourses = file.courseIds || [];
+
+              return (
+                <div 
+                  key={file._id}
+                  className="group relative flex flex-col bg-white dark:bg-surface-800 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer"
+                  onClick={() => onView(file)}
+                >
+                  {/* Status Overlay Badges */}
+                  <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5 pointer-events-none">
+                    {isTeacherView && selectedBatchId && selectedBatchId !== 'all' && (
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm backdrop-blur-md",
+                        isUnlocked
+                          ? "bg-emerald-500/90 text-white"
+                          : "bg-amber-500/90 text-white"
+                      )}>
+                        {isUnlocked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                        {isUnlocked ? "Unlocked for Batch" : "Locked for Batch"}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions overlay */}
+                  {!readOnly && (
+                    <div className="absolute top-0 left-0 right-0 p-2.5 bg-gradient-to-b from-black/60 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all flex flex-wrap justify-end gap-1.5 z-20">
+                      {isTeacherView && selectedBatchId && selectedBatchId !== 'all' && onToggleUnlock && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onToggleUnlock(file, !isUnlocked); }}
+                          className={cn(
+                            "flex items-center gap-1 px-3 py-1.5 rounded-lg shadow-md text-xs font-black transition-all backdrop-blur-md",
+                            isUnlocked 
+                              ? "bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300" 
+                              : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/30"
+                          )}
+                          title={isUnlocked ? "Lock this file for this batch" : "Unlock this file for this batch"}
+                        >
+                          {isUnlocked ? <Lock className="w-3.5 h-3.5 text-amber-700" /> : <Unlock className="w-3.5 h-3.5" />}
+                          {isUnlocked ? "Lock for Batch" : "Unlock for Batch"}
+                        </button>
+                      )}
+
+                      {!isTeacherView && onAssignCourses && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onAssignCourses(file); }}
+                          className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-amber-50 text-gray-700 hover:text-amber-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
+                          title="Assign to Courses"
+                        >
+                          <Layers className="w-3 h-3 text-amber-500" /> Assign Courses
+                        </button>
+                      )}
+
+                      {!isTeacherView && onEdit && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onEdit(file); }}
+                          className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
+                        >
+                          <Edit2 className="w-3 h-3" /> Edit
+                        </button>
+                      )}
+
+                      {!isTeacherView && onMove && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onMove(file); }}
+                          className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-indigo-50 text-gray-700 hover:text-indigo-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
+                        >
+                          <MoveRight className="w-3 h-3" /> Move
+                        </button>
+                      )}
+
+                      {!isTeacherView && onToggleActive && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onToggleActive(file); }}
+                          className={cn(
+                            "flex items-center gap-1 px-2 py-1 bg-white/95 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm",
+                            file.isActive !== false 
+                              ? "hover:bg-yellow-50 text-gray-700 hover:text-yellow-600" 
+                              : "hover:bg-green-50 text-gray-700 hover:text-green-600"
+                          )}
+                        >
+                          {file.isActive !== false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          {file.isActive !== false ? "Unpublish" : "Publish"}
+                        </button>
+                      )}
+
+                      {!isTeacherView && onDelete && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onDelete(file._id); }}
+                          className="flex items-center gap-1 px-2 py-1 bg-white/95 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-md shadow-sm text-[11px] font-bold transition-colors backdrop-blur-sm"
+                        >
+                          <Trash className="w-3 h-3" /> Delete
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Top Half: White Preview Area */}
+                  <div className="h-32 bg-white flex items-center justify-center p-4 relative overflow-hidden">
+                     <div className="absolute inset-0 p-5 opacity-[0.03] flex flex-col gap-3">
+                       <div className="h-2 w-3/4 bg-black rounded"></div>
+                       <div className="h-2 w-full bg-black rounded"></div>
+                       <div className="h-2 w-5/6 bg-black rounded"></div>
+                       <div className="h-2 w-full bg-black rounded mt-2"></div>
+                       <div className="h-2 w-4/5 bg-black rounded"></div>
+                     </div>
+                     <div className="transform group-hover:scale-110 transition-transform duration-300 z-10 opacity-80 group-hover:opacity-100">
+                       {getFileIcon(file.type)}
+                     </div>
+                  </div>
+                  
+                  {/* Bottom Half: Colored Footer */}
+                  <div className={cn(
+                    "p-3 flex flex-col gap-1 relative z-20", 
+                    file.isActive === false ? "bg-gray-600" : (isTeacherView && isUnlocked ? "bg-emerald-800" : "bg-primary-700")
+                  )}>
+                     <div className="flex items-center gap-3">
+                        <div className="bg-white p-1.5 rounded shrink-0 shadow-sm flex items-center justify-center">
+                           {file.type === 'VIDEO' ? <Video className="w-5 h-5 text-red-500 fill-red-100" /> : <FileText className="w-5 h-5 text-red-500 fill-red-100" />}
+                        </div>
+                        <span className="text-[15px] font-medium text-white line-clamp-1 w-full" title={file.title}>
+                          {file.title} {file.isActive === false && "(Unpublished)"}
+                        </span>
+                     </div>
+                     <div className="flex items-center justify-between mt-1.5 pl-11">
+                       <span className="text-[11px] text-primary-100/80 line-clamp-1 font-medium">
+                         {file.type} • {
+                           assignedCourses.length > 0 
+                             ? `${assignedCourses.length} Course${assignedCourses.length > 1 ? 's' : ''}` 
+                             : ((file.batchId?.name || file.subjectId?.name) ? (file.batchId?.name || 'Global') : 'Material Bank')
+                         }
+                       </span>
+                     </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

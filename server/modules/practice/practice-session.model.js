@@ -28,9 +28,19 @@ const practiceSessionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PracticeSession',
   },
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  isTeacherAssigned: {
+    type: Boolean,
+    default: false,
+  },
   filters: {
     subject: String,
+    chapter: String,
     topic: String,
+    topics: [String],
     difficulty: String,
   },
   status: {

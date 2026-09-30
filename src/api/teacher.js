@@ -57,6 +57,8 @@ export const teacherAPI = {
   // Resources
   getResources: (params) => axiosInstance.get('/resources', { params }),
   createResource: (data) => axiosInstance.post('/resources', data),
+  updateResource: (id, data) => axiosInstance.put(`/resources/${id}`, data),
+  toggleUnlockResource: (id, data) => axiosInstance.put(`/resources/${id}/toggle-unlock`, data),
   deleteResource: (id) => axiosInstance.delete(`/resources/${id}`),
 
   // Doubt Sessions
@@ -84,4 +86,12 @@ export const teacherAPI = {
   createLiveClass: (data) => axiosInstance.post('/live-classes', data),
   getLiveClasses: (params) => axiosInstance.get('/live-classes', { params }),
   endLiveClass: (id, data) => axiosInstance.put(`/live-classes/${id}/end`, data),
+
+  // DPP & Remedial Generation
+  getPracticeFilters: () => axiosInstance.get('/practice/filters'),
+  generateDPP: (data) => axiosInstance.post('/practice/generate', data),
+  createManualDPP: (data) => axiosInstance.post('/practice/manual', data),
+  getQuestionsForTopic: (params) => axiosInstance.get('/question-banks/questions', { params }),
+  getAssignedDPPs: (params) => axiosInstance.get('/practice/history', { params }),
+  getDPPSession: (id) => axiosInstance.get(`/practice/${id}`),
 };

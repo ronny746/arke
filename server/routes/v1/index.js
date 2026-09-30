@@ -91,6 +91,7 @@ router.use('/question-categories', categoryRouter);
 router.use('/public/exams', publicExamsRouter);
 router.use('/public/courses', publicCoursesRouter);
 router.use('/leads', leadsRouter);
+router.use('/practice', practiceRouter);
 router.use('/student/practice', practiceRouter);
 router.use('/performance-flags', performanceFlagsRouter);
 router.use('/operations', operationsRouter);

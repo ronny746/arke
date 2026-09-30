@@ -211,7 +211,8 @@ exports.getHierarchy = async (req, res) => {
 
 exports.getQuestionsByHierarchy = async (req, res) => {
   try {
-    const { subject, chapter, topic, random, limit } = req.query;
+    const { subject, chapter, topic, topics, subjectName, topicName, difficulty, search, random, limit } = req.query;
+    const escapeRegex = (str) => String(str).replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
     
     // Using aggregation to filter within QuestionBank documents
     const matchStage = {};
@@ -223,13 +224,54 @@ exports.getQuestionsByHierarchy = async (req, res) => {
     if (chapter) filterStage['questions.chapter'] = new (require('mongoose').Types.ObjectId)(chapter);
     if (topic) filterStage['questions.topic'] = new (require('mongoose').Types.ObjectId)(topic);
 
+    // Topic filtering with case-insensitive regex
+    const allTopics = [];
+    if (topics) {
+      const list = Array.isArray(topics) ? topics : String(topics).split(',').map(t => t.trim()).filter(Boolean);
+      allTopics.push(...list);
+    }
+    if (topicName && !allTopics.includes(topicName)) {
+      allTopics.push(topicName);
+    }
+
+    if (allTopics.length > 0) {
+      const topicRegexList = allTopics.map(t => new RegExp(`^${escapeRegex(t)}$`, 'i'));
+      filterStage['questions.topicName'] = { $in: topicRegexList };
+    } else if (subjectName && subjectName !== 'General' && subjectName !== 'ALL' && subjectName !== 'test') {
+      filterStage['questions.subjectName'] = { $regex: new RegExp(escapeRegex(subjectName), 'i') };
+    }
+
+    if (search) {
+      filterStage['questions.questionText'] = { $regex: search, $options: 'i' };
+    }
+
     const pipeline = [
       { $match: matchStage },
-      { $unwind: "$questions" }
+      { $unwind: "$questions" },
+      { $match: { "questions.isUnpublished": { $ne: true } } }
     ];
 
     if (Object.keys(filterStage).length > 0) {
       pipeline.push({ $match: filterStage });
+    }
+
+    if (difficulty) {
+      const diffPipeline = [
+        ...pipeline,
+        { $match: { "questions.difficulty": difficulty } }
+      ];
+      if (random === 'true') {
+        diffPipeline.push({ $sample: { size: parseInt(limit) || 10 } });
+      } else if (limit) {
+        diffPipeline.push({ $limit: parseInt(limit) });
+      }
+      diffPipeline.push({ $addFields: { "questions.bankId": "$_id" } });
+      diffPipeline.push({ $replaceRoot: { newRoot: "$questions" } });
+
+      let diffQuestions = await QuestionBank.aggregate(diffPipeline);
+      if (diffQuestions && diffQuestions.length > 0) {
+        return res.status(200).json({ success: true, data: diffQuestions });
+      }
     }
 
     if (random === 'true') {
@@ -246,7 +288,21 @@ exports.getQuestionsByHierarchy = async (req, res) => {
 
     pipeline.push({ $replaceRoot: { newRoot: "$questions" } });
 
-    const questions = await QuestionBank.aggregate(pipeline);
+    let questions = await QuestionBank.aggregate(pipeline);
+
+    // If 0 questions found and topics were filtered, fallback to any available questions in the bank
+    if ((!questions || questions.length === 0) && allTopics.length > 0) {
+      const fallbackPipeline = [
+        { $match: matchStage },
+        { $unwind: "$questions" },
+        { $match: { "questions.isUnpublished": { $ne: true } } },
+        { $sample: { size: parseInt(limit) || 20 } },
+        { $addFields: { "questions.bankId": "$_id" } },
+        { $replaceRoot: { newRoot: "$questions" } }
+      ];
+      questions = await QuestionBank.aggregate(fallbackPipeline);
+    }
+
     res.status(200).json({ success: true, data: questions });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -274,11 +274,28 @@ export default function StudentCourseDetailPage() {
           );
           if (isUserEnrolled) {
             setIsEnrolled(true);
+            if (typeof window !== 'undefined') {
+              const urlParams = new URLSearchParams(window.location.search);
+              if (!urlParams.get('tab')) {
+                setActiveTab('classroom');
+              }
+            }
           }
         }
       })
       .catch(console.error);
   }, [id, user]);
+
+  // Read URL query parameter for tab
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam && ['description', 'classroom', 'test-series', 'faculties', 'faqs'].includes(tabParam)) {
+        setActiveTab(tabParam as any);
+      }
+    }
+  }, []);
 
   // Load Main Course
   useEffect(() => {
@@ -616,11 +633,15 @@ export default function StudentCourseDetailPage() {
             {isEnrolled && (
               <div className="lg:self-center shrink-0">
                 <button
-                  onClick={() => router.push('/student/batches')}
-                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm transition-all shadow-lg flex items-center justify-center gap-2"
+                  onClick={() => {
+                    setActiveTab('classroom');
+                    const el = document.getElementById('classroom-content');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Play size={18} fill="currentColor" />
-                  <span>Go to My Classroom</span>
+                  <span>Access Course Content</span>
                 </button>
               </div>
             )}
@@ -629,7 +650,7 @@ export default function StudentCourseDetailPage() {
       </section>
 
       {/* Sticky Navigation Tabs */}
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-xs">
+      <div id="classroom-content" className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <nav className="flex items-center space-x-1 sm:space-x-6 overflow-x-auto no-scrollbar py-1">
             <button
@@ -847,16 +868,88 @@ export default function StudentCourseDetailPage() {
 
                   <div className="mt-8 pt-6 border-t border-gray-200">
                     {isEnrolled ? (
-                      <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-3">
-                        <CheckCircle2 size={32} className="mx-auto text-emerald-600" />
-                        <h4 className="font-black text-emerald-950 text-base">You are enrolled in this batch!</h4>
-                        <p className="text-xs text-emerald-800">Access all live class streams, video recordings, DPPs and notes inside your classroom portal.</p>
-                        <button
-                          onClick={() => router.push('/student/batches')}
-                          className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-md"
-                        >
-                          Open Classroom Portal
-                        </button>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <h3 className="text-base font-black text-[#0B132B] flex items-center gap-2">
+                              <Sparkles size={18} className="text-[#C99A2E]" /> Your Available Course Learning Modules
+                            </h3>
+                            <p className="text-xs text-gray-500 font-medium">Access your live sessions, study notes, DPPs, and exams for this course</p>
+                          </div>
+                          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5">
+                            <CheckCircle2 size={13} /> Active Enrollment
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                          {/* Live Classes Module */}
+                          <div 
+                            onClick={() => router.push('/student/live-classes')}
+                            className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50/50 border-2 border-emerald-200/80 hover:border-emerald-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                          >
+                            <div className="space-y-2">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                <Video size={20} />
+                              </div>
+                              <h4 className="font-bold text-gray-900 text-sm">Live Classes & Lectures</h4>
+                              <p className="text-[11px] text-gray-600 leading-relaxed">Join interactive live streaming lectures and watch recorded sessions.</p>
+                            </div>
+                            <span className="mt-4 text-xs font-black text-emerald-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                              Join Classes <ArrowRight size={13} />
+                            </span>
+                          </div>
+
+                          {/* Study Materials Module */}
+                          <div 
+                            onClick={() => router.push('/student/study-materials')}
+                            className="p-5 rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50/50 border-2 border-purple-200/80 hover:border-purple-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                          >
+                            <div className="space-y-2">
+                              <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                <BookOpen size={20} />
+                              </div>
+                              <h4 className="font-bold text-gray-900 text-sm">Study Materials & Notes</h4>
+                              <p className="text-[11px] text-gray-600 leading-relaxed">View protected lecture PDFs, theory modules, formula sheets, and summaries.</p>
+                            </div>
+                            <span className="mt-4 text-xs font-black text-purple-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                              Open Materials <ArrowRight size={13} />
+                            </span>
+                          </div>
+
+                          {/* DPPs Module */}
+                          <div 
+                            onClick={() => router.push('/student/dpp')}
+                            className="p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50/50 border-2 border-amber-200/80 hover:border-amber-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                          >
+                            <div className="space-y-2">
+                              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                <FileCheck size={20} />
+                              </div>
+                              <h4 className="font-bold text-gray-900 text-sm">Daily Practice (DPPs)</h4>
+                              <p className="text-[11px] text-gray-600 leading-relaxed">Solve daily topic-wise question sets with immediate performance analytics.</p>
+                            </div>
+                            <span className="mt-4 text-xs font-black text-amber-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                              Practice DPPs <ArrowRight size={13} />
+                            </span>
+                          </div>
+
+                          {/* Test Series Module */}
+                          <div 
+                            onClick={() => router.push('/student/exams')}
+                            className="p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-sky-50/50 border-2 border-blue-200/80 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                          >
+                            <div className="space-y-2">
+                              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                <Trophy size={20} />
+                              </div>
+                              <h4 className="font-bold text-gray-900 text-sm">Online Test Series</h4>
+                              <p className="text-[11px] text-gray-600 leading-relaxed">Attempt real online mock exams, chapter tests, and check detailed analysis.</p>
+                            </div>
+                            <span className="mt-4 text-xs font-black text-blue-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                              Take Exams <ArrowRight size={13} />
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="p-6 rounded-2xl bg-gray-50 border border-gray-200 text-center space-y-3">
@@ -1133,14 +1226,47 @@ export default function StudentCourseDetailPage() {
 
                 {/* Primary CTA */}
                 {isEnrolled ? (
-                  <button
-                    onClick={() => router.push('/student/batches')}
-                    className="w-full py-4 rounded-2xl text-white font-black text-base shadow-xl flex items-center justify-center gap-2 transition-all hover:opacity-95"
-                    style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}
-                  >
-                    <CheckCircle2 size={20} />
-                    <span>Go to Classroom</span>
-                  </button>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => {
+                        setActiveTab('classroom');
+                        const el = document.getElementById('classroom-content');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="w-full py-4 rounded-2xl text-white font-black text-base shadow-xl flex items-center justify-center gap-2 transition-all hover:opacity-95 cursor-pointer"
+                      style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}
+                    >
+                      <CheckCircle2 size={20} />
+                      <span>Access Course Classroom</span>
+                    </button>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button 
+                        onClick={() => router.push('/student/live-classes')}
+                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 border border-gray-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Video size={14} className="text-emerald-600" /> Live Classes
+                      </button>
+                      <button 
+                        onClick={() => router.push('/student/study-materials')}
+                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-purple-50 text-gray-700 hover:text-purple-700 border border-gray-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <BookOpen size={14} className="text-purple-600" /> Study Notes
+                      </button>
+                      <button 
+                        onClick={() => router.push('/student/dpp')}
+                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-amber-50 text-gray-700 hover:text-amber-700 border border-gray-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <FileCheck size={14} className="text-amber-600" /> Daily DPPs
+                      </button>
+                      <button 
+                        onClick={() => router.push('/student/exams')}
+                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-gray-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Trophy size={14} className="text-blue-600" /> Mock Exams
+                      </button>
+                    </div>
+                  </div>
                 ) : user && (
                   !user.firstName || 
                   !user.lastName || 
