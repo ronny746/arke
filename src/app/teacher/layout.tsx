@@ -20,7 +20,8 @@ export default function TeacherLayout({ children }) {
         { icon: Home, label: 'Dashboard', to: '/teacher/dashboard' },
         { icon: Users, label: 'My Students', to: '/teacher/students' },
         { icon: LineChart, label: 'Topic Analysis', to: '/teacher/flags' },
-        { icon: Calendar, label: 'Attendance & Leave', to: '/teacher/attendance' },
+        { icon: Calendar, label: 'Attendance', to: '/teacher/attendance' },
+        { icon: FileCheck, label: 'Leave requests', to: '/teacher/leave' },
       ]
     },
     {

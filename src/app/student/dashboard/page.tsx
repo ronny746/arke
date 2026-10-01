@@ -266,6 +266,7 @@ export default function StudentDashboard() {
             <p className="text-gray-300 text-xs sm:text-sm max-w-xl">
               Track your syllabus, attend live sessions, practice DPPs, and achieve your top exam rank.
             </p>
+            {(user?.metadata?.rollNo || user?.rollNo || user?.admissionNumber) && <p className="mt-3 text-xs font-semibold text-[#F4D68A]">Roll number: {user.metadata?.rollNo || user.rollNo || user.admissionNumber}</p>}
           </div>
 
           {/* Active Learning Goal Pill */}

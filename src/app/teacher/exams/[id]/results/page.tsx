@@ -84,7 +84,7 @@ export default function ExamResults() {
     },
     {
       header: 'Roll No / Email',
-      cell: (row) => row.student?.rollNumber || row.publicUser?.email || 'N/A'
+      cell: (row) => row.student?.rollNumber || '—'
     },
     {
       header: 'Status',

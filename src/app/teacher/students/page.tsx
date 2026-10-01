@@ -57,7 +57,6 @@ export default function TeacherStudentsPage() {
           <Avatar name={`${r.firstName} ${r.lastName}`} size="sm" />
           <div>
             <p className="font-medium text-surface-800 dark:text-white text-sm">{r.firstName} {r.lastName}</p>
-            <p className="text-xs text-surface-400">{r.email}</p>
           </div>
         </div>
       ),
@@ -66,11 +65,6 @@ export default function TeacherStudentsPage() {
       header: 'Roll No',
       accessorKey: 'rollNo',
       cell: (r) => <span className="text-sm font-medium text-surface-700">{r.metadata?.rollNo || r.rollNo || '—'}</span>,
-    },
-    {
-      header: 'Phone',
-      accessorKey: 'phone',
-      cell: (r) => <span className="text-sm text-surface-500">{r.phone || '—'}</span>,
     },
     {
       header: 'Status',

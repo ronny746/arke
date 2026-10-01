@@ -873,7 +873,7 @@ export default function TeacherFlagsPage() {
                                   {studentName}
                                 </button>
                                 <p className="text-[11px] text-gray-400 mt-0.5">
-                                  {flag.studentId?.metadata?.rollNo ? `Roll: ${flag.studentId.metadata.rollNo}` : flag.studentId?.email || 'Student'}
+                                  {flag.studentId?.metadata?.rollNo ? `Roll: ${flag.studentId.metadata.rollNo}` : 'Student'}
                                 </p>
                               </div>
                             </div>
@@ -1123,7 +1123,7 @@ export default function TeacherFlagsPage() {
                               <div>
                                 <p className="font-bold text-gray-900 text-xs">{studentName}</p>
                                 <p className="text-[10px] text-gray-400">
-                                  {dpp.student?.metadata?.rollNo ? `Roll: ${dpp.student.metadata.rollNo}` : dpp.student?.email || ''}
+                                  {dpp.student?.metadata?.rollNo ? `Roll: ${dpp.student.metadata.rollNo}` : ''}
                                 </p>
                               </div>
                             </div>
