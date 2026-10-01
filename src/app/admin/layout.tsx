@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, Users, BookOpen, Video, FileText, Settings, CreditCard, LayoutDashboard, Database, UserCheck, UserCircle, Briefcase, FileCheck, MessageSquare, Archive, SlidersHorizontal, BookMarked, CalendarClock, UserRoundSearch, BellRing } from 'lucide-react';
+import { Home, Users, BookOpen, Video, FileText, Settings, CreditCard, LayoutDashboard, Database, UserCheck, UserCircle, Briefcase, FileCheck, MessageSquare, Archive, SlidersHorizontal, BookMarked, CalendarClock, UserRoundSearch, BellRing, CalendarCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DeveloperModeListener from '@/components/common/DeveloperModeListener';
 import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
@@ -32,6 +32,7 @@ export default function AdminLayout({ children }) {
       items: [
         { icon: BookOpen, label: 'Study Materials', to: '/admin/study-materials' },
         { icon: Video, label: 'Live Classes', to: '/admin/live-classes' },
+        { icon: CalendarCheck, label: 'Attendance', to: '/admin/attendance' },
       ]
     },
     {

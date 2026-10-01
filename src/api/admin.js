@@ -160,6 +160,7 @@ export const adminAPI = {
   createMentors: (mentors) => axiosInstance.post('/operations/mentors', { mentors }),
   getMentorSessions: () => axiosInstance.get('/operations/mentor-sessions'),
   scheduleMentorSession: (data) => axiosInstance.post('/operations/mentor-sessions', data),
+  updateMentorSession: (id, data) => axiosInstance.put(`/operations/mentor-sessions/${id}`, data),
   broadcastNotification: (data) => axiosInstance.post('/notifications/broadcast', data),
 
   // Reports

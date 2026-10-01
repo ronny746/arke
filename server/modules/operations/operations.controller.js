@@ -8,5 +8,6 @@ exports.listLeave = send(req => service.listLeave(req.user, req.query), 'Leave r
 exports.createMentors = send(req => service.createMentors(req.user, req.body.mentors), 'Mentors uploaded', 201);
 exports.listMentors = send(req => service.listMentors(req.user), 'Mentors retrieved');
 exports.scheduleMentorSession = send(req => service.scheduleMentorSession(req.user, req.body, req.app.get('io')), 'Mentor session scheduled', 201);
+exports.updateMentorSession = send(req => service.updateMentorSession(req.user, req.params.id, req.body, req.app.get('io')), 'Mentor session updated');
 exports.listMentorSessions = send(req => service.listMentorSessions(req.user), 'Mentor sessions retrieved');
 exports.swapMentor = send(req => service.swapMentor(req.user, req.params.id, req.body.mentorId), 'Mentor reassigned');

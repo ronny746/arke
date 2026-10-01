@@ -1,4 +1,5 @@
 const { LeaveRequest, Mentor, MentorSession } = require('./operations.model');
+const ZoomService = require('../integrations/zoom.service');
 const User = require('../users/users.model');
 const Batch = require('../batches/batches.model');
 const Course = require('../courses/courses.model');
@@ -87,6 +88,16 @@ exports.scheduleMentorSession = async ({ instituteId }, payload, io) => {
   const audience = await resolveAudience(instituteId, payload);
   const overlapping = await MentorSession.exists({ mentorId: mentor._id, status: 'SCHEDULED', startAt: { $lt: endAt }, endAt: { $gt: startAt } });
   if (overlapping) throw new Error('Mentor is already scheduled for this time.');
+  let meetingLink = payload.meetingLink || '';
+  let meetingId = '';
+  let meetingPassword = '';
+  if (!meetingLink) {
+    if (!process.env.ZOOM_ACCOUNT_ID || !process.env.ZOOM_CLIENT_ID || !process.env.ZOOM_CLIENT_SECRET) throw new Error('Zoom is not configured. Add Zoom credentials or provide a meeting link.');
+    const zoomMeeting = await ZoomService.createMeeting(`${mentor.name} mentor session — ${audience.label}`, startAt, Math.max(1, Math.round((endAt - startAt) / 60000)));
+    meetingLink = zoomMeeting.joinUrl;
+    meetingId = String(zoomMeeting.meetingId || '');
+    meetingPassword = zoomMeeting.password || '';
+  }
   const session = await MentorSession.create({
     instituteId,
     batchId: audience.batchId,
@@ -94,7 +105,7 @@ exports.scheduleMentorSession = async ({ instituteId }, payload, io) => {
     mentorId: mentor._id,
     startAt,
     endAt,
-    meetingLink: payload.meetingLink || ''
+    meetingLink, meetingId, meetingPassword
   });
   const schedule = startAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
   await NotificationsService.createForUsers({
@@ -103,9 +114,36 @@ exports.scheduleMentorSession = async ({ instituteId }, payload, io) => {
     title: 'Mentor session scheduled',
     message: `${mentor.name} will mentor ${audience.label} on ${schedule}.`,
     type: 'INFO',
-    metadata: { entityType: 'mentor_session', sessionId: String(session._id), meetingLink: session.meetingLink },
+    metadata: { entityType: 'mentor_session', sessionId: String(session._id), meetingLink: session.meetingLink, actionUrl: session.meetingLink },
     io
   });
+  return session.populate([{ path: 'mentorId', select: 'name email phone' }, { path: 'batchId', select: 'name' }, { path: 'courseId', select: 'name' }]);
+};
+
+exports.updateMentorSession = async ({ instituteId }, sessionId, payload, io) => {
+  const session = await MentorSession.findOne({ _id: sessionId, instituteId, status: 'SCHEDULED' });
+  if (!session) throw new Error('Scheduled mentor session not found.');
+  const mentorId = payload.mentorId || session.mentorId;
+  const mentor = await Mentor.findOne({ _id: mentorId, instituteId, isActive: true });
+  if (!mentor) throw new Error('Active mentor not found.');
+  const window = payload.startAt || payload.endAt ? exports.validateMentorWindow({ startAt: payload.startAt || session.startAt, endAt: payload.endAt || session.endAt }) : { startAt: session.startAt, endAt: session.endAt };
+  const conflict = await MentorSession.exists({ _id: { $ne: session._id }, mentorId, status: 'SCHEDULED', startAt: { $lt: window.endAt }, endAt: { $gt: window.startAt } });
+  if (conflict) throw new Error('Mentor is already scheduled for this time.');
+  session.mentorId = mentorId; session.startAt = window.startAt; session.endAt = window.endAt;
+  if (payload.meetingLink !== undefined) session.meetingLink = payload.meetingLink;
+  await session.save();
+  // Legacy sessions can contain both references. The admin UI and scheduling
+  // contract treat a course as the broader canonical audience in that case;
+  // do not fail an otherwise valid time/link edit because of old data.
+  const audiencePayload = session.courseId
+    ? { courseId: session.courseId }
+    : session.batchId
+      ? { batchId: session.batchId }
+      : null;
+  if (!audiencePayload) throw new Error('This mentor session has no saved course or batch audience.');
+  const audience = await resolveAudience(instituteId, audiencePayload);
+  const schedule = session.startAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
+  await NotificationsService.createForUsers({ instituteId, userIds: audience.recipients, title: 'Mentor session updated', message: `${mentor.name}'s session for ${audience.label} is now scheduled on ${schedule}.`, type: 'INFO', metadata: { entityType: 'mentor_session', sessionId: String(session._id), meetingLink: session.meetingLink, actionUrl: session.meetingLink }, io });
   return session.populate([{ path: 'mentorId', select: 'name email phone' }, { path: 'batchId', select: 'name' }, { path: 'courseId', select: 'name' }]);
 };
 
