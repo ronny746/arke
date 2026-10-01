@@ -13,7 +13,10 @@ const deliverPush = async notifications => {
   try {
     const userIds = [...new Set(notifications.map(notification => String(notification.userId)))];
     const devices = await PushDevice.find({ userId: { $in: userIds }, isActive: true }).select('token');
-    if (!devices.length) return;
+    if (!devices.length) {
+      console.warn(`[FCM] No active device tokens for ${userIds.length} notification recipient(s).`);
+      return;
+    }
     const latest = notifications[0];
     const result = await FirebaseMessaging.sendToTokens({
       tokens: devices.map(device => device.token),
@@ -21,6 +24,7 @@ const deliverPush = async notifications => {
       message: latest.message,
       data: { notificationId: latest._id, type: latest.type, ...(latest.metadata || {}) }
     });
+    console.info(`[FCM] Push delivery: ${result.sent}/${devices.length} token(s) accepted.`);
     if (result.invalidTokens.length) await PushDevice.updateMany({ token: { $in: result.invalidTokens } }, { $set: { isActive: false } });
   } catch (error) {
     // Notification persistence must not fail because an external push provider is unavailable.

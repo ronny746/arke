@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const leaveRequestSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  leaveType: { type: String, enum: ['PERSONAL', 'SICK'], required: true },
+  leaveType: { type: String, enum: ['PERSONAL', 'SICK', 'EMERGENCY'], required: true },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
   reason: { type: String, required: true, trim: true },

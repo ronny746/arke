@@ -20,6 +20,9 @@ export const teacherAPI = {
   getViewHomework: (params) => axiosInstance.get('/homework', { params }),
   
   markAttendance: (data) => axiosInstance.post('/attendance', data),
+  getAttendance: (params) => axiosInstance.get('/attendance/my-attendance', { params }),
+  getLeaveRequests: (params) => axiosInstance.get('/operations/leave', { params }),
+  requestLeave: (data) => axiosInstance.post('/operations/leave', data),
   
   
   // Question Banks

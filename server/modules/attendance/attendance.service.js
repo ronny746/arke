@@ -222,7 +222,11 @@ exports.liveClassCheckin = async (reqUser, { liveClassId }) => {
 exports.getAttendance = async (reqUser, filters) => {
   const query = { instituteId: reqUser.instituteId };
 
-  if (reqUser.role === 'student') query['records.studentId'] = reqUser.userId;
+  const role = String(reqUser.role || '').toLowerCase();
+  if (role === 'student') query['records.studentId'] = reqUser.userId;
+  // Teachers may view the attendance only for classes assigned to them; admins
+  // retain institute-wide operational visibility.
+  if (role === 'teacher') query.teacherId = reqUser.userId;
   
   if (filters.batchId) query.batchId = filters.batchId;
   if (filters.subjectId) query.subjectId = filters.subjectId;
@@ -234,5 +238,9 @@ exports.getAttendance = async (reqUser, filters) => {
     if (filters.endDate) query.date.$lte = new Date(filters.endDate);
   }
 
-  return await AttendanceModel.find(query);
+  return await AttendanceModel.find(query)
+    .populate('batchId', 'name section')
+    .populate('subjectId', 'name')
+    .populate('teacherId', 'firstName lastName')
+    .populate('records.studentId', 'firstName lastName admissionNumber');
 };
