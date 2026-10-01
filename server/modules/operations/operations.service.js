@@ -132,7 +132,16 @@ exports.updateMentorSession = async ({ instituteId }, sessionId, payload, io) =>
   session.mentorId = mentorId; session.startAt = window.startAt; session.endAt = window.endAt;
   if (payload.meetingLink !== undefined) session.meetingLink = payload.meetingLink;
   await session.save();
-  const audience = await resolveAudience(instituteId, { batchId: session.batchId, courseId: session.courseId });
+  // Legacy sessions can contain both references. The admin UI and scheduling
+  // contract treat a course as the broader canonical audience in that case;
+  // do not fail an otherwise valid time/link edit because of old data.
+  const audiencePayload = session.courseId
+    ? { courseId: session.courseId }
+    : session.batchId
+      ? { batchId: session.batchId }
+      : null;
+  if (!audiencePayload) throw new Error('This mentor session has no saved course or batch audience.');
+  const audience = await resolveAudience(instituteId, audiencePayload);
   const schedule = session.startAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
   await NotificationsService.createForUsers({ instituteId, userIds: audience.recipients, title: 'Mentor session updated', message: `${mentor.name}'s session for ${audience.label} is now scheduled on ${schedule}.`, type: 'INFO', metadata: { entityType: 'mentor_session', sessionId: String(session._id), meetingLink: session.meetingLink, actionUrl: session.meetingLink }, io });
   return session.populate([{ path: 'mentorId', select: 'name email phone' }, { path: 'batchId', select: 'name' }, { path: 'courseId', select: 'name' }]);
