@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, FileCheck, Video, Users, BookOpen, PenTool, LayoutList, MessageSquare, LineChart, Sparkles } from 'lucide-react';
+import { Home, FileCheck, Video, Users, BookOpen, PenTool, LayoutList, MessageSquare, LineChart, Sparkles, Calendar } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
 
@@ -20,7 +20,7 @@ export default function TeacherLayout({ children }) {
         { icon: Home, label: 'Dashboard', to: '/teacher/dashboard' },
         { icon: Users, label: 'My Students', to: '/teacher/students' },
         { icon: LineChart, label: 'Topic Analysis', to: '/teacher/flags' },
-        { icon: CalendarCheck, label: 'Attendance & Leave', to: '/teacher/attendance' },
+        { icon: Calendar, label: 'Attendance & Leave', to: '/teacher/attendance' },
       ]
     },
     {
