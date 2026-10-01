@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card, Avatar } from '@/components/ui/index.jsx';
-import { Users, LineChart, ArrowRight, Phone, BookOpen, FileCheck, AlertCircle } from 'lucide-react';
+import { Users, LineChart, ArrowRight, Phone, BookOpen, FileCheck, AlertCircle, CalendarDays, BellRing } from 'lucide-react';
 import Link from 'next/link';
+import { parentAPI } from '@/api/parent';
 
 export default function ParentDashboard() {
   const [user, setUser] = useState<any>(null);
   const [childrenList, setChildrenList] = useState<any[]>([]);
+  const [attendanceAlerts, setAttendanceAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,6 +36,9 @@ export default function ParentDashboard() {
       }
     };
     fetchDashboardData();
+    parentAPI.getNotifications()
+      .then(response => setAttendanceAlerts((response.data?.data || response.data || []).filter((item: any) => item.metadata?.entityType?.startsWith('attendance_')).slice(0, 3)))
+      .catch(() => undefined);
   }, []);
 
   return (
@@ -57,6 +62,16 @@ export default function ParentDashboard() {
           <Link href="/parent/exams" className="relative z-10 mt-6 flex items-center text-purple-600 font-bold hover:text-purple-700 transition-colors">
             View Analytics <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
           </Link>
+        </Card>
+        <Card className="p-6 hover:shadow-xl transition-all duration-300 flex flex-col justify-between bg-white border border-gray-100 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-bl-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mb-5"><CalendarDays size={24} /></div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Attendance & class alerts</h3>
+            <p className="text-gray-500 text-sm leading-relaxed">View every class, course, subject and teacher record. You will also see late and absent attendance alerts here.</p>
+            {attendanceAlerts.length > 0 && <p className="mt-3 text-xs font-semibold text-amber-800 flex items-center gap-1.5"><BellRing size={14} /> {attendanceAlerts.length} recent attendance alert{attendanceAlerts.length > 1 ? 's' : ''}</p>}
+          </div>
+          <Link href="/parent/attendance" className="relative z-10 mt-6 flex items-center text-amber-700 font-bold hover:text-amber-800 transition-colors">View attendance <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" /></Link>
         </Card>
       </div>
 

@@ -21,4 +21,7 @@ export const parentAPI = {
   sendMessage: (roomId, data) => axiosInstance.post(`/chat/rooms/${roomId}/messages`, data),
   getUsers: (params) => axiosInstance.get('/users', { params }),
   getLiveClasses: (params) => axiosInstance.get('/live-classes', { params }),
+  getNotifications: () => axiosInstance.get('/notifications'),
+  markNotificationRead: (id) => axiosInstance.put(`/notifications/${id}/read`),
+  markAllNotificationsRead: () => axiosInstance.post('/notifications/read-all'),
 };

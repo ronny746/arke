@@ -257,7 +257,7 @@ exports.getAttendance = async (reqUser, filters) => {
   }
 
   const registers = await AttendanceModel.find(query)
-    .populate('batchId', 'name section')
+    .populate({ path: 'batchId', select: 'name section courseId', populate: { path: 'courseId', select: 'name' } })
     .populate('subjectId', 'name')
     .populate('teacherId', 'firstName lastName')
     .populate('records.studentId', 'firstName lastName admissionNumber');

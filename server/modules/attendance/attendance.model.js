@@ -17,8 +17,8 @@ const attendanceRecordSchema = new mongoose.Schema({
 const attendanceSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
   branchId: { type: mongoose.Schema.Types.ObjectId },
-  batchId: { type: mongoose.Schema.Types.ObjectId, required: true }, // ref to Batch
-  subjectId: { type: mongoose.Schema.Types.ObjectId }, // optional, for subject-wise attendance
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
+  subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' }, // optional, for subject-wise attendance
   liveClassId: { type: mongoose.Schema.Types.ObjectId, ref: 'LiveClass', default: null },
   date: { type: Date, required: true },
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

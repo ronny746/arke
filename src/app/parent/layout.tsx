@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, Users, LineChart, CreditCard, Calendar, MessageSquare, Bell } from 'lucide-react';
+import { Home, Users, LineChart, CreditCard, Calendar, Bell } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
 
@@ -27,6 +27,8 @@ export default function ParentLayout({ children }) {
       items: [
         { icon: LineChart, label: 'Performance', to: '/parent/exams' },
         { icon: Bell, label: 'Progress & Remedies', to: '/parent/progress' },
+        { icon: Calendar, label: 'Attendance', to: '/parent/attendance' },
+        { icon: Bell, label: 'Notifications', to: '/parent/notifications' },
       ]
     },
   ];
