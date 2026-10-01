@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+require('../users/users.model');
+require('../institutes/institutes.model');
 
 const practiceSessionSchema = new mongoose.Schema({
   student: {

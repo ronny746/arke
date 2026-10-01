@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, FileCheck, Video, Users, BookOpen, PenTool, LayoutList, MessageSquare, LineChart, Sparkles } from 'lucide-react';
+import { Home, FileCheck, Video, Users, BookOpen, MessageSquare, LineChart } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
 
@@ -25,7 +25,6 @@ export default function TeacherLayout({ children }) {
     {
       label: 'Academics & Practice',
       items: [
-        { icon: Sparkles, label: 'Daily Practice (DPP)', to: '/teacher/flags?tab=dpps' },
         { icon: BookOpen, label: 'Study Materials', to: '/teacher/study-materials' },
         { icon: Video, label: 'Live Classes', to: '/teacher/live-classes' },
         { icon: MessageSquare, label: 'Student Doubts', to: '/teacher/doubts' },

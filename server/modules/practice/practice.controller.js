@@ -1,5 +1,7 @@
 const PracticeSession = require('./practice-session.model');
 const QuestionBank = require('../exams/question-bank.model');
+const UserModel = require('../users/users.model');
+const InstituteModel = require('../institutes/institutes.model');
 const mongoose = require('mongoose');
 
 // Get available subjects, chapters, and topics for the student's institute

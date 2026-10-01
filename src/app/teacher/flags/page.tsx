@@ -127,8 +127,9 @@ export default function TeacherFlagsPage() {
   const [loadingReviewSession, setLoadingReviewSession] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
-  // Load Batches on Mount
+  // Load Batches and Assigned DPPs on Mount
   useEffect(() => {
+    fetchAssignedDpps();
     teacherAPI.getViewBatches()
       .then(res => {
         const list = res.data?.data || [];
