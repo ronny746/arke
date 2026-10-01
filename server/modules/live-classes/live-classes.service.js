@@ -2,6 +2,18 @@ const LiveClass = require('./live-classes.model');
 const ClassSchedule = require('../classes-schedule/classes-schedule.model');
 const ZoomService = require('../integrations/zoom.service');
 
+const liveClassSchedulePopulate = {
+  path: 'classScheduleId',
+  populate: [
+    {
+      path: 'batchId',
+      select: 'name section courseId',
+      populate: { path: 'courseId', select: 'name' },
+    },
+    { path: 'subjectId', select: 'name' },
+  ],
+};
+
 const deriveRoomCode = (liveClass) => {
   if (!liveClass) return null;
 
@@ -152,7 +164,7 @@ exports.getActiveClasses = async (reqUser, filters) => {
     // Teachers only see classes they created/host
     query.teacherId = reqUser.userId;
     let liveClasses = await LiveClass.find(query)
-      .populate({ path: 'classScheduleId', populate: [{ path: 'batchId' }, { path: 'subjectId' }] })
+      .populate(liveClassSchedulePopulate)
       .populate('teacherId', 'firstName lastName')
       .sort({ createdAt: -1 });
     liveClasses = liveClasses.map(serializeLiveClass);
@@ -171,7 +183,7 @@ exports.getActiveClasses = async (reqUser, filters) => {
     
     query.classScheduleId = { $in: scheduleIds };
     let liveClasses = await LiveClass.find(query)
-      .populate({ path: 'classScheduleId', populate: [{ path: 'batchId' }, { path: 'subjectId' }] })
+      .populate(liveClassSchedulePopulate)
       .populate('teacherId', 'firstName lastName')
       .sort({ createdAt: -1 });
     liveClasses = liveClasses.map(serializeLiveClass);
@@ -196,7 +208,7 @@ exports.getActiveClasses = async (reqUser, filters) => {
     
     query.classScheduleId = { $in: scheduleIds };
     let liveClasses = await LiveClass.find(query)
-      .populate({ path: 'classScheduleId', populate: [{ path: 'batchId' }, { path: 'subjectId' }] })
+      .populate(liveClassSchedulePopulate)
       .populate('teacherId', 'firstName lastName')
       .sort({ createdAt: -1 });
 
@@ -225,7 +237,7 @@ exports.getActiveClasses = async (reqUser, filters) => {
   } else {
     // Admins see all
     let liveClasses = await LiveClass.find(query)
-      .populate({ path: 'classScheduleId', populate: [{ path: 'batchId' }, { path: 'subjectId' }] })
+      .populate(liveClassSchedulePopulate)
       .populate('teacherId', 'firstName lastName')
       .sort({ createdAt: -1 });
     liveClasses = liveClasses.map(serializeLiveClass);
