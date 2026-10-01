@@ -61,12 +61,60 @@ const getLiveClassRoomCode = (liveClass: any) => {
   return roomCode ? roomCode.toUpperCase() : null;
 };
 
+const formatCountdown = (milliseconds: number) => {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours > 0
+    ? `${hours}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`
+    : `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+function MentorSessionCard({ sessions, currentTime }: { sessions: any[]; currentTime: number }) {
+  const session = sessions[0];
+  const startsAt = new Date(session?.startAt).getTime();
+  const canJoin = Number.isFinite(startsAt) && currentTime >= startsAt;
+  const countdown = Number.isFinite(startsAt) ? Math.max(0, startsAt - currentTime) : 0;
+
+  return (
+    <section className="mt-5 rounded-3xl overflow-hidden border border-violet-200 bg-gradient-to-br from-violet-950 via-indigo-950 to-[#0B132B] shadow-lg shadow-violet-950/15">
+      <div className="p-5 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3.5">
+          <div className="w-11 h-11 shrink-0 rounded-2xl bg-amber-300 text-[#0B132B] flex items-center justify-center shadow-sm"><Video size={21} /></div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap"><span className="text-[10px] font-black tracking-[0.14em] uppercase text-amber-300">Mentor connect</span><span className="px-2 py-0.5 rounded-full bg-white/10 text-[10px] text-white/80 font-bold">{sessions.length} upcoming</span></div>
+            <h2 className="mt-1 text-lg sm:text-xl font-black text-white">Learn directly from your mentor</h2>
+            <p className="mt-1 text-xs sm:text-sm text-indigo-100/80">{canJoin ? 'Your mentor call is live. You can join now.' : `Join opens in ${formatCountdown(countdown)}.`}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          disabled={!canJoin}
+          onClick={() => {
+            const link = session?.meetingLink;
+            if (link) window.open(link, '_blank', 'noopener,noreferrer');
+            else toast.error('The mentor meeting link has not been added yet.');
+          }}
+          className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-xs font-black text-[#0B132B] shadow-md transition-transform enabled:hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/60 disabled:shadow-none"
+        >
+          {canJoin ? <>Join mentor call <ArrowRight size={16} /></> : <><Clock size={16} /> Starts in {formatCountdown(countdown)}</>}
+        </button>
+      </div>
+      <div className="border-t border-white/10 bg-black/15 px-5 sm:px-6 py-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-indigo-100">
+        {sessions.slice(0, 2).map((item: any) => <span key={item._id}><strong className="text-white">{item.mentorId?.name || 'Mentor'}</strong>{' · '}{item.courseId?.name || item.batchId?.name || 'Your batch'}{' · '}{new Date(item.startAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>)}
+      </div>
+    </section>
+  );
+}
+
 export default function StudentDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [batches, setBatches] = useState([]);
   const [activeClasses, setActiveClasses] = useState([]);
   const [mentorSessions, setMentorSessions] = useState<any[]>([]);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [unenrolledCourses, setUnenrolledCourses] = useState<any[]>([]);
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -180,6 +228,11 @@ export default function StudentDashboard() {
       }
     };
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const handleSavePreferences = async (e: React.FormEvent) => {
@@ -302,43 +355,7 @@ export default function StudentDashboard() {
       <BannerCarousel />
 
       {mentorSessions.length > 0 && (
-        <section className="mt-5 rounded-3xl overflow-hidden border border-violet-200 bg-gradient-to-br from-violet-950 via-indigo-950 to-[#0B132B] shadow-lg shadow-violet-950/15">
-          <div className="p-5 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3.5">
-              <div className="w-11 h-11 shrink-0 rounded-2xl bg-amber-300 text-[#0B132B] flex items-center justify-center shadow-sm">
-                <Video size={21} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-black tracking-[0.14em] uppercase text-amber-300">Mentor connect</span>
-                  <span className="px-2 py-0.5 rounded-full bg-white/10 text-[10px] text-white/80 font-bold">{mentorSessions.length} upcoming</span>
-                </div>
-                <h2 className="mt-1 text-lg sm:text-xl font-black text-white">Learn directly from your mentor</h2>
-                <p className="mt-1 text-xs sm:text-sm text-indigo-100/80">Your scheduled guidance call is ready with its verified join link.</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const link = mentorSessions[0]?.meetingLink;
-                if (link) window.open(link, '_blank', 'noopener,noreferrer');
-                else toast.error('The mentor meeting link has not been added yet.');
-              }}
-              className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-xs font-black text-[#0B132B] shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              Join mentor call <ArrowRight size={16} />
-            </button>
-          </div>
-          <div className="border-t border-white/10 bg-black/15 px-5 sm:px-6 py-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-indigo-100">
-            {mentorSessions.slice(0, 2).map((session: any) => (
-              <span key={session._id}>
-                <strong className="text-white">{session.mentorId?.name || 'Mentor'}</strong>
-                {' · '}{session.courseId?.name || session.batchId?.name || 'Your batch'}
-                {' · '}{new Date(session.startAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-              </span>
-            ))}
-          </div>
-        </section>
+        <MentorSessionCard sessions={mentorSessions} currentTime={currentTime} />
       )}
 
       {/* Student Performance Card */}
