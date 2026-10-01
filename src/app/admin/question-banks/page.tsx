@@ -1173,7 +1173,7 @@ export default function QuestionBanks() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2 p-3 bg-gray-50 border border-gray-200 rounded-lg shadow-inner">
                 <div>
                   <label className="text-[10px] font-semibold text-gray-500 block mb-1 uppercase tracking-wider">Subject</label>
-                  <input type="text" className="w-full border border-gray-300 rounded p-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white" value={editingQuestion.subjectName || (typeof editingQuestion.subject === 'string' ? editingQuestion.subject : editingQuestion.subject?.name) || ''} onChange={(e) => setEditingQuestion({...editingQuestion, subjectName: e.target.value})} placeholder="e.g. Physics" />
+                  <input type="text" className="w-full border border-gray-300 rounded p-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white" value={editingQuestion.subjectName || (typeof editingQuestion.subject === 'string' ? editingQuestion.subject : editingQuestion.subject?.name) || ''} onChange={(e) => setEditingQuestion({...editingQuestion, subjectName: e.target.value})} placeholder="Subject name" />
                 </div>
                 <div>
                   <label className="text-[10px] font-semibold text-gray-500 block mb-1 uppercase tracking-wider">Chapter</label>

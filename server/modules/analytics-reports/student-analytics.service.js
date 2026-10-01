@@ -215,40 +215,37 @@ exports.getStudentPerformance = async (studentId) => {
   const dppCount = practiceSessions.length;
   const liveExamCount = totalExamsTaken;
 
-  // Calculate Accuracy per subject
-  let phyAttempted = 0, phyCorrect = 0;
-  let chemAttempted = 0, chemCorrect = 0;
-  let bioAttempted = 0, bioCorrect = 0;
-
+  // Keep every subject name emitted by the student's actual activity. Do not
+  // collapse data into a fixed exam-specific set of subjects.
+  const subjectAccuracyStats = new Map();
   let grandTotalAttempted = 0;
   let grandTotalCorrect = 0;
 
   const processSubjectNode = (s) => {
-    const sName = (s.subject || '').toUpperCase();
+    const subjectName = String(s.subject || '').trim();
     const attempted = s.attempted || 0;
     const correct = s.correct || 0;
 
     grandTotalAttempted += attempted;
     grandTotalCorrect += correct;
 
-    if (sName.includes('PHYSIC')) {
-      phyAttempted += attempted;
-      phyCorrect += correct;
-    } else if (sName.includes('CHEM')) {
-      chemAttempted += attempted;
-      chemCorrect += correct;
-    } else if (sName.includes('BIO') || sName.includes('BOTANY') || sName.includes('ZOOLOGY')) {
-      bioAttempted += attempted;
-      bioCorrect += correct;
-    }
+    if (!subjectName) return;
+    const existing = subjectAccuracyStats.get(subjectName) || { attempted: 0, correct: 0 };
+    subjectAccuracyStats.set(subjectName, {
+      attempted: existing.attempted + attempted,
+      correct: existing.correct + correct
+    });
   };
 
   subjectWisePerformance.forEach(processSubjectNode);
   dppSubjectWisePerformance.forEach(processSubjectNode);
 
-  const physicsAccuracy = phyAttempted > 0 ? ((phyCorrect / phyAttempted) * 100).toFixed(1) : "0.0";
-  const chemistryAccuracy = chemAttempted > 0 ? ((chemCorrect / chemAttempted) * 100).toFixed(1) : "0.0";
-  const biologyAccuracy = bioAttempted > 0 ? ((bioCorrect / bioAttempted) * 100).toFixed(1) : "0.0";
+  const subjectAccuracies = Object.fromEntries(
+    [...subjectAccuracyStats.entries()].map(([subjectName, stats]) => [
+      subjectName,
+      stats.attempted > 0 ? Number(((stats.correct / stats.attempted) * 100).toFixed(1)) : 0
+    ])
+  );
 
   const overallAccuracyNum = grandTotalAttempted > 0 ? ((grandTotalCorrect / grandTotalAttempted) * 100).toFixed(1) : "0.0";
 
@@ -264,11 +261,7 @@ exports.getStudentPerformance = async (studentId) => {
     dashboardSummary: {
       overallAccuracy: `${overallAccuracyNum}%`,
       overallAccuracyValue: parseFloat(overallAccuracyNum),
-      subjectAccuracies: {
-        physics: parseFloat(physicsAccuracy),
-        chemistry: parseFloat(chemistryAccuracy),
-        biology: parseFloat(biologyAccuracy),
-      },
+      subjectAccuracies,
       counts: {
         liveExams: liveExamCount,
         dpps: dppCount,

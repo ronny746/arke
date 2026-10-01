@@ -11,6 +11,7 @@ router.put('/leave/:id', requireRole([ROLES.SUPER_ADMIN]), controller.reviewLeav
 router.get('/mentors', requireRole([ROLES.SUPER_ADMIN]), controller.listMentors);
 router.post('/mentors', requireRole([ROLES.SUPER_ADMIN]), controller.createMentors);
 router.get('/mentor-sessions', requireRole([ROLES.SUPER_ADMIN]), controller.listMentorSessions);
+router.get('/mentor-sessions/my', requireRole([ROLES.STUDENT]), controller.getMyMentorSessions);
 router.post('/mentor-sessions', requireRole([ROLES.SUPER_ADMIN]), controller.scheduleMentorSession);
 router.put('/mentor-sessions/:id', requireRole([ROLES.SUPER_ADMIN]), controller.updateMentorSession);
 router.put('/mentor-sessions/:id/swap', requireRole([ROLES.SUPER_ADMIN]), controller.swapMentor);

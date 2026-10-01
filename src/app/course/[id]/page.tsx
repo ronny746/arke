@@ -234,7 +234,7 @@ export default function PublicCourseOverviewPage() {
   const [exploreFilter, setExploreFilter] = useState<'GOAL' | 'CLASS' | 'ALL'>('GOAL');
   
   // Interactive UI state for subjects preview
-  const [selectedSubject, setSelectedSubject] = useState<string>('Physics');
+  const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [expandedFaq, setExpandedFaq] = useState<number | null>(0);
 
   // Check current user
@@ -403,222 +403,31 @@ export default function PublicCourseOverviewPage() {
     return true;
   });
 
-  // Dynamic Subject calculation
+  // A course can only render subjects selected from the admin Subject Library.
+  // No goal-based fallback is used: it would show curriculum that has not been configured.
   const getDynamicSubjects = (c: any) => {
-    if (c?.subjects && Array.isArray(c.subjects) && c.subjects.length > 0) {
-      return c.subjects.map((s: any) => {
-        if (typeof s === 'string') return { name: s, icon: '📖', chapters: 25, dpps: 120, tests: 20 };
-        return {
-          name: s.name || s.title || 'Subject',
-          icon: s.icon || '📖',
-          chapters: s.chapters || 25,
-          dpps: s.dpps || 120,
-          tests: s.tests || 20
-        };
-      });
-    }
-
-    const exam = (c?.targetExam || '').toUpperCase();
-    const name = (c?.name || '').toUpperCase();
-    const cls = (c?.targetClass || '').toUpperCase();
-
-    if (exam.includes('NEET') || name.includes('NEET') || name.includes('MEDICAL') || cls.includes('BIOLOGY')) {
-      return [
-        { name: 'Physics', icon: '⚡', chapters: 28, dpps: 140, tests: 24 },
-        { name: 'Chemistry', icon: '🧪', chapters: 30, dpps: 150, tests: 26 },
-        { name: 'Botany', icon: '🌿', chapters: 22, dpps: 110, tests: 18 },
-        { name: 'Zoology', icon: '🧬', chapters: 20, dpps: 100, tests: 18 },
-      ];
-    }
-
-    if (exam.includes('JEE') || name.includes('JEE') || name.includes('IIT') || name.includes('ENGINEERING') || cls.includes('MATH')) {
-      return [
-        { name: 'Physics', icon: '⚡', chapters: 32, dpps: 160, tests: 28 },
-        { name: 'Chemistry', icon: '🧪', chapters: 30, dpps: 150, tests: 26 },
-        { name: 'Mathematics', icon: '📐', chapters: 34, dpps: 170, tests: 30 },
-      ];
-    }
-
-    if (exam.includes('CUET') || name.includes('CUET') || name.includes('COMMERCE')) {
-      return [
-        { name: 'General Test', icon: '🧩', chapters: 20, dpps: 100, tests: 15 },
-        { name: 'Language & English', icon: '📚', chapters: 18, dpps: 90, tests: 15 },
-        { name: 'Accountancy & Commerce', icon: '📊', chapters: 24, dpps: 120, tests: 20 },
-        { name: 'Economics & Business', icon: '📈', chapters: 22, dpps: 110, tests: 18 },
-      ];
-    }
-
-    if (exam.includes('UPSC') || exam.includes('SSC') || name.includes('GOVT') || name.includes('CIVIL')) {
-      return [
-        { name: 'General Studies I', icon: '🏛️', chapters: 35, dpps: 175, tests: 30 },
-        { name: 'Polity & Governance', icon: '⚖️', chapters: 25, dpps: 125, tests: 20 },
-        { name: 'Aptitude & CSAT', icon: '🔢', chapters: 20, dpps: 100, tests: 15 },
-        { name: 'Current Affairs & GK', icon: '🌐', chapters: 30, dpps: 150, tests: 25 },
-      ];
-    }
-
-    if (exam.includes('FOUNDATION') || cls.includes('9') || cls.includes('10') || cls.includes('8')) {
-      return [
-        { name: 'Physics & Chem', icon: '🔬', chapters: 20, dpps: 100, tests: 15 },
-        { name: 'Mathematics', icon: '📐', chapters: 22, dpps: 110, tests: 18 },
-        { name: 'Biology', icon: '🌿', chapters: 18, dpps: 90, tests: 14 },
-        { name: 'Mental Ability (MAT)', icon: '🧠', chapters: 16, dpps: 80, tests: 12 },
-      ];
-    }
-
-    return [
-      { name: 'Core Concepts & Theory', icon: '📖', chapters: 25, dpps: 120, tests: 20 },
-      { name: 'Problem Solving & DPPs', icon: '📝', chapters: 20, dpps: 100, tests: 15 },
-      { name: 'Mock Tests & Revision', icon: '🎯', chapters: 15, dpps: 75, tests: 25 },
-    ];
+    if (!Array.isArray(c?.subjects)) return [];
+    return c.subjects.map((subject: any) => {
+      const librarySubject = subject?.librarySubjectId || {};
+      return {
+        name: librarySubject.name || '',
+        icon: librarySubject.icon || '📖',
+        chapters: librarySubject.chaptersCount ?? 0,
+        dpps: librarySubject.dppsCount ?? 0,
+        tests: librarySubject.testsCount ?? 0,
+        topics: Array.isArray(librarySubject.topics) ? librarySubject.topics : []
+      };
+    }).filter((subject: any) => Boolean(subject.name));
   };
 
   const defaultSubjects = getDynamicSubjects(course);
+  const activeSubject = defaultSubjects.some((subject: any) => subject.name === selectedSubject)
+    ? selectedSubject
+    : (defaultSubjects[0]?.name || '');
 
-  // Dynamic Syllabus Roadmap calculation
-  const getDynamicSyllabus = (c: any): Record<string, string[]> => {
-    if (c?.syllabus && typeof c.syllabus === 'object' && Object.keys(c.syllabus).length > 0) {
-      return c.syllabus;
-    }
-
-    return {
-      'Physics': [
-        'Units, Dimensions & Physical Measurements',
-        'Kinematics: Motion in 1D & 2D',
-        'Laws of Motion & Friction',
-        'Work, Energy and Power',
-        'Rotational Mechanics & System of Particles',
-        'Gravitation & Planetary Dynamics',
-        'Thermodynamics & Kinetic Theory of Gases',
-        'Electrostatics & Capacitance',
-        'Current Electricity & Magnetism',
-        'Ray & Wave Optics',
-        'Modern Physics & Semiconductors'
-      ],
-      'Chemistry': [
-        'Some Basic Concepts of Chemistry & Stoichiometry',
-        'Atomic Structure & Quantum Numbers',
-        'Periodic Table & Chemical Bonding',
-        'Chemical Thermodynamics & Energetics',
-        'Equilibrium: Physical & Ionic',
-        'Organic Chemistry: Principles & Mechanisms',
-        'Coordination Compounds & d-Block Elements',
-        'Electrochemistry & Chemical Kinetics'
-      ],
-      'Mathematics': [
-        'Sets, Relations and Functions',
-        'Complex Numbers & Quadratic Equations',
-        'Matrices and Determinants',
-        'Permutations, Combinations & Probability',
-        'Calculus: Limits, Continuity & Differentiability',
-        'Definite & Indefinite Integrals',
-        'Vectors & 3D Analytical Geometry',
-        'Coordinate Geometry: Conic Sections'
-      ],
-      'Botany': [
-        'Cell: The Unit of Life & Cell Division',
-        'Plant Kingdom & Morphology of Flowering Plants',
-        'Photosynthesis in Higher Plants & Respiration',
-        'Plant Growth, Hormones & Regulators',
-        'Genetics: Molecular Basis of Inheritance',
-        'Ecology, Ecosystems & Environmental Issues'
-      ],
-      'Zoology': [
-        'Animal Kingdom & Structural Organisation',
-        'Human Physiology: Digestion, Breathing & Circulation',
-        'Excretory System, Locomotion & Movement',
-        'Neural Control & Endocrine Coordination',
-        'Human Reproduction & Health',
-        'Evolution & Human Health and Diseases'
-      ],
-      'General Test': [
-        'General Mental Ability & Logical Reasoning',
-        'Numerical Ability & Quantitative Aptitude',
-        'Basic Mathematical Concepts',
-        'General Knowledge & Current Events',
-        'Analytical & Diagrammatic Reasoning'
-      ],
-      'Language & English': [
-        'Reading Comprehension & Passages',
-        'Vocabulary, Synonyms & Antonyms',
-        'Grammar & Sentence Correction',
-        'Idioms, Phrases & Verbal Ability'
-      ],
-      'Accountancy & Commerce': [
-        'Accounting for Partnership Firms',
-        'Company Accounts & Issue of Shares',
-        'Financial Statement Analysis',
-        'Cash Flow Statement & Ratios'
-      ],
-      'Economics & Business': [
-        'Microeconomics: Consumer Behavior & Demand',
-        'Macroeconomics: National Income & Money',
-        'Business Environment & Management Principles',
-        'Financial Markets & Marketing Management'
-      ],
-      'General Studies I': [
-        'Indian History & National Movement',
-        'Indian & World Geography',
-        'Indian Polity, Constitution & Governance',
-        'Economic & Social Development',
-        'General Science & Environment'
-      ],
-      'Polity & Governance': [
-        'Preamble & Fundamental Rights',
-        'Union & State Executive and Legislature',
-        'Judiciary & Constitutional Bodies',
-        'Local Self Government & Panchayati Raj'
-      ],
-      'Aptitude & CSAT': [
-        'Comprehension & Interpersonal Skills',
-        'Logical Reasoning & Analytical Ability',
-        'Decision Making & Problem Solving',
-        'Basic Numeracy & Data Interpretation'
-      ],
-      'Current Affairs & GK': [
-        'National & International Importance',
-        'Government Schemes & Policies',
-        'Science & Technology Developments',
-        'Economic Surveys & Budget Highlights'
-      ],
-      'Physics & Chem': [
-        'Motion, Force & Gravitation',
-        'Work, Energy & Power',
-        'Matter in Our Surroundings & Chemical Reactions',
-        'Acids, Bases & Metals'
-      ],
-      'Biology': [
-        'Cell Biology & Tissues',
-        'Diversity in Living Organisms',
-        'Why Do We Fall Ill?',
-        'Natural Resources & Food Improvement'
-      ],
-      'Mental Ability (MAT)': [
-        'Verbal & Non-Verbal Series',
-        'Coding-Decoding & Blood Relations',
-        'Venn Diagrams & Syllogism',
-        'Puzzles, Seating & Direction Sense'
-      ],
-      'Core Concepts & Theory': [
-        'Fundamental Principles & Foundations',
-        'Advanced Problem Solving Techniques',
-        'Core Theoretical Frameworks',
-        'Applied Case Studies & Practice'
-      ],
-      'Problem Solving & DPPs': [
-        'Daily Problem Sets - Part 1',
-        'Daily Problem Sets - Part 2',
-        'Previous Year Questions Analysis',
-        'High-Yield Exam Pattern MCQs'
-      ],
-      'Mock Tests & Revision': [
-        'Chapter-wise Revision Summaries',
-        'Formula Sheets & Quick Guides',
-        'Part Tests & Cumulative Review',
-        'Full Syllabus Mock Exams'
-      ]
-    };
-  };
+  const getDynamicSyllabus = (c: any): Record<string, string[]> => Object.fromEntries(
+    getDynamicSubjects(c).map((subject: any) => [subject.name, subject.topics])
+  );
 
   const syllabusChapters = getDynamicSyllabus(course);
 
@@ -797,7 +606,7 @@ export default function PublicCourseOverviewPage() {
         </div>
       </header>
 
-      {/* Physics Wallah Style Hero Banner */}
+      {/* Course hero banner */}
       <section className="bg-gradient-to-r from-[#0B132B] via-[#111C3A] to-[#1C2541] text-white pt-8 pb-10 border-b border-gray-800 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#C99A2E]/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
         <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -1083,20 +892,21 @@ export default function PublicCourseOverviewPage() {
                     Explore chapters, daily DPP sets, and lecture roadmaps planned for this session.
                   </p>
 
+                  {defaultSubjects.length ? <>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
                     {defaultSubjects.map((subj) => (
                       <button
                         key={subj.name}
                         onClick={() => setSelectedSubject(subj.name)}
                         className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
-                          selectedSubject === subj.name
+                          activeSubject === subj.name
                             ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-md'
                             : 'bg-gray-50 text-gray-800 border-gray-200/80 hover:bg-gray-100/80'
                         }`}
                       >
                         <span className="text-2xl mb-2 block">{subj.icon}</span>
                         <h4 className="font-black text-sm leading-tight">{subj.name}</h4>
-                        <p className={`text-[11px] mt-1 font-semibold ${selectedSubject === subj.name ? 'text-[#C99A2E]' : 'text-gray-500'}`}>
+                        <p className={`text-[11px] mt-1 font-semibold ${activeSubject === subj.name ? 'text-[#C99A2E]' : 'text-gray-500'}`}>
                           {subj.chapters} Chapters • {subj.dpps} DPPs
                         </p>
                       </button>
@@ -1107,15 +917,15 @@ export default function PublicCourseOverviewPage() {
                   <div className="border border-gray-200/80 rounded-2xl p-5 bg-gray-50/50">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-black text-gray-900 text-base flex items-center gap-2">
-                        <span>{selectedSubject} Syllabus Roadmap</span>
+                        <span>{activeSubject || 'Course'} Syllabus Roadmap</span>
                         <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#0B132B] text-[#C99A2E] font-bold">
-                          {syllabusChapters[selectedSubject]?.length || 10} Planned Modules
+                          {syllabusChapters[activeSubject]?.length || 0} Planned Modules
                         </span>
                       </h3>
                     </div>
 
                     <div className="space-y-2.5">
-                      {(syllabusChapters[selectedSubject] || syllabusChapters['Physics']).map((ch, idx) => (
+                      {(syllabusChapters[activeSubject] || []).map((ch, idx) => (
                         <div 
                           key={idx} 
                           className="p-3.5 rounded-xl bg-white border border-gray-200/70 flex items-center justify-between hover:border-gray-300 transition-colors"
@@ -1134,6 +944,11 @@ export default function PublicCourseOverviewPage() {
                       ))}
                     </div>
                   </div>
+                  </> : (
+                    <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-600">
+                      Subjects will appear here after the course administrator adds them from the Subject Library.
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1216,7 +1031,7 @@ export default function PublicCourseOverviewPage() {
                   ) : (
                     <div className="space-y-4">
                       {[
-                        { title: `${course.targetExam || 'NEET/JEE'} Part Test 01 - Mechanics & Physical Chemistry`, duration: 180, marks: 300, q: 75 },
+                        { title: `${course.targetExam || course.name} Part Test 01`, duration: 180, marks: 300, q: 75 },
                         { title: `${course.targetExam || 'NEET/JEE'} Part Test 02 - Electromagnetism & Organic Basics`, duration: 180, marks: 300, q: 75 },
                         { title: `${course.targetExam || 'NEET/JEE'} Cumulative Major Test - Half Syllabus`, duration: 180, marks: 300, q: 75 },
                         { title: `${course.targetExam || 'NEET/JEE'} All India Grand Mock Test - Full Syllabus`, duration: 180, marks: 720, q: 200 },

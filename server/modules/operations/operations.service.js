@@ -153,6 +153,34 @@ exports.listMentorSessions = ({ instituteId }) => MentorSession.find({ institute
   .populate('courseId', 'name')
   .sort({ startAt: 1 });
 
+// Students may only see sessions addressed to one of their enrolled batches
+// or to a course containing one of those batches. The join URL is deliberately
+// returned only after this audience check succeeds.
+exports.getMyMentorSessions = async ({ instituteId, userId }) => {
+  const batches = await Batch.find({ instituteId, students: userId, isActive: true })
+    .select('_id courseId')
+    .lean();
+  const batchIds = batches.map(batch => batch._id);
+  const courseIds = [...new Set(batches.map(batch => String(batch.courseId || '')).filter(Boolean))];
+
+  if (!batchIds.length && !courseIds.length) return [];
+
+  return MentorSession.find({
+    instituteId,
+    status: 'SCHEDULED',
+    endAt: { $gte: new Date() },
+    $or: [
+      { batchId: { $in: batchIds } },
+      { courseId: { $in: courseIds } }
+    ]
+  })
+    .populate('mentorId', 'name')
+    .populate('batchId', 'name')
+    .populate('courseId', 'name')
+    .sort({ startAt: 1 })
+    .lean();
+};
+
 exports.swapMentor = async ({ instituteId }, sessionId, mentorId) => {
   const session = await MentorSession.findOne({ _id: sessionId, instituteId, status: 'SCHEDULED' });
   const mentor = await Mentor.findOne({ _id: mentorId, instituteId, isActive: true });

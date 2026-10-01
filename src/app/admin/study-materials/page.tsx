@@ -874,7 +874,7 @@ export default function AdminStudyMaterialsPage() {
                 label="Target Folder Path"
                 value={newFolderPath}
                 onChange={e => setNewFolderPath(e.target.value)}
-                placeholder="/ or /Physics/"
+                placeholder="/ or /subject-name/"
                 required
               />
           </ModalBody>

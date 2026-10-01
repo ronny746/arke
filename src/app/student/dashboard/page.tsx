@@ -66,6 +66,7 @@ export default function StudentDashboard() {
   const [user, setUser] = useState<any>(null);
   const [batches, setBatches] = useState([]);
   const [activeClasses, setActiveClasses] = useState([]);
+  const [mentorSessions, setMentorSessions] = useState<any[]>([]);
   const [unenrolledCourses, setUnenrolledCourses] = useState<any[]>([]);
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -164,6 +165,14 @@ export default function StudentDashboard() {
             console.warn("Failed to fetch live classes:", err?.message || err);
           }
           setActiveClasses([]);
+        }
+
+        try {
+          const mentorSessionsRes = await studentAPI.getMyMentorSessions();
+          setMentorSessions(mentorSessionsRes.data?.data || []);
+        } catch (err) {
+          console.warn('Failed to fetch mentor sessions:', err);
+          setMentorSessions([]);
         }
 
       } finally {
@@ -291,6 +300,46 @@ export default function StudentDashboard() {
 
       {/* Promotional Banners Carousel */}
       <BannerCarousel />
+
+      {mentorSessions.length > 0 && (
+        <section className="mt-5 rounded-3xl overflow-hidden border border-violet-200 bg-gradient-to-br from-violet-950 via-indigo-950 to-[#0B132B] shadow-lg shadow-violet-950/15">
+          <div className="p-5 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 shrink-0 rounded-2xl bg-amber-300 text-[#0B132B] flex items-center justify-center shadow-sm">
+                <Video size={21} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-black tracking-[0.14em] uppercase text-amber-300">Mentor connect</span>
+                  <span className="px-2 py-0.5 rounded-full bg-white/10 text-[10px] text-white/80 font-bold">{mentorSessions.length} upcoming</span>
+                </div>
+                <h2 className="mt-1 text-lg sm:text-xl font-black text-white">Learn directly from your mentor</h2>
+                <p className="mt-1 text-xs sm:text-sm text-indigo-100/80">Your scheduled guidance call is ready with its verified join link.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const link = mentorSessions[0]?.meetingLink;
+                if (link) window.open(link, '_blank', 'noopener,noreferrer');
+                else toast.error('The mentor meeting link has not been added yet.');
+              }}
+              className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-xs font-black text-[#0B132B] shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Join mentor call <ArrowRight size={16} />
+            </button>
+          </div>
+          <div className="border-t border-white/10 bg-black/15 px-5 sm:px-6 py-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-indigo-100">
+            {mentorSessions.slice(0, 2).map((session: any) => (
+              <span key={session._id}>
+                <strong className="text-white">{session.mentorId?.name || 'Mentor'}</strong>
+                {' · '}{session.courseId?.name || session.batchId?.name || 'Your batch'}
+                {' · '}{new Date(session.startAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Student Performance Card */}
       <StudentPerformanceCard />

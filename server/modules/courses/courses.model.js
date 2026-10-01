@@ -31,6 +31,10 @@ const courseSchema = new mongoose.Schema({
   defaultBatchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
   faculties: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   subjects: [{
+    // The Subject Library is the canonical academic catalogue. Course records
+    // keep course-specific workload/teacher overrides but never invent a
+    // separate subject identity.
+    librarySubjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', default: null },
     name: { type: String, required: true },
     icon: { type: String, default: '📖' },
     // Course-level subject owner. This is used to grant the assigned teacher

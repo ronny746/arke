@@ -3,6 +3,17 @@ const BatchModel = require('../batches/batches.model');
 const { FeeRecord, PaymentTransaction } = require('../fees-payments/fees-payments.model');
 const InstituteModel = require('../institutes/institutes.model');
 const UserModel = require('../users/users.model');
+const SubjectModel = require('../subjects/subjects.model');
+
+async function validateLibrarySubjects(payload, instituteId) {
+  if (!Array.isArray(payload.subjects) || !payload.subjects.length) return;
+  const ids = payload.subjects.map(subject => subject.librarySubjectId).filter(Boolean).map(String);
+  if (ids.length !== payload.subjects.length || new Set(ids).size !== ids.length) {
+    throw new Error('Select each course subject from the Subject Library exactly once.');
+  }
+  const count = await SubjectModel.countDocuments({ _id: { $in: ids }, instituteId, isLibrarySubject: true, isActive: true });
+  if (count !== ids.length) throw new Error('One or more selected subjects are no longer available in the Subject Library.');
+}
 
 async function validateSubjectTeachers(payload, instituteId) {
   if (!Array.isArray(payload.subjects)) return;
@@ -57,6 +68,7 @@ exports.createCourse = async (reqUser, payload) => {
   const existingCourse = await CourseModel.exists({ instituteId, name: payload.name });
   if (existingCourse) throw duplicateCourseNameError();
   await validateSubjectTeachers(payload, instituteId);
+  await validateLibrarySubjects(payload, instituteId);
   includeSubjectTeachersAsFaculty(payload);
   const course = new CourseModel({
     ...payload,
@@ -105,6 +117,7 @@ exports.getCourses = async (reqUser, filters = {}) => {
   return await CourseModel.find(query)
     .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
     .populate('subjects.teacherId', 'firstName lastName profilePictureUrl')
+    .populate('subjects.librarySubjectId', 'name icon description topics chaptersCount dppsCount testsCount teacherId')
     .sort({ createdAt: -1 });
 };
 
@@ -115,7 +128,8 @@ exports.getCourseById = async (id, reqUser) => {
   }
   return await CourseModel.findOne(query)
     .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
-    .populate('subjects.teacherId', 'firstName lastName profilePictureUrl');
+    .populate('subjects.teacherId', 'firstName lastName profilePictureUrl')
+    .populate('subjects.librarySubjectId', 'name icon description topics chaptersCount dppsCount testsCount teacherId');
 };
 
 exports.updateCourse = async (id, payload, reqUser) => {
@@ -130,6 +144,7 @@ exports.updateCourse = async (id, payload, reqUser) => {
     if (courseWithName) throw duplicateCourseNameError();
   }
   await validateSubjectTeachers(payload, reqUser.instituteId);
+  await validateLibrarySubjects(payload, reqUser.instituteId);
   includeSubjectTeachersAsFaculty(payload, existingCourse.faculties || []);
   return await CourseModel.findOneAndUpdate(
     { _id: id, instituteId: reqUser.instituteId },
@@ -137,7 +152,8 @@ exports.updateCourse = async (id, payload, reqUser) => {
     { new: true }
   )
     .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
-    .populate('subjects.teacherId', 'firstName lastName profilePictureUrl');
+    .populate('subjects.teacherId', 'firstName lastName profilePictureUrl')
+    .populate('subjects.librarySubjectId', 'name icon description topics chaptersCount dppsCount testsCount teacherId');
 };
 
 exports.deleteCourse = async (id, reqUser) => {

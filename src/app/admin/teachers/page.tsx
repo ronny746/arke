@@ -32,6 +32,7 @@ export default function TeachersPage() {
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [librarySubjects, setLibrarySubjects] = useState<any[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const { isDeveloperMode } = useDeveloperStore();
 
@@ -90,10 +91,20 @@ export default function TeachersPage() {
     }
   }, []);
 
+  const fetchLibrarySubjects = useCallback(async () => {
+    try {
+      const response = await adminAPI.getSubjects({ libraryOnly: true });
+      setLibrarySubjects(response.data?.data || []);
+    } catch (error) {
+      console.error('Failed to load Subject Library', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTeachers();
     fetchCourses();
-  }, [fetchTeachers, fetchCourses]);
+    fetchLibrarySubjects();
+  }, [fetchTeachers, fetchCourses, fetchLibrarySubjects]);
 
   // Helper to reliably compute assigned courses for a teacher (combining API response and course faculties)
   const getTeacherAssignedCourses = useCallback((teacher: any) => {
@@ -761,13 +772,14 @@ export default function TeachersPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-600 dark:text-surface-300 uppercase tracking-wider mb-1.5">Subject / Specialization</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.subject}
                     onChange={e => setFormData({ ...formData, subject: e.target.value })}
-                    placeholder="e.g. Physics, Organic Chemistry"
                     className="w-full p-2.5 text-sm rounded-xl border border-gray-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-900 text-gray-800 dark:text-surface-100 focus:outline-none focus:border-primary-500"
-                  />
+                  >
+                    <option value="">Select from Subject Library</option>
+                    {librarySubjects.map(subject => <option key={subject._id} value={subject.name}>{subject.name}</option>)}
+                  </select>
                 </div>
               </div>
 
@@ -957,13 +969,14 @@ export default function TeachersPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-600 dark:text-surface-300 uppercase tracking-wider mb-1.5">Subject / Specialization</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.subject}
                     onChange={e => setFormData({ ...formData, subject: e.target.value })}
-                    placeholder="e.g. Physics, Mathematics"
                     className="w-full p-2.5 text-sm rounded-xl border border-gray-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-900 text-gray-800 dark:text-surface-100 focus:outline-none focus:border-primary-500"
-                  />
+                  >
+                    <option value="">Select from Subject Library</option>
+                    {librarySubjects.map(subject => <option key={subject._id} value={subject.name}>{subject.name}</option>)}
+                  </select>
                 </div>
               </div>
 

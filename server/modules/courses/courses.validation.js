@@ -45,6 +45,7 @@ exports.createCourseSchema = Joi.object({
   faculties: Joi.array().items(Joi.string()).optional(),
   subjects: Joi.array().items(Joi.object({
     _id: Joi.string().optional(),
+    librarySubjectId: Joi.string().optional().allow('', null),
     name: Joi.string().required(),
     icon: Joi.string().optional().allow('', null),
     teacherId: Joi.string().optional().allow('', null),
@@ -93,6 +94,7 @@ exports.updateCourseSchema = Joi.object({
   faculties: Joi.array().items(Joi.string()).optional(),
   subjects: Joi.array().items(Joi.object({
     _id: Joi.string().optional(),
+    librarySubjectId: Joi.string().optional().allow('', null),
     name: Joi.string().required(),
     icon: Joi.string().optional().allow('', null),
     teacherId: Joi.string().optional().allow('', null),

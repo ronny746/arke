@@ -62,26 +62,6 @@ const MEDIUM_OPTIONS = [
 
 const SUBJECT_ICONS = ['📖', '⚡', '🧪', '📐', '🌿', '🧬', '🔬', '🏛️', '⚖️', '📊', '📈', '🧠', '🧩', '🎯', '📚'];
 
-const PRESET_SUBJECTS: Record<string, Array<{ name: string; icon: string; chaptersCount: number; dppsCount: number; testsCount: number }>> = {
-  'NEET': [
-    { name: 'Physics', icon: '⚡', chaptersCount: 28, dppsCount: 140, testsCount: 24 },
-    { name: 'Chemistry', icon: '🧪', chaptersCount: 30, dppsCount: 150, testsCount: 26 },
-    { name: 'Botany', icon: '🌿', chaptersCount: 22, dppsCount: 110, testsCount: 18 },
-    { name: 'Zoology', icon: '🧬', chaptersCount: 20, dppsCount: 100, testsCount: 18 },
-  ],
-  'IIT-JEE': [
-    { name: 'Physics', icon: '⚡', chaptersCount: 32, dppsCount: 160, testsCount: 28 },
-    { name: 'Chemistry', icon: '🧪', chaptersCount: 30, dppsCount: 150, testsCount: 26 },
-    { name: 'Mathematics', icon: '📐', chaptersCount: 34, dppsCount: 170, testsCount: 30 },
-  ],
-  'CUET-GOVT': [
-    { name: 'General Test', icon: '🧩', chaptersCount: 20, dppsCount: 100, testsCount: 15 },
-    { name: 'Language & English', icon: '📚', chaptersCount: 18, dppsCount: 90, testsCount: 15 },
-    { name: 'Accountancy & Commerce', icon: '📊', chaptersCount: 24, dppsCount: 120, testsCount: 20 },
-    { name: 'Economics & Business', icon: '📈', chaptersCount: 22, dppsCount: 110, testsCount: 18 },
-  ]
-};
-
 function CourseBuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -123,6 +103,7 @@ function CourseBuilderContent() {
     defaultBatchId: '',
     faculties: [] as string[],
     subjects: [] as Array<{
+      librarySubjectId: string;
       name: string;
       icon: string;
       teacherId: string;
@@ -190,8 +171,9 @@ function CourseBuilderContent() {
               defaultBatchId: c.defaultBatchId || '',
               faculties: (c.faculties || []).map((f: any) => f._id || f),
               subjects: Array.isArray(c.subjects) ? c.subjects.map((s: any) => ({
-                name: s.name || '',
-                icon: s.icon || '📖',
+                librarySubjectId: s.librarySubjectId?._id || s.librarySubjectId || '',
+                name: s.librarySubjectId?.name || s.name || '',
+                icon: s.librarySubjectId?.icon || s.icon || '📖',
                 teacherId: s.teacherId?._id || s.teacherId || '',
                 chaptersCount: s.chaptersCount ?? '',
                 dppsCount: s.dppsCount ?? '',
@@ -258,14 +240,15 @@ function CourseBuilderContent() {
   };
 
   // Subject Handlers
-  const addSubject = (preset?: { name: string; icon: string; chaptersCount?: number; dppsCount?: number; testsCount?: number }) => {
+  const addSubject = () => {
     const newSubject = {
-      name: preset?.name || '',
-      icon: preset?.icon || '📖',
+      librarySubjectId: '',
+      name: '',
+      icon: '📖',
       teacherId: '',
-      chaptersCount: preset?.chaptersCount ?? '',
-      dppsCount: preset?.dppsCount ?? '',
-      testsCount: preset?.testsCount ?? '',
+      chaptersCount: '',
+      dppsCount: '',
+      testsCount: '',
       description: '',
       topics: [] as string[]
     };
@@ -278,21 +261,21 @@ function CourseBuilderContent() {
     set('subjects', updated);
   };
 
-  const pickLibrarySubject = (index: number, name: string) => {
-    const librarySubject = dbSubjects.find((subject: any) => subject.name?.trim().toLowerCase() === name.trim().toLowerCase());
+  const pickLibrarySubject = (index: number, librarySubjectId: string) => {
+    const librarySubject = dbSubjects.find((subject: any) => String(subject._id) === librarySubjectId);
+    if (!librarySubject) return;
     const updated = [...form.subjects];
     updated[index] = {
       ...updated[index],
-      name,
-      ...(librarySubject ? {
-        icon: librarySubject.icon || updated[index].icon,
-        teacherId: librarySubject.teacherId?._id || librarySubject.teacherId || '',
-        chaptersCount: librarySubject.chaptersCount ?? updated[index].chaptersCount,
-        dppsCount: librarySubject.dppsCount ?? updated[index].dppsCount,
-        testsCount: librarySubject.testsCount ?? updated[index].testsCount,
-        description: librarySubject.description || updated[index].description,
-        topics: Array.isArray(librarySubject.topics) ? librarySubject.topics : updated[index].topics
-      } : {})
+      librarySubjectId,
+      name: librarySubject.name,
+      icon: librarySubject.icon || updated[index].icon,
+      teacherId: librarySubject.teacherId?._id || librarySubject.teacherId || '',
+      chaptersCount: librarySubject.chaptersCount ?? 0,
+      dppsCount: librarySubject.dppsCount ?? 0,
+      testsCount: librarySubject.testsCount ?? 0,
+      description: librarySubject.description || '',
+      topics: Array.isArray(librarySubject.topics) ? librarySubject.topics : []
     };
     set('subjects', updated);
   };
@@ -326,15 +309,16 @@ function CourseBuilderContent() {
     set('subjects', updated);
   };
 
-  const applyPresetSubjects = (goal: string) => {
-    if (dbSubjects && dbSubjects.length > 0) {
+  const loadLibrarySubjects = () => {
+    if (dbSubjects.length > 0) {
       const mapped = dbSubjects.map((s: any) => ({
+        librarySubjectId: s._id,
         name: s.name,
         icon: s.icon || '📖',
         teacherId: s.teacherId?._id || s.teacherId || '',
-        chaptersCount: s.chaptersCount || 20,
-        dppsCount: s.dppsCount || 100,
-        testsCount: s.testsCount || 15,
+        chaptersCount: s.chaptersCount ?? 0,
+        dppsCount: s.dppsCount ?? 0,
+        testsCount: s.testsCount ?? 0,
         description: s.description || '',
         topics: Array.isArray(s.topics) ? s.topics : []
       }));
@@ -342,21 +326,7 @@ function CourseBuilderContent() {
       toast.success(`Loaded ${dbSubjects.length} dynamic subjects from database`);
       return;
     }
-
-    const presets = PRESET_SUBJECTS[goal] || PRESET_SUBJECTS['NEET'];
-    if (!presets) return;
-    const mapped = presets.map(p => ({
-      name: p.name,
-      icon: p.icon,
-      teacherId: '',
-      chaptersCount: p.chaptersCount,
-      dppsCount: p.dppsCount,
-      testsCount: p.testsCount,
-      description: '',
-      topics: []
-    }));
-    set('subjects', mapped);
-    toast.success(`Loaded standard subjects for ${goal}`);
+    toast.error('Add subjects in Subject Library before adding them to a course.');
   };
 
   // FAQ Handlers
@@ -441,8 +411,8 @@ function CourseBuilderContent() {
 
     // Validate subjects if any have missing names
     for (let i = 0; i < form.subjects.length; i++) {
-      if (!form.subjects[i].name.trim()) {
-        toast.error(`Subject #${i + 1} is missing a name`);
+      if (!form.subjects[i].librarySubjectId) {
+        toast.error(`Select Subject #${i + 1} from the Subject Library`);
         setActiveTab('curriculum');
         return;
       }
@@ -470,6 +440,7 @@ function CourseBuilderContent() {
         bestFor: form.bestFor.map(s => s.trim()).filter(Boolean),
         faculties: form.faculties || [],
         subjects: form.subjects.map(s => ({
+          librarySubjectId: s.librarySubjectId,
           name: s.name.trim(),
           icon: s.icon || '📖',
           teacherId: s.teacherId || null,
@@ -963,10 +934,10 @@ function CourseBuilderContent() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => applyPresetSubjects(form.targetExam)}
+                    onClick={loadLibrarySubjects}
                     className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#0B132B] bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors flex items-center gap-1.5"
                   >
-                    <Sparkles size={13} className="text-amber-600" /> Standard Presets
+                    <Sparkles size={13} className="text-amber-600" /> Load Subject Library
                   </button>
                   <button
                     type="button"
@@ -987,10 +958,10 @@ function CourseBuilderContent() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => applyPresetSubjects(form.targetExam)}
+                    onClick={loadLibrarySubjects}
                     className="mt-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#0B132B] text-[#C99A2E] hover:bg-[#1C2541] transition-all shadow-sm"
                   >
-                    + Quick Add Standard Subjects for {form.targetExam}
+                    Load subjects from Subject Library
                   </button>
                 </div>
               ) : (
@@ -1006,19 +977,14 @@ function CourseBuilderContent() {
                           >
                             {SUBJECT_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
                           </select>
-                          <input
-                            type="text"
-                            list="db-subjects-list"
-                            value={sub.name}
+                          <select
+                            value={sub.librarySubjectId}
                             onChange={e => pickLibrarySubject(idx, e.target.value)}
-                            placeholder="Subject Name (e.g. Physics, Botany)"
                             className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white font-bold text-sm text-gray-900 focus:outline-none focus:border-[#0B132B]"
-                          />
-                          <datalist id="db-subjects-list">
-                            {dbSubjects.map((dbs: any) => (
-                              <option key={dbs._id} value={dbs.name} />
-                            ))}
-                          </datalist>
+                          >
+                            <option value="">Select from Subject Library</option>
+                            {dbSubjects.map((dbs: any) => <option key={dbs._id} value={dbs._id}>{dbs.name}</option>)}
+                          </select>
                         </div>
                         <button
                           type="button"

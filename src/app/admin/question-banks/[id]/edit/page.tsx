@@ -398,7 +398,7 @@ export default function QuestionBankBuilder() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 p-3 bg-white border rounded-lg shadow-sm">
                             <div>
                               <label className="text-[10px] font-semibold text-gray-500 block mb-1 uppercase tracking-wider">Subject</label>
-                              <input type="text" className="w-full border rounded p-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" value={editQuestionState.subjectName || (typeof editQuestionState.subject === 'string' ? editQuestionState.subject : editQuestionState.subject?.name) || ''} onChange={(e) => setEditQuestionState({...editQuestionState, subjectName: e.target.value})} placeholder="e.g. Physics" />
+                              <input type="text" className="w-full border rounded p-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" value={editQuestionState.subjectName || (typeof editQuestionState.subject === 'string' ? editQuestionState.subject : editQuestionState.subject?.name) || ''} onChange={(e) => setEditQuestionState({...editQuestionState, subjectName: e.target.value})} placeholder="Subject name" />
                             </div>
                             <div>
                               <label className="text-[10px] font-semibold text-gray-500 block mb-1 uppercase tracking-wider">Chapter</label>

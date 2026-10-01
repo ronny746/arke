@@ -37,45 +37,30 @@ export default function StudentPerformanceCard() {
   let totalAttemptedAll = 0;
   let totalCorrectAll = 0;
 
-  let phyAttempted = 0, phyCorrect = 0;
-  let chemAttempted = 0, chemCorrect = 0;
-  let bioAttempted = 0, bioCorrect = 0;
+  const subjectTotals = new Map<string, { attempted: number; correct: number }>();
 
   for (const s of subjectWiseList) {
     if (!s) continue;
-    const subjectName = String(s.subject || s.subjectName || '').toUpperCase();
+    const subjectName = String(s.subject || s.subjectName || 'Uncategorised').trim() || 'Uncategorised';
     const attempted = Number(s.attempted) || 0;
     const correct = Number(s.correct) || 0;
 
     totalAttemptedAll += attempted;
     totalCorrectAll += correct;
 
-    if (subjectName.includes('PHYSIC')) {
-      phyAttempted += attempted;
-      phyCorrect += correct;
-    } else if (subjectName.includes('CHEM')) {
-      chemAttempted += attempted;
-      chemCorrect += correct;
-    } else if (subjectName.includes('BIO') || subjectName.includes('BOTANY') || subjectName.includes('ZOOLOGY')) {
-      bioAttempted += attempted;
-      bioCorrect += correct;
-    }
+    const current = subjectTotals.get(subjectName) || { attempted: 0, correct: 0 };
+    subjectTotals.set(subjectName, { attempted: current.attempted + attempted, correct: current.correct + correct });
   }
 
   const calcOverallAcc = totalAttemptedAll > 0
     ? (totalCorrectAll / totalAttemptedAll) * 100
     : Number(overall.overallPercentage || 0);
 
-  const calcPhyAcc = phyAttempted > 0 ? (phyCorrect / phyAttempted) * 100 : 0;
-  const calcChemAcc = chemAttempted > 0 ? (chemCorrect / chemAttempted) * 100 : 0;
-  const calcBioAcc = bioAttempted > 0 ? (bioCorrect / bioAttempted) * 100 : 0;
-
   const overallAccuracyStr = summary.overallAccuracy || `${calcOverallAcc.toFixed(1)}%`;
-
-  const subjectAccs = summary.subjectAccuracies || {};
-  const bioAcc = typeof subjectAccs.biology === 'number' ? subjectAccs.biology : calcBioAcc;
-  const chemAcc = typeof subjectAccs.chemistry === 'number' ? subjectAccs.chemistry : calcChemAcc;
-  const phyAcc = typeof subjectAccs.physics === 'number' ? subjectAccs.physics : calcPhyAcc;
+  const subjectAccuracies = Array.from(subjectTotals.entries())
+    .map(([name, value]) => ({ name, accuracy: value.attempted ? (value.correct / value.attempted) * 100 : 0 }))
+    .sort((a, b) => b.accuracy - a.accuracy)
+    .slice(0, 4);
 
   const counts = summary.counts || {};
   const liveExams = counts.liveExams ?? overall.totalExamsTaken ?? (performanceData?.recentExams?.length || 0);
@@ -137,47 +122,12 @@ export default function StudentPerformanceCard() {
                   SUBJECT ACCURACY
                 </span>
 
-                {/* Biology */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs font-bold">
-                    <span className="text-surface-700 dark:text-surface-300">Biology</span>
-                    <span className="text-surface-400">{bioAcc.toFixed(1)}%</span>
+                {subjectAccuracies.length ? subjectAccuracies.map((subject, index) => (
+                  <div className="space-y-1" key={subject.name}>
+                    <div className="flex justify-between text-xs font-bold"><span className="text-surface-700 dark:text-surface-300">{subject.name}</span><span className="text-surface-400">{subject.accuracy.toFixed(1)}%</span></div>
+                    <div className="w-full h-2 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden"><div className={['bg-emerald-500', 'bg-amber-500', 'bg-indigo-500', 'bg-violet-500'][index]} style={{ width: `${Math.min(Math.max(subject.accuracy, 0), 100)}%` }} /></div>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden">
-                    <div 
-                      className="h-full rounded-full bg-emerald-500 transition-all duration-500" 
-                      style={{ width: `${Math.min(Math.max(bioAcc, 0), 100)}%` }} 
-                    />
-                  </div>
-                </div>
-
-                {/* Chemistry */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs font-bold">
-                    <span className="text-surface-700 dark:text-surface-300">Chemistry</span>
-                    <span className="text-surface-400">{chemAcc.toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden">
-                    <div 
-                      className="h-full rounded-full bg-amber-500 transition-all duration-500" 
-                      style={{ width: `${Math.min(Math.max(chemAcc, 0), 100)}%` }} 
-                    />
-                  </div>
-                </div>
-
-                {/* Physics */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs font-bold">
-                    <span className="text-surface-700 dark:text-surface-300">Physics</span>
-                    <span className="text-surface-400">{phyAcc.toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden">
-                    <div 
-                      className="h-full rounded-full bg-indigo-500 transition-all duration-500" 
-                      style={{ width: `${Math.min(Math.max(phyAcc, 0), 100)}%` }} 
-                    />
-                  </div>
-                </div>
+                )) : <p className="text-sm text-surface-500">Subject accuracy will appear after your first submitted assessment.</p>}
               </div>
             </div>
 

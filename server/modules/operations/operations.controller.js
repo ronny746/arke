@@ -10,4 +10,5 @@ exports.listMentors = send(req => service.listMentors(req.user), 'Mentors retrie
 exports.scheduleMentorSession = send(req => service.scheduleMentorSession(req.user, req.body, req.app.get('io')), 'Mentor session scheduled', 201);
 exports.updateMentorSession = send(req => service.updateMentorSession(req.user, req.params.id, req.body, req.app.get('io')), 'Mentor session updated');
 exports.listMentorSessions = send(req => service.listMentorSessions(req.user), 'Mentor sessions retrieved');
+exports.getMyMentorSessions = send(req => service.getMyMentorSessions(req.user), 'Your mentor sessions retrieved');
 exports.swapMentor = send(req => service.swapMentor(req.user, req.params.id, req.body.mentorId), 'Mentor reassigned');

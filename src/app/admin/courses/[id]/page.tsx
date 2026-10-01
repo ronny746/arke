@@ -400,25 +400,6 @@ function DeleteConfirm({ batch, onClose, onDeleted, token }: { batch: any; onClo
 // ── Manage Subjects Modal ──────────────────────────────────────────────────────────
 const SUBJECT_ICONS = ['📖', '⚡', '🧪', '📐', '🌿', '🧬', '🔬', '🏛️', '⚖️', '📊', '📈', '🧠', '🧩', '🎯', '📚'];
 
-const PRESET_SUBJECTS: Record<string, Array<{ name: string; icon: string; chaptersCount: number; dppsCount: number; testsCount: number; topics: string[] }>> = {
-  'NEET': [
-    { name: 'Physics', icon: '⚡', chaptersCount: 28, dppsCount: 140, testsCount: 24, topics: ['Mechanics', 'Thermodynamics', 'Electrodynamics', 'Modern Physics', 'Optics'] },
-    { name: 'Chemistry', icon: '🧪', chaptersCount: 30, dppsCount: 150, testsCount: 26, topics: ['Physical Chemistry', 'Organic Reactions', 'Inorganic & Periodicity', 'Coordination Compounds'] },
-    { name: 'Botany', icon: '🌿', chaptersCount: 22, dppsCount: 110, testsCount: 18, topics: ['Plant Physiology', 'Genetics', 'Ecology', 'Cell Biology', 'Plant Diversity'] },
-    { name: 'Zoology', icon: '🧬', chaptersCount: 20, dppsCount: 100, testsCount: 18, topics: ['Human Physiology', 'Biomolecules', 'Animal Kingdom', 'Evolution & Health'] },
-  ],
-  'IIT-JEE': [
-    { name: 'Physics', icon: '⚡', chaptersCount: 32, dppsCount: 160, testsCount: 28, topics: ['Kinematics & Dynamics', 'Rotation', 'Electromagnetism', 'Optics & Waves'] },
-    { name: 'Chemistry', icon: '🧪', chaptersCount: 30, dppsCount: 150, testsCount: 26, topics: ['Physical Equilibrium', 'Organic Mechanisms', 'Inorganic Chemistry', 'Electrochemistry'] },
-    { name: 'Mathematics', icon: '📐', chaptersCount: 34, dppsCount: 170, testsCount: 30, topics: ['Calculus', 'Algebra & Vectors', 'Coordinate Geometry', 'Trigonometry'] },
-  ],
-  'CUET-GOVT': [
-    { name: 'General Test', icon: '🧩', chaptersCount: 20, dppsCount: 100, testsCount: 15, topics: ['General Knowledge', 'Current Affairs', 'Logical Reasoning', 'Numerical Ability'] },
-    { name: 'Language & English', icon: '📚', chaptersCount: 18, dppsCount: 90, testsCount: 15, topics: ['Reading Comprehension', 'Grammar', 'Vocabulary', 'Verbal Ability'] },
-    { name: 'Accountancy & Commerce', icon: '📊', chaptersCount: 24, dppsCount: 120, testsCount: 20, topics: ['Financial Statements', 'Partnership', 'Company Accounts', 'Business Studies'] },
-  ]
-};
-
 function ManageSubjectsModal({ 
   course, 
   token, 
@@ -434,6 +415,7 @@ function ManageSubjectsModal({
   const [dbSubjects, setDbSubjects] = useState<any[]>([]);
   const [allTeachers, setAllTeachers] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<Array<{
+    librarySubjectId: string;
     name: string;
     icon: string;
     chaptersCount: number | '';
@@ -444,8 +426,9 @@ function ManageSubjectsModal({
     topics: string[];
   }>>(
     course.subjects?.map((s: any) => ({
-      name: s.name || '',
-      icon: s.icon || '📖',
+      librarySubjectId: s.librarySubjectId?._id || s.librarySubjectId || '',
+      name: s.librarySubjectId?.name || s.name || '',
+      icon: s.librarySubjectId?.icon || s.icon || '📖',
       teacherId: s.teacherId?._id || s.teacherId || '',
       chaptersCount: s.chaptersCount ?? '',
       dppsCount: s.dppsCount ?? '',
@@ -467,56 +450,58 @@ function ManageSubjectsModal({
       .catch(() => {});
   }, []);
 
-  const addSubject = (preset?: any) => {
+  const addSubject = () => {
     setSubjects(prev => [
       ...prev,
       {
-        name: preset?.name || '',
-        icon: preset?.icon || '📖',
+        librarySubjectId: '',
+        name: '',
+        icon: '📖',
         teacherId: '',
-        chaptersCount: preset?.chaptersCount ?? '',
-        dppsCount: preset?.dppsCount ?? '',
-        testsCount: preset?.testsCount ?? '',
-        description: preset?.description || '',
-        topics: Array.isArray(preset?.topics) ? preset.topics : []
+        chaptersCount: '',
+        dppsCount: '',
+        testsCount: '',
+        description: '',
+        topics: []
       }
     ]);
   };
 
-  const loadPreset = (targetKey: string) => {
-    const presets = PRESET_SUBJECTS[targetKey] || PRESET_SUBJECTS['NEET'];
-    const mapped = presets.map(p => ({
-      name: p.name,
-      icon: p.icon,
-      teacherId: '',
-      chaptersCount: p.chaptersCount,
-      dppsCount: p.dppsCount,
-      testsCount: p.testsCount,
-      description: '',
-      topics: p.topics || []
-    }));
-    setSubjects(mapped);
-    toast.success(`Loaded ${mapped.length} preset subjects for ${targetKey}`);
-  };
-
   const loadDbSubjects = () => {
     if (dbSubjects.length === 0) {
-      toast.error('No database subjects found. Loading standard presets...');
-      loadPreset('NEET');
+      toast.error('Add subjects in Subject Library before adding them to a course.');
       return;
     }
     const mapped = dbSubjects.map(s => ({
+      librarySubjectId: s._id,
       name: s.name,
       icon: s.icon || '📖',
       teacherId: s.teacherId?._id || s.teacherId || '',
-      chaptersCount: s.chaptersCount || 20,
-      dppsCount: s.dppsCount || 100,
-      testsCount: s.testsCount || 15,
+      chaptersCount: s.chaptersCount ?? 0,
+      dppsCount: s.dppsCount ?? 0,
+      testsCount: s.testsCount ?? 0,
       description: s.description || '',
       topics: Array.isArray(s.topics) ? s.topics : []
     }));
     setSubjects(mapped);
     toast.success(`Loaded ${mapped.length} dynamic subjects from database`);
+  };
+
+  const pickLibrarySubject = (idx: number, librarySubjectId: string) => {
+    const librarySubject = dbSubjects.find(subject => String(subject._id) === librarySubjectId);
+    if (!librarySubject) return;
+    setSubjects(prev => prev.map((subject, subjectIdx) => subjectIdx === idx ? {
+      ...subject,
+      librarySubjectId,
+      name: librarySubject.name,
+      icon: librarySubject.icon || '📖',
+      teacherId: librarySubject.teacherId?._id || librarySubject.teacherId || '',
+      chaptersCount: librarySubject.chaptersCount ?? 0,
+      dppsCount: librarySubject.dppsCount ?? 0,
+      testsCount: librarySubject.testsCount ?? 0,
+      description: librarySubject.description || '',
+      topics: Array.isArray(librarySubject.topics) ? librarySubject.topics : []
+    } : subject));
   };
 
   const updateSubject = (idx: number, field: string, value: any) => {
@@ -556,6 +541,9 @@ function ManageSubjectsModal({
   const handleSave = async () => {
     setLoading(true);
     try {
+      if (subjects.some(subject => !subject.librarySubjectId)) {
+        throw new Error('Select every course subject from Subject Library.');
+      }
       const cleanedSubjects = subjects.map(s => ({
         ...s,
         chaptersCount: Number(s.chaptersCount) || 0,
@@ -609,54 +597,24 @@ function ManageSubjectsModal({
 
         {/* Content Body */}
         <div className="p-6 space-y-5 flex-1 overflow-y-auto">
-          {/* Quick Presets Bar */}
+          {/* Subject Library sync */}
           <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100/80 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                <Sparkles size={14} className="text-amber-500" /> Quick Curriculum Templates & Dynamic Database Sync
+                <Sparkles size={14} className="text-amber-500" /> Subject Library
               </span>
               <span className="text-[10px] text-emerald-700 font-semibold">{dbSubjects.length} subjects in DB</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => loadPreset('NEET')}
-                className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-emerald-800 text-xs font-bold hover:bg-emerald-100/60 transition-all shadow-xs"
+                onClick={loadDbSubjects}
+                className="px-3 py-1.5 rounded-xl bg-[#0B132B] text-[#C99A2E] text-xs font-bold hover:bg-[#1C2541] transition-all shadow-xs"
               >
-                ⚡ NEET (Phys, Chem, Bot, Zoo)
+                Load Subject Library ({dbSubjects.length})
               </button>
-              <button
-                type="button"
-                onClick={() => loadPreset('IIT-JEE')}
-                className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-emerald-800 text-xs font-bold hover:bg-emerald-100/60 transition-all shadow-xs"
-              >
-                📐 IIT-JEE (Phys, Chem, Math)
-              </button>
-              <button
-                type="button"
-                onClick={() => loadPreset('CUET-GOVT')}
-                className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-emerald-800 text-xs font-bold hover:bg-emerald-100/60 transition-all shadow-xs"
-              >
-                📊 CUET (Gen Test, Lang, Commerce)
-              </button>
-              {dbSubjects.length > 0 && (
-                <button
-                  type="button"
-                  onClick={loadDbSubjects}
-                  className="px-3 py-1.5 rounded-xl bg-[#0B132B] text-[#C99A2E] text-xs font-bold hover:bg-[#1C2541] transition-all shadow-xs"
-                >
-                  🌐 Sync Dynamic DB Subjects ({dbSubjects.length})
-                </button>
-              )}
             </div>
           </div>
-
-          {/* Datalist for Subject Autocomplete */}
-          <datalist id="db-subjects-modal-list">
-            {dbSubjects.map((dbs: any) => (
-              <option key={dbs._id} value={dbs.name} />
-            ))}
-          </datalist>
 
           {/* Subjects Editor List */}
           {subjects.length === 0 ? (
@@ -664,7 +622,7 @@ function ManageSubjectsModal({
               <Layers className="mx-auto text-gray-400 mb-2" size={32} />
               <p className="text-sm font-bold text-gray-700">No subjects added yet</p>
               <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
-                Click "+ Add New Subject" or select a preset template above to build the subject syllabus.
+                Load subjects from Subject Library, or add one row and choose its library subject.
               </p>
               <button
                 type="button"
@@ -689,14 +647,16 @@ function ManageSubjectsModal({
                       >
                         {SUBJECT_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
                       </select>
-                      <input
-                        type="text"
-                        list="db-subjects-modal-list"
-                        value={sub.name}
-                        onChange={e => updateSubject(idx, 'name', e.target.value)}
-                        placeholder="Subject Name (e.g. Physics)"
+                      <select
+                        value={sub.librarySubjectId}
+                        onChange={e => pickLibrarySubject(idx, e.target.value)}
                         className="flex-1 px-4 py-2 rounded-xl border border-gray-200 bg-white font-bold text-sm text-gray-900 focus:outline-none focus:border-[#059669]"
-                      />
+                      >
+                        <option value="">Select from Subject Library</option>
+                        {dbSubjects.map((librarySubject: any) => (
+                          <option key={librarySubject._id} value={librarySubject._id}>{librarySubject.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <button
                       type="button"

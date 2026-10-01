@@ -16,6 +16,7 @@ export const studentAPI = {
   getTransactions: (params) => axiosInstance.get('/fees-payments/transactions', { params }),
   getMyBatches: () => axiosInstance.get('/batches/my-batches'),
   getLiveClasses: (params) => axiosInstance.get('/live-classes', { params }),
+  getMyMentorSessions: () => axiosInstance.get('/operations/mentor-sessions/my'),
   setupParent: (data) => axiosInstance.post('/users/setup-parent', data),
   getAttendance: (params) => axiosInstance.get('/attendance/my-attendance', { params }),
   getChatRooms: () => axiosInstance.get('/chat/rooms'),
