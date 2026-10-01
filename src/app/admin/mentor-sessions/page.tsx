@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarClock, Link as LinkIcon, Plus, UsersRound } from 'lucide-react';
+import { CalendarClock, Link as LinkIcon, Plus, UsersRound, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Button } from '@/components/ui/Button';
@@ -9,7 +9,7 @@ import { adminAPI } from '@/api/admin';
 
 type Mentor = { _id: string; name: string; email?: string; phone?: string };
 type Target = { _id: string; name: string; courseId?: string | { _id: string; name: string } };
-type MentorSession = { _id: string; startAt: string; endAt: string; status: string; meetingLink?: string; mentorId?: Mentor; batchId?: { name: string } | null; courseId?: { name: string } | null };
+type MentorSession = { _id: string; startAt: string; endAt: string; status: string; meetingLink?: string; mentorId?: Mentor; batchId?: { _id: string; name: string } | null; courseId?: { _id: string; name: string } | null };
 
 const initialMentor = { name: '', email: '', phone: '' };
 const initialSession = { mentorId: '', audience: 'course', audienceId: '', startAt: '', meetingLink: '' };
@@ -32,6 +32,7 @@ export default function MentorSessionsPage() {
   const [savingSession, setSavingSession] = useState(false);
   const [mentorError, setMentorError] = useState('');
   const [sessionError, setSessionError] = useState('');
+  const [editingSession, setEditingSession] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,15 +78,18 @@ export default function MentorSessionsPage() {
     if (!endAt) return setSessionError('Enter a valid start time.');
     setSavingSession(true);
     try {
-      await adminAPI.scheduleMentorSession({
+      const payload = {
         mentorId: sessionForm.mentorId,
         [sessionForm.audience === 'course' ? 'courseId' : 'batchId']: sessionForm.audienceId,
         startAt: new Date(sessionForm.startAt).toISOString(),
         endAt,
         meetingLink: sessionForm.meetingLink.trim()
-      });
-      toast.success('Mentor session scheduled and students notified.');
+      };
+      if (editingSession) await adminAPI.updateMentorSession(editingSession, { mentorId: payload.mentorId, startAt: payload.startAt, endAt: payload.endAt, meetingLink: payload.meetingLink });
+      else await adminAPI.scheduleMentorSession(payload);
+      toast.success(editingSession ? 'Mentor session updated and students notified.' : 'Mentor session scheduled and students notified.');
       setSessionForm(initialSession);
+      setEditingSession(null);
       await load();
     } catch (error: unknown) {
       setSessionError(error instanceof Error ? error.message : 'Could not schedule mentor session.');
@@ -109,7 +113,7 @@ export default function MentorSessionsPage() {
         </section>
 
         <section className="card p-6">
-          <div className="flex items-start gap-3"><div className="rounded-xl bg-blue-50 p-3 text-blue-700"><CalendarClock size={21} /></div><div><h2 className="font-display text-lg font-semibold text-[#0B132B]">Schedule a 30-minute session</h2><p className="mt-1 text-sm text-surface-500">Course selection notifies every student enrolled across its active batches; batch selection notifies only that batch.</p></div></div>
+          <div className="flex items-start gap-3"><div className="rounded-xl bg-blue-50 p-3 text-blue-700"><CalendarClock size={21} /></div><div><h2 className="font-display text-lg font-semibold text-[#0B132B]">{editingSession ? 'Edit mentor session' : 'Schedule a 30-minute session'}</h2><p className="mt-1 text-sm text-surface-500">Course selection notifies every student enrolled across its active batches; batch selection notifies only that batch.</p></div></div>
           <form className="mt-6 grid gap-4 md:grid-cols-2" noValidate onSubmit={schedule}>
             <label><span className="form-label">Mentor</span><select className="form-input" value={sessionForm.mentorId} onChange={e => setSessionForm(v => ({ ...v, mentorId: e.target.value }))} required><option value="">Select mentor</option>{mentors.map(mentor => <option key={mentor._id} value={mentor._id}>{mentor.name}</option>)}</select></label>
             <label><span className="form-label">Audience</span><select className="form-input" value={sessionForm.audience} onChange={e => setSessionForm(v => ({ ...v, audience: e.target.value, audienceId: '' }))}><option value="course">Entire course</option><option value="batch">One batch</option></select></label>
@@ -118,12 +122,12 @@ export default function MentorSessionsPage() {
             <label className="md:col-span-2"><span className="form-label">Meeting link <span className="text-surface-400">(optional)</span></span><div className="relative"><LinkIcon className="absolute left-3 top-3 text-surface-400" size={16} /><input className="form-input pl-10" type="url" placeholder="https://…" value={sessionForm.meetingLink} onChange={e => setSessionForm(v => ({ ...v, meetingLink: e.target.value }))} /></div></label>
             <div className="md:col-span-2 rounded-lg bg-surface-50 p-3 text-sm text-surface-600">Duration is fixed at <strong>30 minutes</strong>. The server prevents mentor time conflicts and sends students an in-app notification immediately.</div>
             {sessionError && <p role="alert" className="md:col-span-2 text-sm text-red-600">{sessionError}</p>}
-            <div className="md:col-span-2"><Button type="submit" icon={CalendarClock} loading={savingSession}>Schedule & notify students</Button></div>
+            <div className="md:col-span-2 flex gap-2"><Button type="submit" icon={CalendarClock} loading={savingSession}>{editingSession ? 'Save & notify students' : 'Schedule & notify students'}</Button>{editingSession && <Button type="button" variant="secondary" onClick={() => { setEditingSession(null); setSessionForm(initialSession); }}>Cancel</Button>}</div>
           </form>
         </section>
       </div>
 
-      <section className="card overflow-hidden"><div className="p-5"><h2 className="font-display text-lg font-semibold text-[#0B132B]">Upcoming and past sessions</h2></div><div className="table-wrapper border-x-0 border-b-0 rounded-none"><table className="data-table"><thead><tr><th>When</th><th>Mentor</th><th>Audience</th><th>Meeting</th><th>Status</th></tr></thead><tbody>{sessions.map(session => <tr key={session._id}><td>{new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(session.startAt))}</td><td>{session.mentorId?.name || 'Unknown mentor'}</td><td>{session.courseId?.name || session.batchId?.name || 'Unknown audience'}</td><td>{session.meetingLink ? <a className="text-blue-700 underline" href={session.meetingLink} target="_blank" rel="noreferrer">Open link</a> : 'To be shared'}</td><td><span className="badge badge-surface">{session.status}</span></td></tr>)}{!loading && !sessions.length && <tr><td colSpan={5} className="py-12 text-center text-sm text-surface-500">No mentor sessions have been scheduled yet.</td></tr>}{loading && <tr><td colSpan={5} className="py-12 text-center text-sm text-surface-500">Loading sessions…</td></tr>}</tbody></table></div></section>
+      <section className="card overflow-hidden"><div className="p-5"><h2 className="font-display text-lg font-semibold text-[#0B132B]">Upcoming and past sessions</h2></div><div className="table-wrapper border-x-0 border-b-0 rounded-none"><table className="data-table"><thead><tr><th>When</th><th>Mentor</th><th>Audience</th><th>Meeting</th><th>Status</th><th>Action</th></tr></thead><tbody>{sessions.map(session => <tr key={session._id}><td>{new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(session.startAt))}</td><td>{session.mentorId?.name || 'Unknown mentor'}</td><td>{session.courseId?.name || session.batchId?.name || 'Unknown audience'}</td><td>{session.meetingLink ? <a className="text-blue-700 underline" href={session.meetingLink} target="_blank" rel="noreferrer">Open link</a> : 'To be shared'}</td><td><span className="badge badge-surface">{session.status}</span></td><td>{session.status === 'SCHEDULED' && <button className="btn-secondary btn-sm" onClick={() => { setEditingSession(session._id); setSessionForm({ mentorId: session.mentorId?._id || '', audience: session.courseId ? 'course' : 'batch', audienceId: session.courseId?._id || session.batchId?._id || '', startAt: new Date(session.startAt).toISOString().slice(0, 16), meetingLink: session.meetingLink || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Pencil size={14} /> Edit</button>}</td></tr>)}{!loading && !sessions.length && <tr><td colSpan={6} className="py-12 text-center text-sm text-surface-500">No mentor sessions have been scheduled yet.</td></tr>}{loading && <tr><td colSpan={6} className="py-12 text-center text-sm text-surface-500">Loading sessions…</td></tr>}</tbody></table></div></section>
     </div>
   );
 }

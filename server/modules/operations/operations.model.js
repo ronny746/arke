@@ -32,6 +32,8 @@ const mentorSessionSchema = new mongoose.Schema({
   startAt: { type: Date, required: true },
   endAt: { type: Date, required: true },
   meetingLink: { type: String, trim: true, default: '' },
+  meetingId: { type: String, trim: true, default: '' },
+  meetingPassword: { type: String, trim: true, default: '' },
   status: { type: String, enum: ['SCHEDULED', 'COMPLETED', 'CANCELLED'], default: 'SCHEDULED' },
   swappedFromMentorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Mentor' }
 }, { timestamps: true });
