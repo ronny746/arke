@@ -62,6 +62,12 @@ export default function Parents() {
     try {
       setFormLoading(true);
       const payload = { ...form };
+      // Do not send blank optional values. In particular, an empty email must
+      // be omitted so multiple OTP-only parent accounts can be created.
+      payload.email = payload.email.trim();
+      payload.password = payload.password.trim();
+      if (!payload.email) delete payload.email;
+      if (!payload.password) delete payload.password;
       payload.isActive = payload.status === 'active';
       delete payload.status;
       
@@ -258,7 +264,7 @@ export default function Parents() {
                   <Input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="john@example.com" />
                 </FormField>
                 {!showEdit && (
-                  <FormField label="Password (Optional)">
+                  <FormField label="Password (Optional — mobile OTP can be used instead)">
                     <Input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="Enter password" />
                   </FormField>
                 )}

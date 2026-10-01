@@ -1,5 +1,6 @@
 const UserModel = require('./users.model');
 const { ROLES } = require('../../config/constants');
+const crypto = require('crypto');
 
 exports.createUser = async (reqUser, payload) => {
   // Associate the account with the creator's institute. Only the initial
@@ -20,6 +21,19 @@ exports.createUser = async (reqUser, payload) => {
     if (!payload.password || payload.password.trim() === '') {
       payload.password = dob;
     }
+  }
+
+  // Parent accounts authenticate with their registered mobile OTP.  Keep the
+  // email and password fields genuinely optional: omit an empty email (so the
+  // sparse unique index does not store duplicate empty strings) and give a
+  // password-less parent a private, non-user-facing credential required by
+  // the user schema.
+  if (typeof payload.email === 'string' && payload.email.trim() === '') {
+    delete payload.email;
+  }
+  const isParent = payload.role === ROLES.PARENT || payload.role === 'parent';
+  if (isParent && (!payload.password || payload.password.trim() === '')) {
+    payload.password = crypto.randomBytes(32).toString('base64url');
   }
 
   // Auto Roll No & Class/Section handling for Students

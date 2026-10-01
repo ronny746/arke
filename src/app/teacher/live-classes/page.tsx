@@ -1,723 +1,160 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Video, Calendar, Plus, Play, StopCircle, Trash, Clock, Save, Edit3, Grid, PlayCircle, ArrowLeft, BookOpen } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertCircle, CalendarDays, CheckCircle2, Clock3, ExternalLink, Play, RefreshCw, StopCircle, Video } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card } from '@/components/ui/index.jsx';
-import { DataTable, RowActions } from '@/components/tables/DataTable.jsx';
 import { Button } from '@/components/ui/Button.jsx';
 import { teacherAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-const getLiveClassUrl = (liveClass, preferHostUrl = false) => {
-  const primaryUrl = preferHostUrl ? liveClass?.startUrl || liveClass?.meetingLink : liveClass?.meetingLink || liveClass?.startUrl;
-  if (!primaryUrl) return null;
-
-  if (primaryUrl.includes('zoom.us')) {
-    return primaryUrl;
-  }
-
-  if (primaryUrl.includes('/class/')) {
-    const roomCode = primaryUrl.split('/class/')[1]?.split(/[?#]/)[0];
-    return roomCode ? `/class/${roomCode}` : primaryUrl;
-  }
-
-  return primaryUrl;
+const localDateValue = (date = new Date()) => {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 10);
 };
 
-const getApiErrorMessage = (error, fallbackMessage) => {
-  const candidate = error?.response?.data?.message || error?.message;
-  return typeof candidate === 'string' && candidate.trim() ? candidate : fallbackMessage;
+const classIdentity = (liveClass) => String(liveClass?.classScheduleId?._id || liveClass?.classScheduleId || '');
+const hostUrl = (liveClass) => liveClass?.startUrl || liveClass?.meetingLink || null;
+
+const displayTime = (time) => {
+  if (!time) return 'Time not set';
+  const [hours, minutes] = time.split(':').map(Number);
+  return `${((hours + 11) % 12) + 1}:${String(minutes).padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`;
 };
+
+const dateTimeFor = (date, time) => new Date(`${date}T${time || '00:00'}:00`);
 
 export default function TeacherLiveClassesPage() {
-  const [activeTab, setActiveTab] = useState('TIMETABLE_BUILDER'); // 'DAILY_MONITOR' | 'TIMETABLE_BUILDER'
+  const [selectedDate, setSelectedDate] = useState(localDateValue());
+  const [schedule, setSchedule] = useState([]);
+  const [liveClasses, setLiveClasses] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // Daily Monitor State
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [schedules, setSchedules] = useState([]);
-  const [activeClasses, setActiveClasses] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [startingId, setStartingId] = useState('');
+  const [endingId, setEndingId] = useState('');
+  const [endConfirmationId, setEndConfirmationId] = useState('');
+  const [now, setNow] = useState(new Date());
 
-  const [showOverrideModal, setShowOverrideModal] = useState(false);
-  const [overrideData, setOverrideData] = useState({
-    recurringScheduleId: null,
-    batchId: '',
-    subjectId: '',
-    teacherId: '',
-    overrideDate: '',
-    overrideType: 'CANCELLED',
-    newStartTime: '',
-    newEndTime: '',
-    reason: ''
-  });
+  const loadClasses = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) setLoading(true);
+    try {
+      const [scheduleResponse, liveResponse] = await Promise.all([
+        teacherAPI.getCalculatedSchedule({ date: selectedDate }),
+        teacherAPI.getLiveClasses(),
+      ]);
+      setSchedule(scheduleResponse.data?.data || []);
+      setLiveClasses(liveResponse.data?.data || []);
+    } catch (error) {
+      if (!quiet) toast.error(error.response?.data?.message || 'Could not load your classes. Please try again.');
+    } finally {
+      if (!quiet) setLoading(false);
+    }
+  }, [selectedDate]);
 
-  // Timetable Builder State
-  const [selectedBatchId, setSelectedBatchId] = useState('');
-  const [gridSchedules, setGridSchedules] = useState([]);
-  const [timeColumns, setTimeColumns] = useState([]); // [{startTime, endTime}]
-  const [showTimeColumnModal, setShowTimeColumnModal] = useState(false);
-  const [newTimeColumn, setNewTimeColumn] = useState({ startTime: '', endTime: '' });
-  
-  const [showCellModal, setShowCellModal] = useState(false);
-  const [cellData, setCellData] = useState({
-    scheduleId: null,
-    dayOfWeek: 0,
-    startTime: '',
-    endTime: '',
-    subjectId: '',
-    teacherId: ''
-  });
-
-  // Common Lookups
-  const [classes, setClasses] = useState([]);
-  const [teachers, setTeachers] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const ongoingClasses = activeClasses.filter((liveClass) => liveClass.status === 'ONGOING');
-
+  useEffect(() => { loadClasses(); }, [loadClasses]);
   useEffect(() => {
-    fetchInitialData();
+    const refresh = window.setInterval(() => loadClasses({ quiet: true }), 30_000);
+    return () => window.clearInterval(refresh);
+  }, [loadClasses]);
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(tick);
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'DAILY_MONITOR') {
-      fetchDailyData();
-    } else if (activeTab === 'TIMETABLE_BUILDER' && selectedBatchId) {
-      fetchGridData();
-    }
-  }, [activeTab, selectedDate, selectedBatchId]);
+  const classes = useMemo(() => schedule.map((item) => ({
+    ...item,
+    liveClass: liveClasses.find((liveClass) => liveClass.status === 'ONGOING' && classIdentity(liveClass) === String(item._id)),
+  })), [schedule, liveClasses]);
 
-  const fetchInitialData = async () => {
+  const startClass = async (item) => {
+    setStartingId(String(item._id));
     try {
-      const [batchRes, subRes, liveRes] = await Promise.all([
-        teacherAPI.getViewBatches(),
-        teacherAPI.getSubjects(),
-        teacherAPI.getLiveClasses()
-      ]);
-      setClasses(batchRes.data?.data || []);
-      setSubjects(subRes.data?.data || []);
-      setActiveClasses(liveRes.data?.data || []);
-      const stored = localStorage.getItem('user');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setTeachers([parsed]);
-        setCurrentUser(parsed);
+      const response = await teacherAPI.createLiveClass({ classScheduleId: item._id, platform: 'zoom' });
+      const liveClass = response.data?.data;
+      toast.success('Class is live. Students can join now.');
+      const url = hostUrl(liveClass);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      await loadClasses({ quiet: true });
+    } catch (error) {
+      const existing = error.response?.data?.data;
+      if (error.response?.status === 409 && existing) {
+        toast('This class is already live. Reopening it now.', { icon: 'ℹ️' });
+        const url = hostUrl(existing);
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+        await loadClasses({ quiet: true });
+      } else {
+        toast.error(error.response?.data?.message || 'Could not start the class.');
       }
-    } catch (error) {
-      toast.error('Failed to load initial data');
-    }
-  };
-
-  const fetchDailyData = async () => {
-    try {
-      setLoading(true);
-      const [schedRes, liveRes] = await Promise.all([
-        teacherAPI.getCalculatedSchedule({ date: selectedDate }),
-        teacherAPI.getLiveClasses()
-      ]);
-      setSchedules(schedRes.data?.data || []);
-      setActiveClasses(liveRes.data?.data || []);
-    } catch (error) {
-      toast.error('Failed to load daily schedule');
     } finally {
-      setLoading(false);
+      setStartingId('');
     }
   };
 
-  const fetchGridData = async () => {
-    try {
-      setLoading(true);
-      const [res, liveRes] = await Promise.all([
-        teacherAPI.getClassSchedule({ batchId: selectedBatchId }),
-        teacherAPI.getLiveClasses()
-      ]);
-      const scheds = res.data?.data || [];
-      setGridSchedules(scheds);
-      setActiveClasses(liveRes.data?.data || []);
+  const rejoin = (liveClass) => {
+    const url = hostUrl(liveClass);
+    if (!url) return toast.error('The meeting link is not available. Contact an admin.');
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
-      // Extract unique time columns
-      const cols = [];
-      const colMap = new Set();
-      scheds.forEach(s => {
-        const key = `${s.startTime}-${s.endTime}`;
-        if (!colMap.has(key)) {
-          colMap.add(key);
-          cols.push({ startTime: s.startTime, endTime: s.endTime });
-        }
-      });
-      // Sort columns by start time
-      cols.sort((a, b) => a.startTime.localeCompare(b.startTime));
-      setTimeColumns(cols);
+  const endClass = async (liveClass) => {
+    setEndingId(String(liveClass._id));
+    try {
+      await teacherAPI.endLiveClass(liveClass._id);
+      toast.success('Class ended. Attendance will now be synced.');
+      setEndConfirmationId('');
+      await loadClasses({ quiet: true });
     } catch (error) {
-      toast.error('Failed to load timetable');
+      toast.error(error.response?.data?.message || 'Could not end the class.');
     } finally {
-      setLoading(false);
+      setEndingId('');
     }
   };
 
-  const handleStartClass = async (scheduleId) => {
-    try {
-      const res = await teacherAPI.createLiveClass({ classScheduleId: scheduleId, platform: 'zoom' });
-      toast.success("Zoom Live Class started!");
-      const startUrl = getLiveClassUrl(res.data?.data, true);
-      if (startUrl) {
-        window.open(startUrl, '_blank');
-      }
-      fetchDailyData();
-    } catch (err) {
-      const existingLiveClass = err?.response?.data?.data;
-      if (err?.response?.status === 409 && existingLiveClass) {
-        toast(getApiErrorMessage(err, "A live class is already running. Rejoining it now."), { icon: 'ℹ️' });
-        handleJoinClass(existingLiveClass);
-        fetchDailyData();
-        return;
-      }
-
-      toast.error(getApiErrorMessage(err, "Failed to start live class"));
-    }
-  };
-
-  const handleJoinClass = (liveClass) => {
-    const joinUrl = getLiveClassUrl(liveClass, true);
-    if (!joinUrl) {
-      toast.error("No meeting link available");
-      return;
-    }
-
-    window.open(joinUrl, '_blank');
-  };
-
-  const handleEndClass = async (liveClassId) => {
-    if (!window.confirm("End this live class?")) return;
-    try {
-      await teacherAPI.endLiveClass(liveClassId);
-      toast.success("Class ended");
-      fetchDailyData();
-    } catch (err) {
-      toast.error("Failed to end class");
-    }
-  };
-
-  const handleOverrideSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = { ...overrideData };
-      if (!payload.subjectId) delete payload.subjectId;
-      await teacherAPI.createScheduleOverride(payload);
-      toast.success("Schedule updated successfully!");
-      setShowOverrideModal(false);
-      fetchDailyData();
-    } catch (err) {
-      toast.error("Failed to update schedule");
-    }
-  };
-
-  // --- Timetable Builder Actions ---
-  const handleAddTimeColumn = (e) => {
-    e.preventDefault();
-    if (!newTimeColumn.startTime || !newTimeColumn.endTime) return;
-    const key = `${newTimeColumn.startTime}-${newTimeColumn.endTime}`;
-    if (timeColumns.some(c => `${c.startTime}-${c.endTime}` === key)) {
-      toast.error("Time slot already exists");
-      return;
-    }
-    const newCols = [...timeColumns, newTimeColumn].sort((a, b) => a.startTime.localeCompare(b.startTime));
-    setTimeColumns(newCols);
-    setNewTimeColumn({ startTime: '', endTime: '' });
-    setShowTimeColumnModal(false);
-  };
-
-  const handleCellClick = (dayIndex, col) => {
-    const existing = gridSchedules.find(s => s.dayOfWeek === dayIndex && s.startTime === col.startTime && s.endTime === col.endTime);
-    setCellData({
-      scheduleId: existing ? existing._id : null,
-      dayOfWeek: dayIndex,
-      startTime: col.startTime,
-      endTime: col.endTime,
-      subjectId: existing?.subjectId?._id || '',
-      teacherId: existing?.teacherId?._id || ''
-    });
-    setShowCellModal(true);
-  };
-
-  const handleSaveCell = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        batchId: selectedBatchId,
-        subjectId: cellData.subjectId || undefined,
-        teacherId: cellData.teacherId,
-        dayOfWeek: cellData.dayOfWeek,
-        startTime: cellData.startTime,
-        endTime: cellData.endTime
-      };
-      
-      // If updating, delete old one first for simplicity, or if our API supports upsert, use that.
-      // Since createClassSchedule creates a new one, we should delete the old if it existed and is changed.
-      if (cellData.scheduleId) {
-        await teacherAPI.deleteClassSchedule(cellData.scheduleId);
-      }
-      await teacherAPI.createClassSchedule(payload);
-      
-      toast.success("Cell updated successfully");
-      setShowCellModal(false);
-      fetchGridData();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to update cell");
-    }
-  };
-
-  const handleDeleteCell = async () => {
-    if (!cellData.scheduleId) return;
-    if (!window.confirm("Remove this schedule?")) return;
-    try {
-      await teacherAPI.deleteClassSchedule(cellData.scheduleId);
-      toast.success("Schedule removed");
-      setShowCellModal(false);
-      fetchGridData();
-    } catch (error) {
-      toast.error("Failed to remove");
-    }
-  };
-
-
-  const scheduleColumns = [
-    { header: 'Status', cell: (row) => row.type === 'EXTRA_CLASS' ? <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">Extra</span> : (row.isRescheduled ? <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Rescheduled</span> : <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Regular</span>) },
-    { header: 'Class', cell: (row) => `${row.batchId?.name} ${row.batchId?.section || ''}` },
-    { header: 'Subject', cell: (row) => row.subjectId?.name || 'N/A' },
-    { header: 'Teacher', cell: (row) => `${row.teacherId?.firstName} ${row.teacherId?.lastName}` },
-    { header: 'Date/Day', cell: (row) => row.type === 'EXTRA_CLASS' ? new Date(selectedDate).toLocaleDateString() : DAYS[row.dayOfWeek] },
-    { header: 'Time', cell: (row) => `${row.startTime} - ${row.endTime}` },
-    {
-      header: 'Actions',
-      cell: (row) => {
-        const active = activeClasses.find(lc => lc.classScheduleId?._id === row._id && lc.status === 'ONGOING');
-        const actions = [];
-        if (row.type === 'RECURRING') {
-          actions.push({
-            icon: Calendar,
-            label: 'Reschedule',
-            onClick: () => {
-              setOverrideData({
-                recurringScheduleId: row._id,
-                batchId: row.batchId._id,
-                subjectId: row.subjectId?._id || '',
-                teacherId: row.teacherId._id,
-                overrideDate: selectedDate,
-                overrideType: 'RESCHEDULED',
-                newStartTime: row.startTime,
-                newEndTime: row.endTime,
-                reason: ''
-              });
-              setShowOverrideModal(true);
-            }
-          });
-          actions.push({
-            icon: Trash,
-            label: 'Cancel Class',
-            onClick: () => {
-              setOverrideData({
-                recurringScheduleId: row._id,
-                batchId: row.batchId._id,
-                subjectId: row.subjectId?._id || '',
-                teacherId: row.teacherId._id,
-                overrideDate: selectedDate,
-                overrideType: 'CANCELLED',
-                newStartTime: '',
-                newEndTime: '',
-                reason: ''
-              });
-              setShowOverrideModal(true);
-            }
-          });
-        }
-        if (active) {
-          actions.push({
-            icon: StopCircle,
-            label: 'End Class',
-            onClick: () => handleEndClass(active._id)
-          });
-        } else {
-          actions.push({
-            icon: Play,
-            label: 'Start Class Now',
-            onClick: () => handleStartClass(row._id)
-          });
-        }
-        return <RowActions actions={actions} />;
-      }
-    }
-  ];
+  const isToday = selectedDate === localDateValue();
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Timetable & Live Classes"
-        subtitle="Manage weekly timetables and monitor daily live sessions"
-        breadcrumbs={['Home', 'Live Classes']}
-      />
+      <PageHeader title="My live classes" subtitle="Start only the classes assigned to you. The admin manages the timetable and student access." breadcrumbs={['Home', 'Live Classes']} />
 
-      <Card className="p-5">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <div>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Video className="w-5 h-5 text-success-500" /> Ongoing Live Classes
-            </h2>
-            <p className="text-sm text-surface-500">Your currently running classes appear here instantly.</p>
+      <section className="rounded-2xl border border-primary-200 bg-primary-50/70 p-4 md:p-5 dark:border-primary-900/60 dark:bg-primary-950/20">
+        <div className="flex gap-3">
+          <div className="mt-0.5 rounded-xl bg-primary-600 p-2 text-white"><Video size={18} aria-hidden="true" /></div>
+          <div><h2 className="font-bold text-surface-900 dark:text-white">How live classes work</h2><p className="mt-1 text-sm text-surface-600 dark:text-surface-300">1. Admin assigns batch, subject and time. 2. You start it at the scheduled time. 3. Students receive Join only after it is live. 4. End the class here after Zoom ends.</p></div>
+        </div>
+      </section>
+
+      <Card className="p-4 md:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div><h2 className="flex items-center gap-2 text-lg font-bold text-surface-900 dark:text-white"><CalendarDays className="text-primary-600" size={20} /> My class schedule</h2><p className="mt-1 text-sm text-surface-500">Only classes assigned to you are shown.</p></div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="grid gap-1 text-sm font-semibold text-surface-700 dark:text-surface-200" htmlFor="class-date">Date<input id="class-date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="h-10 rounded-xl border border-surface-200 bg-white px-3 text-sm font-normal text-surface-800 dark:border-surface-700 dark:bg-surface-900 dark:text-white" /></label>
+            <Button type="button" variant="outline" size="sm" onClick={() => loadClasses()} loading={loading}><RefreshCw size={16} className="mr-1.5" /> Refresh</Button>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchDailyData}>
-            Refresh
-          </Button>
         </div>
 
-        {ongoingClasses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {ongoingClasses.map((liveClass) => {
-              const schedule = liveClass.classScheduleId || {};
-              const batch = schedule.batchId || {};
-              const subject = schedule.subjectId || {};
+        <div className="mt-5 grid gap-4">
+          {loading ? <div className="rounded-2xl border border-surface-200 p-8 text-center text-sm text-surface-500 dark:border-surface-700">Loading your assigned classes…</div> : classes.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-surface-300 bg-surface-50 p-8 text-center dark:border-surface-700 dark:bg-surface-900/50"><CalendarDays className="mx-auto text-surface-400" size={24} aria-hidden="true" /><h3 className="mt-3 font-semibold text-surface-800 dark:text-white">No class assigned for this date</h3><p className="mt-1 text-sm text-surface-500">Ask an admin to add you to a batch timetable if this looks incorrect.</p></div>
+          ) : classes.map((item) => {
+            const liveClass = item.liveClass;
+            const startsAt = dateTimeFor(selectedDate, item.startTime);
+            const endsAt = dateTimeFor(selectedDate, item.endTime);
+            const beforeStart = !liveClass && (!isToday || now < startsAt);
+            const afterEnd = !liveClass && isToday && now > endsAt;
+            const status = liveClass ? 'LIVE NOW' : afterEnd ? 'WINDOW ENDED' : beforeStart ? 'SCHEDULED' : 'READY TO START';
+            const tone = liveClass ? 'border-success-200 bg-success-50/70 dark:border-success-900/50 dark:bg-success-950/20' : afterEnd ? 'border-surface-200 bg-surface-50 dark:border-surface-700 dark:bg-surface-900/50' : 'border-primary-200 bg-white dark:border-primary-900/50 dark:bg-surface-900';
 
-              return (
-                <div
-                  key={liveClass._id}
-                  className="rounded-2xl border border-success-200 bg-success-50/70 dark:bg-success-900/10 dark:border-success-900/40 p-4 space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-success-600">Live Now</div>
-                      <h3 className="font-bold text-surface-900 dark:text-white">
-                        {subject.name || 'Live Class'}
-                      </h3>
-                      <p className="text-sm text-surface-600 dark:text-surface-300">
-                        {batch.name || 'Class'}{batch.section ? ` • Section ${batch.section}` : ''}
-                      </p>
-                    </div>
-                    <span className="px-2 py-1 rounded-full text-xs font-semibold bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300">
-                      {liveClass.status}
-                    </span>
-                  </div>
-
-                  <div className="text-sm text-surface-500 space-y-1">
-                    <p>Teacher: {liveClass.teacherId?.firstName || currentUser?.firstName || 'You'} {liveClass.teacherId?.lastName || currentUser?.lastName || ''}</p>
-                    {liveClass.roomCode && <p>Room: {liveClass.roomCode}</p>}
-                  </div>
-
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" variant="success" className="flex-1" onClick={() => handleJoinClass(liveClass)}>
-                      <PlayCircle size={16} className="mr-1" /> Rejoin
-                    </Button>
-                    <Button size="sm" variant="danger" className="flex-1" onClick={() => handleEndClass(liveClass._id)}>
-                      <StopCircle size={16} className="mr-1" /> End
-                    </Button>
-                  </div>
+            return <article key={item._id} className={`rounded-2xl border p-4 md:p-5 ${tone}`}>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${liveClass ? 'bg-success-600 text-white' : afterEnd ? 'bg-surface-200 text-surface-600 dark:bg-surface-800 dark:text-surface-300' : 'bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-200'}`}>{status}</span>{item.isRescheduled && <span className="rounded-full bg-warning-100 px-2.5 py-1 text-xs font-bold text-warning-800">RESCHEDULED</span>}</div><h3 className="mt-3 text-lg font-bold text-surface-900 dark:text-white">{item.subjectId?.name || 'Subject not set'}</h3><p className="mt-1 text-sm text-surface-600 dark:text-surface-300">{item.batchId?.name || 'Batch'}{item.batchId?.section ? ` · Section ${item.batchId.section}` : ''}</p><p className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-surface-700 dark:text-surface-200"><Clock3 size={16} aria-hidden="true" /> {displayTime(item.startTime)} – {displayTime(item.endTime)}</p>{beforeStart && <p className="mt-2 text-sm text-surface-500">Start opens at {displayTime(item.startTime)} on the selected date.</p>}{afterEnd && <p className="mt-2 text-sm text-surface-500">The scheduled class window has ended. Contact the admin to reschedule if needed.</p>}</div>
+                <div className="flex min-w-[220px] flex-col gap-2">
+                  {liveClass ? <>{<Button type="button" variant="success" onClick={() => rejoin(liveClass)}><ExternalLink size={17} className="mr-2" /> Rejoin Zoom class</Button>}{endConfirmationId === String(liveClass._id) ? <div className="rounded-xl border border-danger-200 bg-danger-50 p-3 text-sm text-danger-800"><p className="font-semibold">End this class for everyone?</p><div className="mt-2 flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => setEndConfirmationId('')}>Keep live</Button><Button type="button" size="sm" variant="danger" loading={endingId === String(liveClass._id)} onClick={() => endClass(liveClass)}>End class</Button></div></div> : <Button type="button" variant="danger" onClick={() => setEndConfirmationId(String(liveClass._id))}><StopCircle size={17} className="mr-2" /> End class</Button>}</> : afterEnd ? <div className="flex items-center gap-2 rounded-xl bg-surface-100 px-3 py-2.5 text-sm font-medium text-surface-600 dark:bg-surface-800 dark:text-surface-300"><CheckCircle2 size={17} aria-hidden="true" /> No live session open</div> : <Button type="button" variant="primary" disabled={beforeStart} loading={startingId === String(item._id)} onClick={() => startClass(item)}><Play size={17} className="mr-2" /> {beforeStart ? 'Starts at scheduled time' : 'Start Zoom class'}</Button>}
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-surface-200 dark:border-surface-700 p-8 text-center text-surface-500">
-            No ongoing live classes right now.
-          </div>
-        )}
+              </div>
+            </article>;
+          })}
+        </div>
       </Card>
-
-      {/* activeTab === 'DAILY_MONITOR' && ... */}
-
-      {activeTab === 'TIMETABLE_BUILDER' && (
-        <Card className="p-5 overflow-x-auto">
-          {!selectedBatchId ? (
-            <>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Grid className="text-primary-500 w-5 h-5" /> Select Class for Timetable
-                </h3>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 py-4">
-                {classes.map(c => (
-                  <motion.div
-                    key={c._id}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => setSelectedBatchId(c._id)}
-                    className="cursor-pointer bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 hover:border-primary-500 hover:shadow-lg rounded-xl p-5 flex flex-col items-center justify-center transition-all text-center"
-                  >
-                    <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mb-3">
-                      <BookOpen size={24} />
-                    </div>
-                    <h3 className="font-bold text-lg text-surface-900 dark:text-white">{c.name}</h3>
-                    {c.section && <span className="text-xs px-2 py-1 bg-surface-100 dark:bg-surface-800 rounded-md mt-1 text-surface-600 dark:text-surface-300">Section {c.section}</span>}
-                  </motion.div>
-                ))}
-                {classes.length === 0 && (
-                  <div className="col-span-full text-center py-12 text-surface-500 border-2 border-dashed border-surface-200 dark:border-surface-700 rounded-xl">
-                    No classes available.
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-surface-100 dark:border-surface-800 pb-4">
-                <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedBatchId("")} className="hover:bg-surface-100 dark:hover:bg-surface-800">
-                    <ArrowLeft size={18} className="mr-2" /> Back
-                  </Button>
-                  <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Grid className="text-primary-500" /> 
-                    {classes.find(c => c._id === selectedBatchId)?.name} 
-                    {classes.find(c => c._id === selectedBatchId)?.section ? ` - Sec ${classes.find(c => c._id === selectedBatchId)?.section}` : ''}
-                    <span className="text-sm font-normal text-surface-500 ml-2">Weekly Timetable</span>
-                  </h2>
-                </div>
-              </div>
-
-              <div className="min-w-[800px] overflow-x-auto pb-4">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th className="p-3 border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 font-semibold text-left w-32 sticky left-0 z-10">Day / Time</th>
-                    {timeColumns.map((col, i) => (
-                      <th key={i} className="p-3 border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 font-semibold text-center min-w-[150px]">
-                        {col.startTime} - {col.endTime}
-                      </th>
-                    ))}
-                    {timeColumns.length === 0 && (
-                      <th className="p-3 border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 font-normal text-surface-500 italic">
-                        No time slots available for this class.
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {DAYS.map((day, dayIndex) => (
-                    <tr key={dayIndex}>
-                      <td className="p-3 border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 font-medium sticky left-0 z-10">
-                        {day}
-                      </td>
-                      {timeColumns.map((col, colIndex) => {
-                        const cellSchedule = gridSchedules.find(s => s.dayOfWeek === dayIndex && s.startTime === col.startTime && s.endTime === col.endTime);
-                        return (
-                          <td 
-                            key={colIndex} 
-                            className="p-2 border border-surface-200 dark:border-surface-700 text-center relative group"
-                          >
-                        {cellSchedule ? (
-                          <div className="bg-primary-100 dark:bg-primary-900/40 text-primary-800 dark:text-primary-100 p-2 rounded text-sm h-full flex flex-col justify-center">
-                            <div className="font-semibold truncate">{cellSchedule.subjectId?.name || 'No Subject'}</div>
-                            <div className="text-xs opacity-80 truncate mb-1">{cellSchedule.teacherId?.firstName} {cellSchedule.teacherId?.lastName}</div>
-                            {dayIndex === new Date().getDay() && currentUser && (cellSchedule.teacherId?._id === currentUser.userId || cellSchedule.teacherId?._id === currentUser._id) && (
-                              activeClasses.find(lc => {
-                                const lcId = lc.classScheduleId?._id || lc.classScheduleId;
-                                return lcId === cellSchedule._id && lc.status === 'ONGOING';
-                              }) ? (
-                                <div className="mt-2 space-y-1">
-                                  <Button 
-                                    size="sm" 
-                                    variant="success" 
-                                    className="w-full" 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleJoinClass(activeClasses.find(lc => {
-                                        const lcId = lc.classScheduleId?._id || lc.classScheduleId;
-                                        return lcId === cellSchedule._id && lc.status === 'ONGOING';
-                                      }));
-                                    }}
-                                  >
-                                    <PlayCircle size={14} className="mr-1"/> Rejoin
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="danger" 
-                                    className="w-full" 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEndClass(activeClasses.find(lc => {
-                                        const lcId = lc.classScheduleId?._id || lc.classScheduleId;
-                                        return lcId === cellSchedule._id && lc.status === 'ONGOING';
-                                      })._id);
-                                    }}
-                                  >
-                                    <StopCircle size={14} className="mr-1"/> End
-                                  </Button>
-                                </div>
-                              ) : (
-                                <Button 
-                                  size="sm" 
-                                  variant="primary" 
-                                  className="w-full mt-2" 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleStartClass(cellSchedule._id);
-                                  }}
-                                >
-                                  <Play size={14} className="mr-1"/> Start
-                                </Button>
-                              )
-                            )}
-                          </div>
-                        ) : (
-                          <div className="h-12 flex items-center justify-center text-surface-300 dark:text-surface-600">
-                            -
-                          </div>
-                        )}
-                          </td>
-                        );
-                      })}
-                      {timeColumns.length === 0 && (
-                        <td className="p-3 border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-900/50"></td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          )}
-        </Card>
-      )}
-
-
-      {/* Add Time Column Modal */}
-      {showTimeColumnModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-800 rounded-2xl w-full max-w-sm p-6">
-            <h2 className="text-xl font-bold mb-4">Add Time Slot</h2>
-            <form onSubmit={handleAddTimeColumn} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Start Time</label>
-                <input type="time" required value={newTimeColumn.startTime} onChange={e => setNewTimeColumn({...newTimeColumn, startTime: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">End Time</label>
-                <input type="time" required value={newTimeColumn.endTime} onChange={e => setNewTimeColumn({...newTimeColumn, endTime: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700" />
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowTimeColumnModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Add Column</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Cell Modal */}
-      {showCellModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-800 rounded-2xl w-full max-w-md p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h2 className="text-xl font-bold">Assign Teacher</h2>
-                <p className="text-sm text-surface-500">{DAYS[cellData.dayOfWeek]} • {cellData.startTime} - {cellData.endTime}</p>
-              </div>
-              {cellData.scheduleId && (
-                <div className="flex items-center gap-2">
-                  {cellData.dayOfWeek === new Date().getDay() && (
-                    activeClasses.find(lc => lc.classScheduleId?._id === cellData.scheduleId && lc.status === 'ONGOING') ? (
-                      <Button size="sm" variant="danger" onClick={() => handleEndClass(activeClasses.find(lc => lc.classScheduleId?._id === cellData.scheduleId && lc.status === 'ONGOING')._id)}>
-                        <StopCircle size={16} className="mr-1"/> End Class
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="primary" onClick={() => handleStartClass(cellData.scheduleId)}>
-                        <Play size={16} className="mr-1"/> Start Class Today
-                      </Button>
-                    )
-                  )}
-                  <button type="button" onClick={handleDeleteCell} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete Schedule">
-                    <Trash size={20} />
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            <form onSubmit={handleSaveCell} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Subject (Optional)</label>
-                <select value={cellData.subjectId} onChange={e => setCellData({...cellData, subjectId: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700">
-                  <option value="">-- Select Subject --</option>
-                  {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Teacher</label>
-                <select required value={cellData.teacherId} onChange={e => setCellData({...cellData, teacherId: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700">
-                  <option value="">-- Select Teacher --</option>
-                  {teachers.map(t => <option key={t._id} value={t._id}>{t.firstName} {t.lastName}</option>)}
-                </select>
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowCellModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Save Cell</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Override Modal */}
-      {showOverrideModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-800 rounded-2xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold mb-4">
-              {overrideData.overrideType === 'CANCELLED' ? 'Cancel Class' : (overrideData.overrideType === 'RESCHEDULED' ? 'Reschedule Class' : 'Add Extra Class')}
-            </h2>
-            <form onSubmit={handleOverrideSubmit} className="space-y-4">
-              {overrideData.overrideType === 'EXTRA_CLASS' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Batch</label>
-                    <select required value={overrideData.batchId} onChange={e => setOverrideData({...overrideData, batchId: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700">
-                      <option value="">-- Select Batch --</option>
-                      {classes.map(c => <option key={c._id} value={c._id}>{c.name} {c.section}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Subject (Optional)</label>
-                    <select value={overrideData.subjectId} onChange={e => setOverrideData({...overrideData, subjectId: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700">
-                      <option value="">-- Select Subject --</option>
-                      {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Teacher</label>
-                    <select required value={overrideData.teacherId} onChange={e => setOverrideData({...overrideData, teacherId: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700">
-                      <option value="">-- Select Teacher --</option>
-                      {teachers.map(t => <option key={t._id} value={t._id}>{t.firstName} {t.lastName}</option>)}
-                    </select>
-                  </div>
-                </>
-              )}
-              
-              {overrideData.overrideType !== 'CANCELLED' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">New Start Time</label>
-                    <input type="time" required value={overrideData.newStartTime} onChange={e => setOverrideData({...overrideData, newStartTime: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">New End Time</label>
-                    <input type="time" required value={overrideData.newEndTime} onChange={e => setOverrideData({...overrideData, newEndTime: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700" />
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Reason (Optional)</label>
-                <input type="text" value={overrideData.reason} onChange={e => setOverrideData({...overrideData, reason: e.target.value})} className="w-full p-2 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700" />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowOverrideModal(false)}>Cancel</Button>
-                <Button type="submit" variant={overrideData.overrideType === 'CANCELLED' ? 'danger' : 'primary'}>Confirm</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      <p className="flex items-start gap-2 text-xs text-surface-500"><AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden="true" /> Starting a class makes it visible to enrolled students immediately. Ending it closes student join access and begins attendance sync.</p>
     </div>
   );
 }

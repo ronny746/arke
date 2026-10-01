@@ -428,10 +428,52 @@ export default function LiveClassesPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Timetable & Live Classes"
-        subtitle="Manage weekly timetables and monitor daily live sessions"
+        title="Live class control centre"
+        subtitle="Create the timetable here; assigned teachers start and end their own Zoom classes."
         breadcrumbs={['Home', 'Live Classes']}
       />
+
+      <section className="rounded-2xl border border-primary-200 bg-primary-50/70 p-4 md:p-5 dark:border-primary-900/60 dark:bg-primary-950/20">
+        <div className="grid gap-3 md:grid-cols-3">
+          {[
+            ['1', 'Build the timetable', 'Choose batch, subject, teacher and weekly time slot.'],
+            ['2', 'Teacher starts Zoom', 'The assigned teacher sees only their own class at the scheduled time.'],
+            ['3', 'Monitor live status', 'Students can join only after the teacher starts; attendance then syncs on end.'],
+          ].map(([step, title, detail]) => (
+            <div key={step} className="flex gap-3 rounded-xl bg-white/75 p-3 dark:bg-surface-900/60">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-600 text-sm font-bold text-white">{step}</span>
+              <div>
+                <h2 className="text-sm font-bold text-surface-900 dark:text-white">{title}</h2>
+                <p className="mt-0.5 text-xs leading-5 text-surface-600 dark:text-surface-300">{detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <Card className="p-4 md:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-surface-900 dark:text-white"><Video size={19} className="text-success-600" /> Live now</h2>
+            <p className="mt-1 text-sm text-surface-500">This is monitor-only. Teachers start and end their own assigned Zoom classes.</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={fetchInitialData}><Clock size={16} className="mr-1.5" /> Refresh status</Button>
+        </div>
+        {activeClasses.filter((liveClass) => liveClass.status === 'ONGOING').length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-surface-200 bg-surface-50 px-4 py-3 text-sm text-surface-500 dark:border-surface-700 dark:bg-surface-900/40">No class is live right now.</p>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {activeClasses.filter((liveClass) => liveClass.status === 'ONGOING').map((liveClass) => (
+              <div key={liveClass._id} className="rounded-xl border border-success-200 bg-success-50/70 p-3.5 dark:border-success-900/50 dark:bg-success-950/20">
+                <span className="text-xs font-bold text-success-700 dark:text-success-300">LIVE NOW</span>
+                <h3 className="mt-1 font-bold text-surface-900 dark:text-white">{liveClass.classScheduleId?.subjectId?.name || 'Live class'}</h3>
+                <p className="mt-1 text-sm text-surface-600 dark:text-surface-300">{liveClass.classScheduleId?.batchId?.name || 'Batch'}{liveClass.classScheduleId?.batchId?.section ? ` · Section ${liveClass.classScheduleId.batchId.section}` : ''}</p>
+                <p className="mt-1 text-xs text-surface-500">Teacher: {liveClass.teacherId?.firstName || 'Assigned teacher'} {liveClass.teacherId?.lastName || ''}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* activeTab === 'DAILY_MONITOR' && ... */}
 

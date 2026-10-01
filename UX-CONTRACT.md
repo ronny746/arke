@@ -27,6 +27,8 @@
 
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 |---|---|---|---|---|
+| Select/Listbox | Native `<select>` | Existing shared form controls | create / edit / filters | Native keyboard and option selection |
+| Date | Native date/time input | Existing form controls | date filter / date-time form | Browser calendar and keyboard input |
 | Form | React Hook Form/manual validated forms | shared form classes | create / edit | browser validation |
 | Student sign-in | Mobile number + 6-digit OTP | `LoginModal` and auth OTP routes | Student only; resend is available | mobile number, OTP and expiry handling |
 | Parent sign-in | Registered mobile number + 6-digit OTP | `LoginModal` and auth OTP routes | Parent account must already be institute-linked; resend is available | mobile number, OTP and parent dashboard redirect |
