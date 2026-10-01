@@ -130,8 +130,6 @@ exports.updateMentorSession = async ({ instituteId }, sessionId, payload, io) =>
   const conflict = await MentorSession.exists({ _id: { $ne: session._id }, mentorId, status: 'SCHEDULED', startAt: { $lt: window.endAt }, endAt: { $gt: window.startAt } });
   if (conflict) throw new Error('Mentor is already scheduled for this time.');
   session.mentorId = mentorId; session.startAt = window.startAt; session.endAt = window.endAt;
-  if (payload.meetingLink !== undefined) session.meetingLink = payload.meetingLink;
-  await session.save();
   // Legacy sessions can contain both references. The admin UI and scheduling
   // contract treat a course as the broader canonical audience in that case;
   // do not fail an otherwise valid time/link edit because of old data.
@@ -142,6 +140,22 @@ exports.updateMentorSession = async ({ instituteId }, sessionId, payload, io) =>
       : null;
   if (!audiencePayload) throw new Error('This mentor session has no saved course or batch audience.');
   const audience = await resolveAudience(instituteId, audiencePayload);
+  if (payload.createZoomLink === true) {
+    if (!process.env.ZOOM_ACCOUNT_ID || !process.env.ZOOM_CLIENT_ID || !process.env.ZOOM_CLIENT_SECRET) {
+      throw new Error('Zoom is not configured. Add Zoom credentials before creating a meeting link.');
+    }
+    const zoomMeeting = await ZoomService.createMeeting(
+      `${mentor.name} mentor session — ${audience.label}`,
+      window.startAt,
+      Math.max(1, Math.round((window.endAt - window.startAt) / 60000))
+    );
+    session.meetingLink = zoomMeeting.joinUrl;
+    session.meetingId = String(zoomMeeting.meetingId || '');
+    session.meetingPassword = zoomMeeting.password || '';
+  } else if (payload.meetingLink !== undefined) {
+    session.meetingLink = payload.meetingLink;
+  }
+  await session.save();
   const schedule = session.startAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
   await NotificationsService.createForUsers({ instituteId, userIds: audience.recipients, title: 'Mentor session updated', message: `${mentor.name}'s session for ${audience.label} is now scheduled on ${schedule}.`, type: 'INFO', metadata: { entityType: 'mentor_session', sessionId: String(session._id), meetingLink: session.meetingLink, actionUrl: session.meetingLink }, io });
   return session.populate([{ path: 'mentorId', select: 'name email phone' }, { path: 'batchId', select: 'name' }, { path: 'courseId', select: 'name' }]);

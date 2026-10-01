@@ -12,7 +12,7 @@ type Target = { _id: string; name: string; courseId?: string | { _id: string; na
 type MentorSession = { _id: string; startAt: string; endAt: string; status: string; meetingLink?: string; mentorId?: Mentor; batchId?: { _id: string; name: string } | null; courseId?: { _id: string; name: string } | null };
 
 const initialMentor = { name: '', email: '', phone: '' };
-const initialSession = { mentorId: '', audience: 'course', audienceId: '', startAt: '', meetingLink: '' };
+const initialSession = { mentorId: '', audience: 'course', audienceId: '', startAt: '', meetingLink: '', createZoomLink: true };
 const responseData = (response: { data?: { data?: unknown } }) => response.data?.data;
 
 function inThirtyMinutes(startAt: string) {
@@ -83,9 +83,10 @@ export default function MentorSessionsPage() {
         [sessionForm.audience === 'course' ? 'courseId' : 'batchId']: sessionForm.audienceId,
         startAt: new Date(sessionForm.startAt).toISOString(),
         endAt,
-        meetingLink: sessionForm.meetingLink.trim()
+        meetingLink: sessionForm.createZoomLink ? '' : sessionForm.meetingLink.trim(),
+        createZoomLink: sessionForm.createZoomLink
       };
-      if (editingSession) await adminAPI.updateMentorSession(editingSession, { mentorId: payload.mentorId, startAt: payload.startAt, endAt: payload.endAt, meetingLink: payload.meetingLink });
+      if (editingSession) await adminAPI.updateMentorSession(editingSession, { mentorId: payload.mentorId, startAt: payload.startAt, endAt: payload.endAt, meetingLink: payload.meetingLink, createZoomLink: payload.createZoomLink });
       else await adminAPI.scheduleMentorSession(payload);
       toast.success(editingSession ? 'Mentor session updated and students notified.' : 'Mentor session scheduled and students notified.');
       setSessionForm(initialSession);
@@ -119,7 +120,18 @@ export default function MentorSessionsPage() {
             <label><span className="form-label">Audience</span><select className="form-input" value={sessionForm.audience} onChange={e => setSessionForm(v => ({ ...v, audience: e.target.value, audienceId: '' }))}><option value="course">Entire course</option><option value="batch">One batch</option></select></label>
             <label><span className="form-label">{sessionForm.audience === 'course' ? 'Course' : 'Batch'}</span><select className="form-input" value={sessionForm.audienceId} onChange={e => setSessionForm(v => ({ ...v, audienceId: e.target.value }))} required><option value="">Select {sessionForm.audience}</option>{targets.map(target => <option key={target._id} value={target._id}>{target.name}</option>)}</select></label>
             <label><span className="form-label">Start (IST)</span><input className="form-input" type="datetime-local" value={sessionForm.startAt} onChange={e => setSessionForm(v => ({ ...v, startAt: e.target.value }))} required /></label>
-            <label className="md:col-span-2"><span className="form-label">Meeting link <span className="text-surface-400">(optional)</span></span><div className="relative"><LinkIcon className="absolute left-3 top-3 text-surface-400" size={16} /><input className="form-input pl-10" type="url" placeholder="https://…" value={sessionForm.meetingLink} onChange={e => setSessionForm(v => ({ ...v, meetingLink: e.target.value }))} /></div></label>
+            <fieldset className="md:col-span-2 rounded-xl border border-[#C99A2E]/35 bg-amber-50/50 p-4">
+              <legend className="px-1 text-xs font-bold uppercase tracking-wide text-[#8A641A]">Meeting link</legend>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-white p-3 ring-1 ring-[#C99A2E]/20">
+                <input type="radio" name="mentor-meeting-source" checked={sessionForm.createZoomLink} onChange={() => setSessionForm(v => ({ ...v, createZoomLink: true }))} className="mt-1 accent-[#C99A2E]" />
+                <span><span className="block text-sm font-bold text-[#0B132B]">Create Zoom meeting automatically</span><span className="mt-0.5 block text-xs text-surface-500">A fresh Zoom link is generated when you schedule, then sent to the selected students.</span></span>
+              </label>
+              <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg p-3 hover:bg-white/70">
+                <input type="radio" name="mentor-meeting-source" checked={!sessionForm.createZoomLink} onChange={() => setSessionForm(v => ({ ...v, createZoomLink: false }))} className="mt-1 accent-[#C99A2E]" />
+                <span><span className="block text-sm font-semibold text-[#0B132B]">Use an existing meeting link</span><span className="mt-0.5 block text-xs text-surface-500">Paste a Zoom, Google Meet, or another approved meeting URL.</span></span>
+              </label>
+              {!sessionForm.createZoomLink && <div className="relative mt-3"><LinkIcon className="absolute left-3 top-3 text-surface-400" size={16} /><input className="form-input pl-10" type="url" required placeholder="https://…" value={sessionForm.meetingLink} onChange={e => setSessionForm(v => ({ ...v, meetingLink: e.target.value }))} /></div>}
+            </fieldset>
             <div className="md:col-span-2 rounded-lg bg-surface-50 p-3 text-sm text-surface-600">Duration is fixed at <strong>30 minutes</strong>. The server prevents mentor time conflicts and sends students an in-app notification immediately.</div>
             {sessionError && <p role="alert" className="md:col-span-2 text-sm text-red-600">{sessionError}</p>}
             <div className="md:col-span-2 flex gap-2"><Button type="submit" icon={CalendarClock} loading={savingSession}>{editingSession ? 'Save & notify students' : 'Schedule & notify students'}</Button>{editingSession && <Button type="button" variant="secondary" onClick={() => { setEditingSession(null); setSessionForm(initialSession); }}>Cancel</Button>}</div>
@@ -127,7 +139,7 @@ export default function MentorSessionsPage() {
         </section>
       </div>
 
-      <section className="card overflow-hidden"><div className="p-5"><h2 className="font-display text-lg font-semibold text-[#0B132B]">Upcoming and past sessions</h2></div><div className="table-wrapper border-x-0 border-b-0 rounded-none"><table className="data-table"><thead><tr><th>When</th><th>Mentor</th><th>Audience</th><th>Meeting</th><th>Status</th><th>Action</th></tr></thead><tbody>{sessions.map(session => <tr key={session._id}><td>{new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(session.startAt))}</td><td>{session.mentorId?.name || 'Unknown mentor'}</td><td>{session.courseId?.name || session.batchId?.name || 'Unknown audience'}</td><td>{session.meetingLink ? <a className="text-blue-700 underline" href={session.meetingLink} target="_blank" rel="noreferrer">Open link</a> : 'To be shared'}</td><td><span className="badge badge-surface">{session.status}</span></td><td>{session.status === 'SCHEDULED' && <button className="btn-secondary btn-sm" onClick={() => { setEditingSession(session._id); setSessionForm({ mentorId: session.mentorId?._id || '', audience: session.courseId ? 'course' : 'batch', audienceId: session.courseId?._id || session.batchId?._id || '', startAt: new Date(session.startAt).toISOString().slice(0, 16), meetingLink: session.meetingLink || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Pencil size={14} /> Edit</button>}</td></tr>)}{!loading && !sessions.length && <tr><td colSpan={6} className="py-12 text-center text-sm text-surface-500">No mentor sessions have been scheduled yet.</td></tr>}{loading && <tr><td colSpan={6} className="py-12 text-center text-sm text-surface-500">Loading sessions…</td></tr>}</tbody></table></div></section>
+      <section className="card overflow-hidden"><div className="p-5"><h2 className="font-display text-lg font-semibold text-[#0B132B]">Upcoming and past sessions</h2></div><div className="table-wrapper border-x-0 border-b-0 rounded-none"><table className="data-table"><thead><tr><th>When</th><th>Mentor</th><th>Audience</th><th>Meeting</th><th>Status</th><th>Action</th></tr></thead><tbody>{sessions.map(session => <tr key={session._id}><td>{new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(session.startAt))}</td><td>{session.mentorId?.name || 'Unknown mentor'}</td><td>{session.courseId?.name || session.batchId?.name || 'Unknown audience'}</td><td>{session.meetingLink ? <a className="text-blue-700 underline" href={session.meetingLink} target="_blank" rel="noreferrer">Open link</a> : 'No link created'}</td><td><span className="badge badge-surface">{session.status}</span></td><td>{session.status === 'SCHEDULED' && <button className="btn-secondary btn-sm" onClick={() => { setEditingSession(session._id); setSessionForm({ mentorId: session.mentorId?._id || '', audience: session.courseId ? 'course' : 'batch', audienceId: session.courseId?._id || session.batchId?._id || '', startAt: new Date(session.startAt).toISOString().slice(0, 16), meetingLink: session.meetingLink || '', createZoomLink: !session.meetingLink }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Pencil size={14} /> Edit</button>}</td></tr>)}{!loading && !sessions.length && <tr><td colSpan={6} className="py-12 text-center text-sm text-surface-500">No mentor sessions have been scheduled yet.</td></tr>}{loading && <tr><td colSpan={6} className="py-12 text-center text-sm text-surface-500">Loading sessions…</td></tr>}</tbody></table></div></section>
     </div>
   );
 }
