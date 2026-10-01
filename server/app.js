@@ -4,6 +4,7 @@ const morgan = require('morgan');
 const compression = require('compression');
 const errorMiddleware = require('./middlewares/error.middleware');
 const v1Routes = require('./routes/v1');
+const LiveClassesController = require('./modules/live-classes/live-classes.controller');
 
 const app = express();
 
@@ -31,12 +32,14 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Global Middlewares
-app.use(express.json({ limit: '100mb' }));
+app.use(express.json({ limit: '100mb', verify: (req, _res, buffer) => { if (req.originalUrl === '/api/v1/webhooks/zoom') req.rawBody = buffer; } }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use(cors());
 app.use(morgan('dev'));
  
 // API Routes
+// Zoom calls this unauthenticated endpoint when the host ends a cloud meeting.
+app.post('/api/v1/webhooks/zoom', LiveClassesController.zoomWebhook);
 app.use('/api/v1', v1Routes);
 
 // Health check

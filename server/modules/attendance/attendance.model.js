@@ -5,6 +5,7 @@ const attendanceRecordSchema = new mongoose.Schema({
   status: { type: String, enum: ['present', 'absent', 'late', 'leave'], required: true },
   remarks: { type: String },
   joinedAt: { type: Date },
+  joinEvents: [{ joinedAt: { type: Date, required: true }, leftAt: { type: Date, default: null }, source: { type: String, default: 'live_class' } }],
   source: { type: String, enum: ['teacher', 'live_class', 'geo'], default: 'teacher' },
   geoCheckIn: {
     lat: { type: Number },

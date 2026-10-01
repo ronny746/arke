@@ -297,6 +297,14 @@ exports.endLiveClass = async (id, reqUser, payload = {}) => {
   return liveClass;
 };
 
+exports.endLiveClassFromZoom = async meetingId => {
+  const liveClass = await LiveClass.findOne({ meetingId: String(meetingId), status: 'ONGOING' });
+  if (!liveClass) return null; // Zoom retries duplicate events; ending is idempotent.
+  liveClass.status = 'COMPLETED';
+  await liveClass.save();
+  return liveClass;
+};
+
 exports.syncZoomData = async (id) => {
   const liveClass = await LiveClass.findById(id);
   if (!liveClass) throw new Error('Live class not found');

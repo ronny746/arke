@@ -28,7 +28,7 @@ const scheduledStartInIndia = (startTime, value = new Date()) => {
   return new Date(`${year}-${month}-${day}T${startTime}:00${IST_OFFSET}`);
 };
 
-const createLateNotifications = async ({ instituteId, studentId, subjectName, batchName, joinedAt }) => {
+const createLateNotifications = async ({ instituteId, studentId, teacherId, subjectName, batchName, joinedAt }) => {
   const student = await User.findOne({ _id: studentId, instituteId }).select('_id parentId firstName lastName');
   if (!student) return;
 
@@ -42,18 +42,26 @@ const createLateNotifications = async ({ instituteId, studentId, subjectName, ba
   await NotificationsService.createForUsers({
     instituteId,
     userIds: [student._id],
-    title: 'Late attendance recorded',
-    message: `You joined ${classLabel} late at ${joinedAtLabel}.`,
+    title: 'Absent attendance recorded',
+    message: `You joined ${classLabel} after the 10-minute grace period at ${joinedAtLabel} and were marked absent.`,
     type: 'ALERT',
     metadata: { entityType: 'attendance_late' }
   });
   if (student.parentId) await NotificationsService.createForUsers({
     instituteId,
     userIds: [student.parentId],
-    title: 'Child joined class late',
-    message: `${studentName} joined ${classLabel} late at ${joinedAtLabel}.`,
+    title: 'Child marked absent for late joining',
+    message: `${studentName} joined ${classLabel} after the 10-minute grace period at ${joinedAtLabel} and was marked absent.`,
     type: 'ALERT',
     metadata: { entityType: 'attendance_late' }
+  });
+  if (teacherId) await NotificationsService.createForUsers({
+    instituteId,
+    userIds: [teacherId],
+    title: 'Student marked absent for late joining',
+    message: `${studentName} joined ${classLabel} after the 10-minute grace period and was marked absent.`,
+    type: 'ALERT',
+    metadata: { entityType: 'attendance_absent' }
   });
 };
 
@@ -165,7 +173,7 @@ exports.liveClassCheckin = async (reqUser, { liveClassId }) => {
   const joinedAt = new Date();
   const scheduledAt = scheduledStartInIndia(schedule.startTime, joinedAt);
   const isLate = joinedAt.getTime() > scheduledAt.getTime() + LATE_GRACE_MINUTES * 60 * 1000;
-  const status = isLate ? 'late' : 'present';
+  const status = isLate ? 'absent' : 'present';
   const date = attendanceDateInIndia(joinedAt);
 
   let attendance = await AttendanceModel.findOne({
@@ -192,6 +200,7 @@ exports.liveClassCheckin = async (reqUser, { liveClassId }) => {
       studentId: reqUser.userId,
       status,
       joinedAt,
+      joinEvents: [{ joinedAt, source: 'live_class' }],
       source: 'live_class'
     });
     await attendance.save();
@@ -204,6 +213,7 @@ exports.liveClassCheckin = async (reqUser, { liveClassId }) => {
       await createLateNotifications({
         instituteId: reqUser.instituteId,
         studentId: reqUser.userId,
+        teacherId: schedule.teacherId,
         subjectName: schedule.subjectId?.name,
         batchName,
         joinedAt
