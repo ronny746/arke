@@ -91,13 +91,12 @@ const MEDIUMS = [
 ];
 
 export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginModalProps) {
-  // Step: 1 = account identifier, 2 = student OTP or parent DOB, 3 = profile details.
+  // Step: 1 = registered mobile number, 2 = mobile OTP, 3 = student profile details.
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Auth States
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
   const [role, setRole] = useState<"student" | "parent">("student");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -120,7 +119,6 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
         setPhone("");
         setOtp("");
         setEmail("");
-        setDateOfBirth("");
       });
     }
   }, [isOpen]);
@@ -135,21 +133,16 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
     const cleanPhone = identifier.replace(/\D/g, "").slice(-10);
     setPhone(cleanPhone);
 
-    if (role === "parent") {
-      setStep(2);
-      return;
-    }
-
-    void requestStudentOtp(cleanPhone);
+    void requestMobileOtp(cleanPhone);
   };
 
-  const requestStudentOtp = async (mobileNumber: string) => {
+  const requestMobileOtp = async (mobileNumber: string) => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/v1/auth/request-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: mobileNumber, role: "student" })
+        body: JSON.stringify({ phone: mobileNumber, role })
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "OTP could not be sent.");
@@ -162,7 +155,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
     }
   };
 
-  const handleStudentOtpLogin = async (e: React.FormEvent) => {
+  const handleMobileOtpLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{6}$/.test(otp)) {
       toast.error("Enter the 6-digit OTP.");
@@ -174,7 +167,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
       const res = await fetch("/api/v1/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, otp, role: "student" })
+        body: JSON.stringify({ phone, otp, role })
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "OTP verification failed.");
@@ -203,45 +196,18 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
     if (typeof user.metadata?.studentClass === "string") setSelectedClass(user.metadata.studentClass);
     if (typeof user.metadata?.medium === "string") setSelectedMedium(user.metadata.medium);
 
-    const needsDetails = isNewUser || !user.firstName || user.firstName === "Student" || isDummyEmail || !user.metadata?.targetExam || user.metadata?.isProfileIncomplete === true;
+    // Parents are linked and managed by the institute. They should enter the
+    // parent portal immediately after a successful OTP sign-in, not be sent
+    // through a student-course preference form.
+    const needsDetails = user.role === "student" && (
+      isNewUser || !user.firstName || user.firstName === "Student" || isDummyEmail || !user.metadata?.targetExam || user.metadata?.isProfileIncomplete === true
+    );
     if (needsDetails) {
       setStep(3);
       toast.success(profileMessage);
     } else {
       toast.success(data.message || "Welcome back!");
       finalizeLogin(user);
-    }
-  };
-
-  const handleDateOfBirthLogin = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!dateOfBirth.trim()) {
-      toast.error("Select the date of birth from the calendar.");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: phone,
-          password: dateOfBirth.trim(),
-          role: role
-        })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        completeAuthenticatedLogin(data, "Login successful! Please complete your profile details.");
-      } else {
-        toast.error(data.message || "Incorrect account details or date of birth.");
-      }
-    } catch {
-      toast.error("Unable to sign in right now. Please try again.");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -429,9 +395,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                       </div>
                       <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Sign in to ARKE</h4>
                       <p className="text-gray-500 text-xs mt-1">
-                        {role === "student"
-                          ? "Use your registered mobile number and a one-time password."
-                          : "Use your registered mobile number and your child's date of birth."}
+                        Use your registered mobile number and a one-time password.
                       </p>
                     </div>
 
@@ -498,9 +462,9 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                         className="w-full py-4 rounded-2xl font-black text-white text-sm transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-950/20 flex items-center justify-center gap-2"
                         style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}
                       >
-                        {isLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Sending OTP...</span></> : <><span>{role === "student" ? "Send OTP" : "Continue"}</span><ArrowRight className="w-4 h-4" /></>}
+                        {isLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Sending OTP...</span></> : <><span>Send OTP</span><ArrowRight className="w-4 h-4" /></>}
                       </button>
-                      {role === "student" && <p className="text-center text-xs text-gray-500">Enter your mobile number once. Existing students sign in; new students complete registration after OTP verification.</p>}
+                      <p className="text-center text-xs text-gray-500">Use the mobile number registered with ARKE. New student accounts complete registration after OTP verification.</p>
                     </form>
                   </motion.div>
                 )}
@@ -527,29 +491,23 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                           {phone}
                         </span>
                       </div>
-                      <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">{role === "student" ? "Enter mobile OTP" : "Enter Date of Birth"}</h4>
+                      <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Enter mobile OTP</h4>
                       <p className="text-gray-500 text-xs mt-1">
-                        {role === "student" ? "Enter the 6-digit code sent to your mobile number." : "This is your password. You will not receive an OTP."}
+                        Enter the 6-digit code sent to your registered mobile number.
                       </p>
                     </div>
 
-                    <form noValidate onSubmit={role === "student" ? handleStudentOtpLogin : handleDateOfBirthLogin} className="space-y-6">
+                    <form noValidate onSubmit={handleMobileOtpLogin} className="space-y-6">
                       <div>
-                        {role === "student" ? <>
-                          <label htmlFor="student-login-otp" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">6-digit OTP</label>
-                          <input id="student-login-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} placeholder="Enter 6-digit OTP" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all tracking-[0.35em]" />
-                          <button type="button" disabled={isLoading} onClick={() => void requestStudentOtp(phone)} className="mt-2 text-xs font-bold text-[#0B132B] hover:text-[#9A6E1C] disabled:opacity-50">Resend OTP</button>
-                        </> : <>
-                          <label htmlFor="login-date-of-birth" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">Date of birth</label>
-                          <input id="login-date-of-birth" type="date" autoComplete="bday" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all" />
-                          <p className="mt-2 text-xs text-gray-500">Select the linked child&apos;s date of birth from the calendar.</p>
-                        </>}
+                        <label htmlFor="mobile-login-otp" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">6-digit OTP</label>
+                        <input id="mobile-login-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} placeholder="Enter 6-digit OTP" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all tracking-[0.35em]" />
+                        <button type="button" disabled={isLoading} onClick={() => void requestMobileOtp(phone)} className="mt-2 text-xs font-bold text-[#0B132B] hover:text-[#9A6E1C] disabled:opacity-50">Resend OTP</button>
                       </div>
 
                       {/* Verify Button */}
                       <button
                         type="submit"
-                        disabled={(role === "student" ? !/^\d{6}$/.test(otp) : !dateOfBirth.trim()) || isLoading}
+                        disabled={!/^\d{6}$/.test(otp) || isLoading}
                         className="w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
                         style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}
                       >

@@ -42,8 +42,9 @@ exports.changePassword = async (req, res, next) => {
 
 exports.requestOtp = async (req, res, next) => {
     try {
-        // Mobile apps use OTP for students, parents, and teachers. The web
-        // parent portal may still choose its separate password flow.
+        // Mobile OTP is the single sign-in method for student, parent and
+        // teacher portals. Unknown numbers can register only as students;
+        // parent/teacher accounts must already be created by the institute.
         // Older clients did not include `role` in this request. Treat that
         // safely as the public student sign-in flow instead of rejecting it as
         // a parent request.
@@ -122,6 +123,9 @@ exports.verifyOtp = async (req, res, next) => {
             }
 
             if (!user) {
+                if (String(requestedRole).toLowerCase() !== 'student') {
+                    return errorResponse(res, `No registered ${String(requestedRole).toLowerCase()} account was found for this mobile number.`, null, 404);
+                }
                 // A matching phone signs in; an unknown student phone starts
                 // the registration flow with a minimal profile.
                 const Institute = require('../institutes/institutes.model');

@@ -256,9 +256,27 @@ exports.getAttendance = async (reqUser, filters) => {
     if (filters.endDate) query.date.$lte = new Date(filters.endDate);
   }
 
-  return await AttendanceModel.find(query)
+  const registers = await AttendanceModel.find(query)
     .populate('batchId', 'name section')
     .populate('subjectId', 'name')
     .populate('teacherId', 'firstName lastName')
     .populate('records.studentId', 'firstName lastName admissionNumber');
+
+  // A student (and a parent requesting one or more linked children) must
+  // never receive classmates' attendance records inside a shared register.
+  // Teachers/admins retain the full class register needed for operations.
+  const requestedStudentIds = role === 'student'
+    ? [String(reqUser.userId)]
+    : typeof filters.studentId === 'string'
+      ? [filters.studentId]
+      : Array.isArray(filters.studentId?.$in)
+        ? filters.studentId.$in.map(String)
+        : null;
+
+  if (!requestedStudentIds) return registers;
+  return registers.map(register => {
+    const row = register.toObject();
+    row.records = (row.records || []).filter(record => requestedStudentIds.includes(String(record.studentId?._id || record.studentId)));
+    return row;
+  });
 };
