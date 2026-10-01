@@ -203,7 +203,15 @@ exports.liveClassCheckin = async (reqUser, { liveClassId }) => {
       joinEvents: [{ joinedAt, source: 'live_class' }],
       source: 'live_class'
     });
-    await attendance.save();
+    try {
+      await attendance.save();
+    } catch (error) {
+      // Double taps / simultaneous app callbacks can race on the unique
+      // live-class attendance index. Treat the already-created register as
+      // the same idempotent check-in instead of returning HTTP 409.
+      if (error?.code !== 11000) throw error;
+      attendance = await AttendanceModel.findOne({ instituteId: reqUser.instituteId, liveClassId: liveClass._id });
+    }
 
     if (isLate) {
       const batchInfo = await Batch.findById(schedule.batchId).select('name section').lean();

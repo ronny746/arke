@@ -46,6 +46,11 @@ exports.startLiveClass = async (reqOrUser, payload) => {
   }
 
   const { classScheduleId, topic, duration, platform = 'zoom', meetingLink, meetingPassword } = payload;
+  const schedule = await ClassSchedule.findById(classScheduleId)
+    .populate('subjectId', 'name')
+    .populate('batchId', 'name section')
+    .populate('teacherId', 'firstName lastName');
+  if (!schedule) throw new Error('Class schedule not found');
 
   let finalMeetingLink = meetingLink;
   let finalMeetingPassword = meetingPassword;
@@ -57,7 +62,10 @@ exports.startLiveClass = async (reqOrUser, payload) => {
   if (targetPlatform === 'zoom') {
     if (process.env.ZOOM_CLIENT_ID && process.env.ZOOM_ACCOUNT_ID && process.env.ZOOM_CLIENT_SECRET) {
       try {
-        const meetingTopic = topic || `Live Class for ${reqUser.userId}`;
+        const subjectName = schedule.subjectId?.name || 'Live class';
+        const batchName = [schedule.batchId?.name, schedule.batchId?.section ? `Section ${schedule.batchId.section}` : ''].filter(Boolean).join(' • ');
+        const teacherName = [schedule.teacherId?.firstName, schedule.teacherId?.lastName].filter(Boolean).join(' ');
+        const meetingTopic = topic || [subjectName, batchName, teacherName ? `with ${teacherName}` : ''].filter(Boolean).join(' — ');
         const meetingDuration = duration || 60; // default 60 mins
         const startTime = new Date().toISOString(); // starting now
         
@@ -97,9 +105,6 @@ exports.startLiveClass = async (reqOrUser, payload) => {
   } else if (!finalMeetingLink) {
     throw new Error('Meeting link is required');
   }
-
-  const schedule = await ClassSchedule.findById(classScheduleId);
-  if (!schedule) throw new Error('Class schedule not found');
 
   // Prevent starting if another class is already ongoing for this academic class
   const existingSchedulesForClass = await ClassSchedule.find({ batchId: schedule.batchId }).select('_id');
