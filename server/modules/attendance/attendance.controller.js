@@ -19,6 +19,15 @@ exports.geoCheckin = async (req, res, next) => {
   }
 };
 
+exports.liveClassCheckin = async (req, res, next) => {
+  try {
+    const data = await AttendanceService.liveClassCheckin(req.user, req.body);
+    return successResponse(res, 'Live class attendance recorded', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getAttendance = async (req, res, next) => {
   try {
     const data = await AttendanceService.getAttendance(req.user, req.query);
@@ -31,14 +40,17 @@ exports.getAttendance = async (req, res, next) => {
 exports.getChildAttendance = async (req, res, next) => {
   try {
     const filters = { ...req.query };
+    const User = require('../users/users.model');
+    const parent = await User.findById(req.user.userId).select('childrenIds').lean();
+    const childIds = (parent?.childrenIds || []).map(id => id.toString());
     
     if (!filters.studentId) {
-      if (!req.user.childrenIds || req.user.childrenIds.length === 0) {
+      if (childIds.length === 0) {
         return res.status(400).json({ success: false, message: 'No children linked to this parent account.' });
       }
-      filters.studentId = { $in: req.user.childrenIds };
+      filters.studentId = { $in: childIds };
     } else {
-      if (!req.user.childrenIds || !req.user.childrenIds.includes(filters.studentId)) {
+      if (!childIds.includes(filters.studentId.toString())) {
         return res.status(403).json({ success: false, message: 'Unauthorized to view attendance for this student.' });
       }
     }

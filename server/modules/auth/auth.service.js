@@ -49,7 +49,10 @@ exports.login = async (email, password, expectedRole) => {
   const crypto = require('crypto');
   const sessionId = crypto.randomUUID();
   user.activeSessionId = sessionId;
-  await UserModel.updateOne({ _id: user._id }, { $set: { activeSessionId: sessionId } });
+  await UserModel.updateOne(
+    { _id: user._id },
+    { $set: { activeSessionId: sessionId, lastLoginAt: new Date() } }
+  );
 
   const payload = {
     userId: user._id,

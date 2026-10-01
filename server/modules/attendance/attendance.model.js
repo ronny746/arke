@@ -4,6 +4,8 @@ const attendanceRecordSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   status: { type: String, enum: ['present', 'absent', 'late', 'leave'], required: true },
   remarks: { type: String },
+  joinedAt: { type: Date },
+  source: { type: String, enum: ['teacher', 'live_class', 'geo'], default: 'teacher' },
   geoCheckIn: {
     lat: { type: Number },
     lng: { type: Number },
@@ -16,12 +18,14 @@ const attendanceSchema = new mongoose.Schema({
   branchId: { type: mongoose.Schema.Types.ObjectId },
   batchId: { type: mongoose.Schema.Types.ObjectId, required: true }, // ref to Batch
   subjectId: { type: mongoose.Schema.Types.ObjectId }, // optional, for subject-wise attendance
+  liveClassId: { type: mongoose.Schema.Types.ObjectId, ref: 'LiveClass', default: null },
   date: { type: Date, required: true },
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   records: [attendanceRecordSchema]
 }, { timestamps: true });
 
-// Ensure one attendance per batch/subject per day
-attendanceSchema.index({ instituteId: 1, batchId: 1, subjectId: 1, date: 1 }, { unique: true });
+// One manual register per subject/day and one register for each live session.
+attendanceSchema.index({ instituteId: 1, batchId: 1, subjectId: 1, date: 1, liveClassId: 1 }, { unique: true });
+attendanceSchema.index({ instituteId: 1, liveClassId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

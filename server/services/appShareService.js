@@ -93,7 +93,9 @@ class AppShareService {
     } else {
       session.strokes.push(stroke);
     }
-    if (session.strokes.length > 10000) session.strokes.splice(0, 1000);
+    // Keep whiteboard replay bounded on long sessions without retaining an
+    // unbounded amount of stroke data in the Socket.IO process.
+    if (session.strokes.length > 1200) session.strokes.splice(0, 200);
     return session;
   }
 

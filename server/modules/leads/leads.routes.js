@@ -17,6 +17,7 @@ router.patch('/:id/status', requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS,
 
 // Admin only endpoints
 router.use(requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.ADMIN_OPERATIONS]));
+router.get('/logged-in-without-course', leadsController.getLoggedInWithoutCourse);
 router.get('/', leadsController.getAllLeads);
 router.post('/', leadsController.createLead);
 router.patch('/:id/assign', leadsController.assignLead);

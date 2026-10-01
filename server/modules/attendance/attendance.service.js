@@ -1,10 +1,68 @@
 const AttendanceModel = require('./attendance.model');
+const LiveClass = require('../live-classes/live-classes.model');
+const Batch = require('../batches/batches.model');
+const ClassSchedule = require('../classes-schedule/classes-schedule.model');
+const User = require('../users/users.model');
+const NotificationsService = require('../notifications/notifications.service');
+
+const IST_OFFSET = '+05:30';
+const LATE_GRACE_MINUTES = 10;
+
+const datePartsInIndia = (value = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(value);
+  return Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+};
+
+const attendanceDateInIndia = (value = new Date()) => {
+  const { year, month, day } = datePartsInIndia(value);
+  return new Date(`${year}-${month}-${day}T00:00:00.000${IST_OFFSET}`);
+};
+
+const scheduledStartInIndia = (startTime, value = new Date()) => {
+  const { year, month, day } = datePartsInIndia(value);
+  return new Date(`${year}-${month}-${day}T${startTime}:00${IST_OFFSET}`);
+};
+
+const createLateNotifications = async ({ instituteId, studentId, subjectName, batchName, joinedAt }) => {
+  const student = await User.findOne({ _id: studentId, instituteId }).select('_id parentId firstName lastName');
+  if (!student) return;
+
+  const joinedAtLabel = joinedAt.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const studentName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Your child';
+  const classLabel = [subjectName, batchName].filter(Boolean).join(' - ') || 'the live class';
+  await NotificationsService.createForUsers({
+    instituteId,
+    userIds: [student._id],
+    title: 'Late attendance recorded',
+    message: `You joined ${classLabel} late at ${joinedAtLabel}.`,
+    type: 'ALERT',
+    metadata: { entityType: 'attendance_late' }
+  });
+  if (student.parentId) await NotificationsService.createForUsers({
+    instituteId,
+    userIds: [student.parentId],
+    title: 'Child joined class late',
+    message: `${studentName} joined ${classLabel} late at ${joinedAtLabel}.`,
+    type: 'ALERT',
+    metadata: { entityType: 'attendance_late' }
+  });
+};
 
 exports.markAttendance = async (reqUser, payload) => {
   const query = {
     instituteId: reqUser.instituteId,
     batchId: payload.batchId,
     subjectId: payload.subjectId || null,
+    liveClassId: null,
     date: new Date(payload.date).setHours(0, 0, 0, 0)
   };
 
@@ -13,6 +71,7 @@ exports.markAttendance = async (reqUser, payload) => {
     instituteId: reqUser.instituteId,
     branchId: reqUser.branchId,
     teacherId: reqUser.userId,
+    liveClassId: null,
     date: new Date(payload.date).setHours(0, 0, 0, 0)
   };
 
@@ -21,14 +80,24 @@ exports.markAttendance = async (reqUser, payload) => {
   const absentStudentIds = payload.records.filter(record => record.status === 'absent').map(record => record.studentId);
   if (absentStudentIds.length) {
     const User = require('../users/users.model');
-    const Notification = require('../notifications/notifications.model');
     const students = await User.find({ _id: { $in: absentStudentIds }, instituteId: reqUser.instituteId }).select('_id parentId');
     const dateLabel = new Date(payload.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    const notifications = students.flatMap(student => [
-      { instituteId: reqUser.instituteId, userId: student._id, title: 'Marked absent', message: `You were marked absent on ${dateLabel}.`, type: 'ALERT' },
-      ...(student.parentId ? [{ instituteId: reqUser.instituteId, userId: student.parentId, title: 'Child marked absent', message: `Your child was marked absent on ${dateLabel}.`, type: 'ALERT' }] : [])
-    ]);
-    if (notifications.length) await Notification.insertMany(notifications, { ordered: false });
+    await NotificationsService.createForUsers({
+      instituteId: reqUser.instituteId,
+      userIds: students.map(student => student._id),
+      title: 'Marked absent',
+      message: `You were marked absent on ${dateLabel}.`,
+      type: 'ALERT',
+      metadata: { entityType: 'attendance_absent' }
+    });
+    await NotificationsService.createForUsers({
+      instituteId: reqUser.instituteId,
+      userIds: students.map(student => student.parentId).filter(Boolean),
+      title: 'Child marked absent',
+      message: `Your child was marked absent on ${dateLabel}.`,
+      type: 'ALERT',
+      metadata: { entityType: 'attendance_absent' }
+    });
   }
   return attendance;
 };
@@ -72,8 +141,88 @@ exports.geoCheckin = async (reqUser, payload) => {
   }
 };
 
+exports.liveClassCheckin = async (reqUser, { liveClassId }) => {
+  const liveClass = await LiveClass.findOne({
+    _id: liveClassId,
+    instituteId: reqUser.instituteId,
+    status: 'ONGOING'
+  });
+  if (!liveClass) throw new Error('This live class is no longer active.');
+
+  const schedule = await ClassSchedule.findOne({
+    _id: liveClass.classScheduleId,
+    instituteId: reqUser.instituteId
+  }).populate('subjectId', 'name').lean();
+  if (!schedule) throw new Error('Class schedule not found.');
+
+  const enrolledBatch = await Batch.exists({
+    _id: schedule.batchId,
+    instituteId: reqUser.instituteId,
+    students: reqUser.userId
+  });
+  if (!enrolledBatch) throw new Error('You are not enrolled in this class.');
+
+  const joinedAt = new Date();
+  const scheduledAt = scheduledStartInIndia(schedule.startTime, joinedAt);
+  const isLate = joinedAt.getTime() > scheduledAt.getTime() + LATE_GRACE_MINUTES * 60 * 1000;
+  const status = isLate ? 'late' : 'present';
+  const date = attendanceDateInIndia(joinedAt);
+
+  let attendance = await AttendanceModel.findOne({
+    instituteId: reqUser.instituteId,
+    liveClassId: liveClass._id
+  });
+
+  if (!attendance) {
+    attendance = new AttendanceModel({
+      instituteId: reqUser.instituteId,
+      branchId: reqUser.branchId,
+      batchId: schedule.batchId,
+      subjectId: schedule.subjectId?._id || schedule.subjectId || null,
+      liveClassId: liveClass._id,
+      date,
+      teacherId: schedule.teacherId,
+      records: []
+    });
+  }
+
+  const existing = attendance.records.find(record => record.studentId.toString() === reqUser.userId.toString());
+  if (!existing) {
+    attendance.records.push({
+      studentId: reqUser.userId,
+      status,
+      joinedAt,
+      source: 'live_class'
+    });
+    await attendance.save();
+
+    if (isLate) {
+      const batchInfo = await Batch.findById(schedule.batchId).select('name section').lean();
+      const batchName = batchInfo
+        ? [batchInfo.name, batchInfo.section ? `Section ${batchInfo.section}` : ''].filter(Boolean).join(' • ')
+        : '';
+      await createLateNotifications({
+        instituteId: reqUser.instituteId,
+        studentId: reqUser.userId,
+        subjectName: schedule.subjectId?.name,
+        batchName,
+        joinedAt
+      });
+    }
+  }
+
+  return {
+    attendanceId: attendance._id,
+    status: existing?.status || status,
+    joinedAt: existing?.joinedAt || joinedAt,
+    wasAlreadyRecorded: Boolean(existing)
+  };
+};
+
 exports.getAttendance = async (reqUser, filters) => {
   const query = { instituteId: reqUser.instituteId };
+
+  if (reqUser.role === 'student') query['records.studentId'] = reqUser.userId;
   
   if (filters.batchId) query.batchId = filters.batchId;
   if (filters.subjectId) query.subjectId = filters.subjectId;

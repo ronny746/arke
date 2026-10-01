@@ -12,6 +12,8 @@ const userSchema = new mongoose.Schema({
   firstName: { type: String, default: 'Student' },
   lastName: { type: String, default: '' },
   email: { type: String, required: false, unique: true, sparse: true },
+  // Distinguishes a real portal visit from an account merely imported by admin.
+  lastLoginAt: { type: Date, default: null },
   password: { type: String, required: true, select: false },
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   childrenIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

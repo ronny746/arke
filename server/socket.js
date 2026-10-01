@@ -1,4 +1,6 @@
 const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
+const env = require('../config/env');
 const mediaService = require('./services/mediaService');
 const recordingService = require('./services/recordingService');
 const { AppShareService } = require('./services/appShareService');
@@ -17,6 +19,19 @@ module.exports = function setupSocketIO(server) {
 
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);
+
+    // The REST JWT decides the room name, so a client cannot read another
+    // account's in-app notifications.
+    socket.on('subscribe-notifications', (payload = {}, acknowledge) => {
+      try {
+        const token = String(payload.token || '').replace(/^Bearer\s+/i, '');
+        const user = jwt.verify(token, env.JWT_SECRET);
+        socket.join(`user:${String(user.userId)}`);
+        if (typeof acknowledge === 'function') acknowledge({ success: true });
+      } catch {
+        if (typeof acknowledge === 'function') acknowledge({ success: false, message: 'Unauthorized notification subscription' });
+      }
+    });
 
     // Join Room signaling
     socket.on('join-room', async ({ roomCode, username, role, mobile, roomType }, callback) => {

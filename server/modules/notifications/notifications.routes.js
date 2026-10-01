@@ -4,7 +4,7 @@ const NotificationsController = require('./notifications.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
 const rbacMiddleware = require('../../middlewares/rbac.middleware');
 const validate = require('../../middlewares/validate.middleware');
-const { sendNotificationSchema } = require('./notifications.validation');
+const { sendNotificationSchema, registerPushDeviceSchema, broadcastNotificationSchema } = require('./notifications.validation');
 const { ROLES } = require('../../config/constants');
 
 router.use(authMiddleware);
@@ -15,6 +15,10 @@ router.post(
   validate(sendNotificationSchema),
   NotificationsController.sendNotification
 );
+
+router.post('/devices', validate(registerPushDeviceSchema), NotificationsController.registerPushDevice);
+router.delete('/devices', NotificationsController.removePushDevice);
+router.post('/broadcast', rbacMiddleware.requireRole([ROLES.SUPER_ADMIN]), validate(broadcastNotificationSchema), NotificationsController.broadcastNotification);
 
 router.get(
   '/',

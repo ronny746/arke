@@ -4,7 +4,7 @@ const AttendanceController = require('./attendance.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
 const rbacMiddleware = require('../../middlewares/rbac.middleware');
 const validate = require('../../middlewares/validate.middleware');
-const { markAttendanceSchema, getAttendanceSchema, geoCheckinSchema } = require('./attendance.validation');
+const { markAttendanceSchema, getAttendanceSchema, geoCheckinSchema, liveClassCheckinSchema } = require('./attendance.validation');
 const { ROLES } = require('../../config/constants');
 
 router.use(authMiddleware);
@@ -21,6 +21,13 @@ router.post(
   rbacMiddleware.requireRole([ROLES.STUDENT]),
   validate(geoCheckinSchema),
   AttendanceController.geoCheckin
+);
+
+router.post(
+  '/live-class-checkin',
+  rbacMiddleware.requireRole([ROLES.STUDENT]),
+  validate(liveClassCheckinSchema),
+  AttendanceController.liveClassCheckin
 );
 
 router.get(

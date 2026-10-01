@@ -24,16 +24,20 @@ const mentorSchema = new mongoose.Schema({
 
 const mentorSessionSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
-  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
+  // Exactly one audience is selected by the service: an individual batch or
+  // a course (which means all active batches enrolled in that course).
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', default: null },
+  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
   mentorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Mentor', required: true },
   startAt: { type: Date, required: true },
   endAt: { type: Date, required: true },
-  meetingLink: { type: String, required: true },
+  meetingLink: { type: String, trim: true, default: '' },
   status: { type: String, enum: ['SCHEDULED', 'COMPLETED', 'CANCELLED'], default: 'SCHEDULED' },
   swappedFromMentorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Mentor' }
 }, { timestamps: true });
 
 mentorSessionSchema.index({ batchId: 1, startAt: 1 });
+mentorSessionSchema.index({ courseId: 1, startAt: 1 });
 
 module.exports = {
   LeaveRequest: mongoose.models.LeaveRequest || mongoose.model('LeaveRequest', leaveRequestSchema),

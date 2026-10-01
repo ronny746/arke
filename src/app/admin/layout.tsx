@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, Users, BookOpen, Video, FileText, Settings, CreditCard, LayoutDashboard, Database, UserCheck, UserCircle, Briefcase, FileCheck, MessageSquare, Archive, SlidersHorizontal, BookMarked } from 'lucide-react';
+import { Home, Users, BookOpen, Video, FileText, Settings, CreditCard, LayoutDashboard, Database, UserCheck, UserCircle, Briefcase, FileCheck, MessageSquare, Archive, SlidersHorizontal, BookMarked, CalendarClock, UserRoundSearch, BellRing } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DeveloperModeListener from '@/components/common/DeveloperModeListener';
 import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
@@ -45,6 +45,9 @@ export default function AdminLayout({ children }) {
       label: 'Management',
       items: [
         { icon: CreditCard, label: 'Fees & Payments', to: '/admin/fees' },
+        { icon: UserRoundSearch, label: 'Leads', to: '/admin/leads' },
+        { icon: BellRing, label: 'Announcements', to: '/admin/notifications' },
+        { icon: CalendarClock, label: 'Mentor Sessions', to: '/admin/mentor-sessions' },
         { icon: SlidersHorizontal, label: 'Academic Operations', to: '/admin/operations' },
         { icon: MessageSquare, label: 'Doubts Monitor', to: '/admin/doubts' },
         { icon: Archive, label: 'Recycle Bin', to: '/admin/recycle-bin' }

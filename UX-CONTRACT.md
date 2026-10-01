@@ -33,6 +33,9 @@
 | Scrollbar | `src/app/globals.css` | global stylesheet | geometry exceptions | computed style |
 | Toast | `react-hot-toast` | existing provider usage | success / warning / info / error | live-region test |
 | CRUD | API service modules | route/controller/service | return / stay | API integration |
+| Behavioural leads | `/admin/leads` | `GET /leads/logged-in-without-course` | read-only automatic queue | API integration |
+| Mentor session scheduling | `/admin/mentor-sessions` | operations service + notification service | target one course or one batch | API integration + socket room |
+| Announcement delivery | `/admin/notifications` | notification service + FCM device registry | all students, all parents, one batch/family, individual | API integration + FCM acceptance test |
 
 ## Flow ledger
 
@@ -42,6 +45,8 @@
 | Submit exam | Student submit action | Submit disabled | Exam analysis | Topic flags/remedial count | Retain answers on failure | Analysis heading | exam controller |
 | Mark attendance | Teacher attendance action | Save state | Attendance list | In-app absence notice | Correct and resubmit | Attendance table | attendance service |
 | Suspend student | Super-admin action | Save state | Student record | End-date confirmation | Correct end date | Record heading | users service |
+| Schedule mentor session | Admin submit | Button disabled | Mentor sessions table | Student inbox notifications created | Preserve inputs and show server conflict/validation error | First invalid field | operations service |
+| Send announcement | Admin submit | Button disabled | Stay on composer | Persistent inbox, realtime event and FCM push | Preserve message and target; explain validation failure | First invalid field | notifications service |
 
 ## Async and resilience
 

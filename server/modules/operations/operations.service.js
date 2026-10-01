@@ -1,16 +1,41 @@
 const { LeaveRequest, Mentor, MentorSession } = require('./operations.model');
+const User = require('../users/users.model');
+const Batch = require('../batches/batches.model');
+const Course = require('../courses/courses.model');
+const NotificationsService = require('../notifications/notifications.service');
 
-exports.requestLeave = ({ instituteId, userId }, payload) => LeaveRequest.create({
-  instituteId, teacherId: userId, leaveType: payload.leaveType, startDate: payload.startDate, endDate: payload.endDate, reason: payload.reason
-});
+exports.requestLeave = async ({ instituteId, userId }, payload, io) => {
+  const request = await LeaveRequest.create({
+    instituteId, teacherId: userId, leaveType: payload.leaveType, startDate: payload.startDate, endDate: payload.endDate, reason: payload.reason
+  });
+  const admins = await User.find({ instituteId, role: 'admin', isActive: true }).select('_id');
+  await NotificationsService.createForUsers({
+    instituteId,
+    userIds: admins.map(admin => admin._id),
+    title: 'Teacher leave request',
+    message: 'A teacher has submitted a leave request for approval.',
+    io
+  });
+  return request;
+};
 
-exports.reviewLeave = async ({ instituteId, userId }, leaveId, payload) => {
+exports.reviewLeave = async ({ instituteId, userId }, leaveId, payload, io) => {
   const request = await LeaveRequest.findOneAndUpdate(
     { _id: leaveId, instituteId, status: 'PENDING' },
     { $set: { status: payload.status, reviewNote: payload.reviewNote || '', reviewedBy: userId, reviewedAt: new Date() } },
     { new: true }
   );
   if (!request) throw new Error('Pending leave request not found.');
+  await NotificationsService.createForUsers({
+    instituteId,
+    userIds: [request.teacherId],
+    title: `Leave request ${request.status.toLowerCase()}`,
+    message: request.status === 'APPROVED'
+      ? 'Your leave request has been approved.'
+      : `Your leave request was rejected${request.reviewNote ? `: ${request.reviewNote}` : '.'}`,
+    type: request.status === 'APPROVED' ? 'SUCCESS' : 'ALERT',
+    io
+  });
   return request;
 };
 
@@ -25,16 +50,70 @@ exports.createMentors = async ({ instituteId }, mentors) => Mentor.insertMany(me
 
 exports.listMentors = ({ instituteId }) => Mentor.find({ instituteId, isActive: true }).sort({ name: 1 });
 
-exports.scheduleMentorSession = async ({ instituteId }, payload) => {
-  const startAt = new Date(payload.startAt);
-  const endAt = new Date(payload.endAt);
-  if (endAt - startAt !== 30 * 60 * 1000) throw new Error('Mentor sessions must be exactly 30 minutes.');
+exports.validateMentorWindow = ({ startAt, endAt }) => {
+  const start = new Date(startAt);
+  const end = new Date(endAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    throw new Error('Enter a valid mentor session start and end time.');
+  }
+  if (end - start !== 30 * 60 * 1000) throw new Error('Mentor sessions must be exactly 30 minutes.');
+  return { startAt: start, endAt: end };
+};
+
+async function resolveAudience(instituteId, payload) {
+  const hasBatch = Boolean(payload.batchId);
+  const hasCourse = Boolean(payload.courseId);
+  if (hasBatch === hasCourse) throw new Error('Choose either one batch or one course for this mentor session.');
+  if (hasBatch) {
+    const batch = await Batch.findOne({ _id: payload.batchId, instituteId, isActive: true }).select('_id name students courseId');
+    if (!batch) throw new Error('Active batch not found.');
+    return { batchId: batch._id, courseId: batch.courseId || null, recipients: batch.students.map(String), label: batch.name };
+  }
+  const course = await Course.findOne({ _id: payload.courseId, instituteId, isActive: true }).select('_id name');
+  if (!course) throw new Error('Active course not found.');
+  const batches = await Batch.find({ instituteId, courseId: course._id, isActive: true }).select('students');
+  return {
+    batchId: null,
+    courseId: course._id,
+    recipients: [...new Set(batches.flatMap(batch => batch.students.map(String)))],
+    label: course.name
+  };
+}
+
+exports.scheduleMentorSession = async ({ instituteId }, payload, io) => {
+  const { startAt, endAt } = exports.validateMentorWindow(payload);
   const mentor = await Mentor.findOne({ _id: payload.mentorId, instituteId, isActive: true });
   if (!mentor) throw new Error('Active mentor not found.');
+  const audience = await resolveAudience(instituteId, payload);
   const overlapping = await MentorSession.exists({ mentorId: mentor._id, status: 'SCHEDULED', startAt: { $lt: endAt }, endAt: { $gt: startAt } });
   if (overlapping) throw new Error('Mentor is already scheduled for this time.');
-  return MentorSession.create({ instituteId, batchId: payload.batchId, mentorId: mentor._id, startAt, endAt, meetingLink: payload.meetingLink });
+  const session = await MentorSession.create({
+    instituteId,
+    batchId: audience.batchId,
+    courseId: audience.courseId,
+    mentorId: mentor._id,
+    startAt,
+    endAt,
+    meetingLink: payload.meetingLink || ''
+  });
+  const schedule = startAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
+  await NotificationsService.createForUsers({
+    instituteId,
+    userIds: audience.recipients,
+    title: 'Mentor session scheduled',
+    message: `${mentor.name} will mentor ${audience.label} on ${schedule}.`,
+    type: 'INFO',
+    metadata: { entityType: 'mentor_session', sessionId: String(session._id), meetingLink: session.meetingLink },
+    io
+  });
+  return session.populate([{ path: 'mentorId', select: 'name email phone' }, { path: 'batchId', select: 'name' }, { path: 'courseId', select: 'name' }]);
 };
+
+exports.listMentorSessions = ({ instituteId }) => MentorSession.find({ instituteId })
+  .populate('mentorId', 'name email phone')
+  .populate('batchId', 'name')
+  .populate('courseId', 'name')
+  .sort({ startAt: 1 });
 
 exports.swapMentor = async ({ instituteId }, sessionId, mentorId) => {
   const session = await MentorSession.findOne({ _id: sessionId, instituteId, status: 'SCHEDULED' });

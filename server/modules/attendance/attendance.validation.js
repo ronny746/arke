@@ -31,3 +31,7 @@ exports.geoCheckinSchema = Joi.object({
   latitude: Joi.number().required(),
   longitude: Joi.number().required()
 });
+
+exports.liveClassCheckinSchema = Joi.object({
+  liveClassId: Joi.string().required()
+});

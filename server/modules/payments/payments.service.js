@@ -5,6 +5,7 @@ const CourseModel = require('../courses/courses.model');
 const BatchModel = require('../batches/batches.model');
 const UserModel = require('../users/users.model');
 const Notification = require('../notifications/notifications.model');
+const NotificationsService = require('../notifications/notifications.service');
 const { normalizeDob, makeWelcomeMessage } = require('../arke-portal/portal.rules');
 
 class PaymentsService {
@@ -471,18 +472,22 @@ class PaymentsService {
         amountDue: feeRecord?.amountDue || course.fee,
         timetableUrl: '/student/timetable'
       });
-      await Notification.updateOne(
-        { instituteId: user.instituteId, userId: user._id, title: 'Course enrollment confirmed', message: welcomeMessage },
-        { $setOnInsert: { instituteId: user.instituteId, userId: user._id, title: 'Course enrollment confirmed', message: welcomeMessage, type: 'SUCCESS' } },
-        { upsert: true }
-      );
-      if (parent) {
-        await Notification.updateOne(
-          { instituteId: user.instituteId, userId: parent._id, title: 'Course enrollment confirmed', message: welcomeMessage },
-          { $setOnInsert: { instituteId: user.instituteId, userId: parent._id, title: 'Course enrollment confirmed', message: welcomeMessage, type: 'SUCCESS' } },
-          { upsert: true }
-        );
-      }
+      const recipientIds = [user._id, ...(parent ? [parent._id] : [])];
+      const existing = await Notification.find({
+        instituteId: user.instituteId,
+        userId: { $in: recipientIds },
+        title: 'Course enrollment confirmed',
+        message: welcomeMessage
+      }).select('userId');
+      const notifiedUserIds = new Set(existing.map(notification => String(notification.userId)));
+      await NotificationsService.createForUsers({
+        instituteId: user.instituteId,
+        userIds: recipientIds.filter(id => !notifiedUserIds.has(String(id))),
+        title: 'Course enrollment confirmed',
+        message: welcomeMessage,
+        type: 'SUCCESS',
+        metadata: { entityType: 'course_enrollment', courseId: String(course._id), batchId: String(assignedBatchId || '') }
+      });
     } catch (err) {
       console.error('[PaymentsService] Error fulfilling enrollment:', err);
     }

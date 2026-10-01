@@ -1,4 +1,5 @@
 const Lead = require('./leads.model');
+const LeadService = require('./leads.service');
 const { ROLES } = require('../../config/constants');
 
 // Create a new Lead (Manual)
@@ -37,6 +38,17 @@ exports.getAllLeads = async (req, res, next) => {
       .populate('followUps.updatedBy', 'firstName lastName')
       .sort({ createdAt: -1 });
 
+    res.status(200).json({ success: true, data: leads });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Behavioural leads are read-only. A learner leaves this feed automatically
+// as soon as they are enrolled into any course batch.
+exports.getLoggedInWithoutCourse = async (req, res, next) => {
+  try {
+    const leads = await LeadService.getLoggedInWithoutCourse(req.user);
     res.status(200).json({ success: true, data: leads });
   } catch (error) {
     next(error);

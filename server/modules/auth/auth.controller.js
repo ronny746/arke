@@ -152,7 +152,10 @@ exports.verifyOtp = async (req, res, next) => {
         // Generate Session ID for single-device verification
         const sessionId = Math.random().toString(36).substring(2, 15);
         user.activeSessionId = sessionId;
-        await User.updateOne({ _id: user._id }, { $set: { activeSessionId: sessionId } });
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { activeSessionId: sessionId, lastLoginAt: new Date() } }
+        );
 
         // Generate JWT Token
         const token = jwt.sign(
@@ -280,7 +283,10 @@ exports.verifyEmailOtp = async (req, res, next) => {
         // Generate JWT
         const sessionId = Math.random().toString(36).substring(2, 15);
         user.activeSessionId = sessionId;
-        await User.updateOne({ _id: user._id }, { $set: { activeSessionId: sessionId } });
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { activeSessionId: sessionId, lastLoginAt: new Date() } }
+        );
 
         const token = jwt.sign(
             { 

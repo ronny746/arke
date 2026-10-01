@@ -63,6 +63,7 @@ export const adminAPI = {
   updateForm: (id, data) => axiosInstance.put(`/forms/${id}`, data),
   getFormSubmissions: (formId) => axiosInstance.get(`/form-submissions/form/${formId}`),
   updateSubmissionStatus: (id, data) => axiosInstance.put(`/form-submissions/${id}/status`, data),
+  getLoggedInWithoutCourseLeads: () => axiosInstance.get('/leads/logged-in-without-course'),
 
   // Question Banks
   getQuestionCategories: () => axiosInstance.get('/question-categories'),
@@ -153,6 +154,13 @@ export const adminAPI = {
   getNotifications: (params) => axiosInstance.get('/notifications', { params }),
   sendNotification: (data) => axiosInstance.post('/notifications/send', data),
   markNotificationRead: (id) => axiosInstance.put(`/notifications/${id}/read`),
+
+  // Mentor sessions
+  getMentors: () => axiosInstance.get('/operations/mentors'),
+  createMentors: (mentors) => axiosInstance.post('/operations/mentors', { mentors }),
+  getMentorSessions: () => axiosInstance.get('/operations/mentor-sessions'),
+  scheduleMentorSession: (data) => axiosInstance.post('/operations/mentor-sessions', data),
+  broadcastNotification: (data) => axiosInstance.post('/notifications/broadcast', data),
 
   // Reports
   getReportTasks: () => axiosInstance.get('/analytics-reports/tasks'),
