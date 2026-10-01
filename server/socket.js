@@ -1,6 +1,6 @@
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
-const env = require('../config/env');
+const env = require('./config/env');
 const mediaService = require('./services/mediaService');
 const recordingService = require('./services/recordingService');
 const { AppShareService } = require('./services/appShareService');
