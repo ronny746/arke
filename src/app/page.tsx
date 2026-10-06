@@ -18,19 +18,19 @@ import ArkeLogo from "@/components/ArkeLogo";
 
 // ─── Mentor Data ─────────────────────────────────────────────────────────────
 const MENTORS = [
-  { name: "Pawan Goyal", role: "Physics Educator", exp: "Ex-IITian & Senior Faculty", image: "/arke/pawan-goyal.jpeg" },
-  { name: "Kartikey Mittal", role: "Chemistry Educator", exp: "IIT Bombay Alumnus", image: "/arke/kartikey mittal.jpeg" },
-  { name: "Mayank Motwani", role: "Math Educator", exp: "IIT Delhi Alumnus", image: "/arke/mayank motwani.jpeg" },
-  { name: "Abhishek Kumar Singh", role: "Biology Educator", exp: "Senior NEET Specialist", image: "/arke/abhishek kumar singh.jpeg" },
-  { name: "Vishwajeet Agarwal", role: "Physics Specialist", exp: "10+ Yrs JEE Rank Producer", image: "/arke/vishwajet agarwal.jpeg" },
-  { name: "Aayush", role: "Chemistry Specialist", exp: "Ex-Allen & FIITJEE Faculty", image: "/arke/Aayush.png" },
-  { name: "Aryan Gupta", role: "Math Specialist", exp: "IIT Roorkee Alumnus", image: "/arke/aryan gupta.jpeg" },
-  { name: "Rushi Patel", role: "Physics Specialist", exp: "JEE Advanced Expert", image: "/arke/rushi patel.jpeg" },
-  { name: "Sankalp", role: "Biology Specialist", exp: "Top NEET Rank Mentor", image: "/arke/sankalp.jpeg" },
-  { name: "Aankan Sarkar", role: "Chemistry Specialist", exp: "Olympiad & JEE Faculty", image: "/arke/aankan sarkar.jpeg" },
-  { name: "Samarth Agarwal", role: "Mathematics Specialist", exp: "Senior JEE Educator", image: "/arke/samarth agarwal.jpeg" },
-  { name: "Utkarsh Daga", role: "Physics Specialist", exp: "IIT Kharagpur Alumnus", image: "/arke/utkarsh daga .jpeg" },
-  { name: "Yash Jain", role: "Chemistry Specialist", exp: "Physical Chemistry Expert", image: "/arke/yash jain.jpeg" },
+  { name: "Pawan Goyal", exp: "Ex-IITian & Senior Faculty", image: "/arke/pawan-goyal.jpeg" },
+  { name: "Kartikey Mittal", exp: "IIT Bombay Alumnus", image: "/arke/kartikey mittal.jpeg" },
+  { name: "Mayank Motwani", exp: "IIT Delhi Alumnus", image: "/arke/mayank motwani.jpeg" },
+  { name: "Abhishek Kumar Singh", exp: "Senior NEET Specialist", image: "/arke/abhishek kumar singh.jpeg" },
+  { name: "Vishwajeet Agarwal", exp: "10+ Yrs JEE Rank Producer", image: "/arke/vishwajet agarwal.jpeg" },
+  { name: "Aayush", exp: "Ex-Allen & FIITJEE Faculty", image: "/arke/Aayush.png" },
+  { name: "Aryan Gupta", exp: "IIT Roorkee Alumnus", image: "/arke/aryan gupta.jpeg" },
+  { name: "Rushi Patel", exp: "JEE Advanced Expert", image: "/arke/rushi patel.jpeg" },
+  { name: "Sankalp", exp: "Top NEET Rank Mentor", image: "/arke/sankalp.jpeg" },
+  { name: "Aankan Sarkar", exp: "Olympiad & JEE Faculty", image: "/arke/aankan sarkar.jpeg" },
+  { name: "Samarth Agarwal", exp: "Senior JEE Educator", image: "/arke/samarth agarwal.jpeg" },
+  { name: "Utkarsh Daga", exp: "IIT Kharagpur Alumnus", image: "/arke/utkarsh daga .jpeg" },
+  { name: "Yash Jain", exp: "Physical Chemistry Expert", image: "/arke/yash jain.jpeg" },
 ];
 
 // ─── FAQ Data ─────────────────────────────────────────────────────────────────
@@ -600,7 +600,6 @@ export default function LandingPage() {
                   />
                 </div>
                 <h4 className="font-display font-bold text-lg text-foreground">{mentor.name}</h4>
-                <p className="text-xs font-semibold text-primary mt-0.5">{mentor.role}</p>
                 <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">{mentor.exp}</p>
               </div>
             ))}

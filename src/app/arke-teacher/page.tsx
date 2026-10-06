@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Lock, Mail, GraduationCap, Video, FileText, MessageSquare, Star } from 'lucide-react';
 import Image from 'next/image';
+import ArkeLogo from '@/components/ArkeLogo';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
@@ -96,13 +97,13 @@ export default function TeacherLogin() {
 
         {/* Logo */}
         <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-14 bg-navy rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 border border-white/20">
-              <Image src="/arke_logo_light.png" alt="ARKE" width={48} height={48} className="object-contain w-full h-full" />
+          <div className="flex items-center gap-3.5">
+            <div className="w-14 h-14 bg-white/95 rounded-2xl flex items-center justify-center shadow-xl p-2 border border-white/30 backdrop-blur-sm">
+              <ArkeLogo size="sm" variant="dark" showText={false} />
             </div>
             <div>
-              <p className="text-white font-black text-xl leading-tight">ARKE Scholars</p>
-              <p className="text-white/50 text-xs font-medium">Teacher Portal System</p>
+              <p className="text-white font-black text-xl leading-tight tracking-tight">ARKE Scholars</p>
+              <p className="text-emerald-400/90 text-xs font-bold tracking-wider uppercase">Teacher Portal System</p>
             </div>
           </div>
         </div>
@@ -154,13 +155,7 @@ export default function TeacherLogin() {
         >
           {/* Mobile Logo */}
           <div className="flex lg:hidden items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center bg-navy border border-white/20 shadow-sm p-1">
-              <Image src="/arke_logo_light.png" alt="ARKE" width={40} height={40} className="object-contain w-full h-full" />
-            </div>
-            <div>
-              <p className="font-black text-gray-800 text-lg">ARKE Scholars</p>
-              <p className="text-xs text-gray-400">Teacher Portal</p>
-            </div>
+            <ArkeLogo variant="dark" size="md" tagline="TEACHER PORTAL" />
           </div>
 
           <div className="mb-8">
