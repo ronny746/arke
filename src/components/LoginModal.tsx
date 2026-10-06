@@ -320,7 +320,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
             <div className="flex flex-col lg:flex-row min-h-[520px]">
               {/* Left Brand Panel */}
               <div
-                className="lg:w-5/12 p-8 text-white flex flex-col justify-between relative overflow-hidden shrink-0"
+                className="hidden lg:flex lg:w-5/12 p-8 text-white flex-col justify-between relative overflow-hidden shrink-0"
                 style={{
                   background: "linear-gradient(135deg, #0B132B 0%, #111C3A 50%, #1C2541 100%)"
                 }}

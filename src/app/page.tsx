@@ -16,21 +16,33 @@ import { BannerCarousel } from "@/components/BannerCarousel";
 import { CounsellingBanner } from "@/components/CounsellingBanner";
 import ArkeLogo from "@/components/ArkeLogo";
 
-// ─── Mentor Data ─────────────────────────────────────────────────────────────
-const MENTORS = [
-  { name: "Pawan Goyal", exp: "Ex-IITian & Senior Faculty", image: "/arke/pawan-goyal.jpeg" },
+// ─── Mentor Data (Under the Shadow of Titans Poster Format) ──────────────────
+const TITAN_HERO = {
+  name: "Pawan Goyal",
+  degree: "MIT - USA | AIR 4 (IIT-JEE)",
+  extra: "International Olympiad Gold Medalist",
+  image: "/arke/pawan-goyal.jpeg"
+};
+
+const IIM_MENTORS = [
+  { name: "Aayush", exp: "IIT-K • IIM-A", image: "/arke/Aayush.png" },
+  { name: "Rushi Patel", exp: "IIT-D • IIM-A", image: "/arke/rushi patel.jpeg" },
+];
+
+const IIT_TOP_RANKERS = [
+  { name: "Mayank Motwani", exp: "AIR 5 (IIT-B)", image: "/arke/mayank motwani.jpeg" },
+  { name: "Vishwajeet Agarwal", exp: "AIR 5 (IIT-D)", image: "/arke/vishwajet agarwal.jpeg" },
+  { name: "Samarth Agarwal", exp: "AIR 25 (IIT-B)", image: "/arke/samarth agarwal.jpeg" },
+  { name: "Yash Jain", exp: "AIR 27 (IIT-B)", image: "/arke/yash jain.jpeg" },
+  { name: "Aryan Gupta", exp: "AIR 29 (IIT-B)", image: "/arke/aryan gupta.jpeg" },
+  { name: "Sankalp", exp: "AIR 30 (IIT-B)", image: "/arke/sankalp.jpeg" },
+  { name: "Aankan Sarkar", exp: "AIR 67 (IIT-B)", image: "/arke/aankan sarkar.jpeg" },
+];
+
+const OTHER_FACULTY = [
   { name: "Kartikey Mittal", exp: "IIT Bombay Alumnus", image: "/arke/kartikey mittal.jpeg" },
-  { name: "Mayank Motwani", exp: "IIT Delhi Alumnus", image: "/arke/mayank motwani.jpeg" },
   { name: "Abhishek Kumar Singh", exp: "Senior NEET Specialist", image: "/arke/abhishek kumar singh.jpeg" },
-  { name: "Vishwajeet Agarwal", exp: "10+ Yrs JEE Rank Producer", image: "/arke/vishwajet agarwal.jpeg" },
-  { name: "Aayush", exp: "Ex-Allen & FIITJEE Faculty", image: "/arke/Aayush.png" },
-  { name: "Aryan Gupta", exp: "IIT Roorkee Alumnus", image: "/arke/aryan gupta.jpeg" },
-  { name: "Rushi Patel", exp: "JEE Advanced Expert", image: "/arke/rushi patel.jpeg" },
-  { name: "Sankalp", exp: "Top NEET Rank Mentor", image: "/arke/sankalp.jpeg" },
-  { name: "Aankan Sarkar", exp: "Olympiad & JEE Faculty", image: "/arke/aankan sarkar.jpeg" },
-  { name: "Samarth Agarwal", exp: "Senior JEE Educator", image: "/arke/samarth agarwal.jpeg" },
   { name: "Utkarsh Daga", exp: "IIT Kharagpur Alumnus", image: "/arke/utkarsh daga .jpeg" },
-  { name: "Yash Jain", exp: "Physical Chemistry Expert", image: "/arke/yash jain.jpeg" },
 ];
 
 // ─── FAQ Data ─────────────────────────────────────────────────────────────────
@@ -94,11 +106,11 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20 selection:text-primary">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20 selection:text-primary overflow-x-hidden w-full max-w-full">
       {/* ─── Top Contact Info Bar ────────────────────────────────────────── */}
-      <div className="bg-[#1B2952] text-white/90 text-xs py-2 px-4 border-b border-white/10 block">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
+      <div className="bg-[#1B2952] text-white/90 text-xs py-2 px-3 sm:px-4 border-b border-white/10 hidden sm:block">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-[11px] sm:text-xs">
             <a href="tel:+917607151617" className="flex items-center gap-1.5 hover:text-[#10B981] transition-colors">
               <Phone className="w-3.5 h-3.5 text-[#10B981]" />
               <span>+91-7607151617</span>
@@ -268,40 +280,40 @@ export default function LandingPage() {
       </div> */}
 
       {/* ─── Hero Section ─────────────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-[#070D1F] overflow-hidden pt-6 pb-12 md:pt-10 md:pb-0">
-        <div className="max-w-[70rem] mx-auto px-4">
-          <div className="grid items-end gap-8 md:gap-6 md:grid-cols-2">
+      <section className="bg-white dark:bg-[#070D1F] overflow-hidden pt-3 sm:pt-6 pb-6 md:pt-10 md:pb-0">
+        <div className="max-w-[70rem] mx-auto px-3 sm:px-4">
+          <div className="grid items-end gap-4 md:gap-6 md:grid-cols-2">
             {/* Hero Left Text & Actions */}
             <div className="text-center md:text-left md:pb-[6rem] order-2 md:order-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs md:text-sm font-bold text-[#0C8044]">
-                <Sparkles className="h-3.5 w-3.5 text-[#0C8044]" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-sm font-bold text-[#0C8044]">
+                <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#0C8044]" />
                 India & Gulf's Premier EdTech Platform
               </span>
 
-              <h1 className="mt-4 md:mt-6 font-display">
-                <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black text-slate-900 dark:text-white md:text-5xl lg:text-6xl tracking-tight">
+              <h1 className="mt-2.5 sm:mt-6 font-display">
+                <span className="block text-lg sm:text-3xl md:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-snug sm:leading-tight">
                   JEE, NEET & Foundation
                 </span>
-                <span className="block text-[1.75rem] leading-tight sm:text-3xl font-black bg-gradient-to-r from-[#23346B] via-[#2563EB] to-[#0C8044] bg-clip-text text-transparent md:text-5xl lg:text-6xl tracking-tight mt-1">
+                <span className="block text-lg sm:text-3xl md:text-5xl lg:text-6xl font-black bg-gradient-to-r from-[#23346B] via-[#2563EB] to-[#0C8044] bg-clip-text text-transparent tracking-tight mt-0.5 sm:mt-1 leading-snug sm:leading-tight">
                   Exam Prep That Works.
                 </span>
               </h1>
 
-              <p className="mt-3 md:mt-5 mx-auto md:mx-0 max-w-lg text-sm md:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="mt-2 sm:mt-5 mx-auto md:mx-0 max-w-lg text-[11px] sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
                 <strong className="text-slate-900 dark:text-white font-bold">ARKE Scholars</strong> helps you master JEE Main, JEE Advanced, NEET & Foundation exams with live 1:1 classes from top educators, AI-powered doubt solving, and smart test analytics.
               </p>
 
-              <div className="mt-6 md:mt-8 flex flex-wrap items-center justify-center md:justify-start gap-3.5">
+              <div className="mt-4 sm:mt-8 flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3.5">
                 <button
                   onClick={() => user ? router.push("/student/dashboard") : setIsLoginModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-7 py-3.5 text-sm md:text-base font-bold text-white shadow-lg shadow-emerald-950/20 hover:scale-[1.02] transition-all"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#0C8044] via-[#0FA056] to-[#10B981] px-4 sm:px-7 py-2 sm:py-3.5 text-xs sm:text-base font-bold text-white shadow-lg shadow-emerald-950/20 hover:scale-[1.02] transition-all"
                 >
                   {user ? "Explore Courses" : "Sign in / Register"}
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </button>
                 <a
                   href="#courses"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-white/20 bg-white dark:bg-white/10 px-6 py-3.5 text-sm md:text-base font-bold text-slate-800 dark:text-white hover:bg-slate-50 transition-colors"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-200 dark:border-white/20 bg-white dark:bg-white/10 px-4 sm:px-6 py-2 sm:py-3.5 text-xs sm:text-base font-bold text-slate-800 dark:text-white hover:bg-slate-50 transition-colors"
                 >
                   Browse Courses
                 </a>
@@ -316,7 +328,7 @@ export default function LandingPage() {
                 width={720}
                 height={620}
                 priority
-                className="w-auto h-64 sm:h-80 md:h-[36rem] object-contain object-bottom drop-shadow-xl"
+                className="w-auto h-40 sm:h-72 md:h-[36rem] object-contain object-bottom drop-shadow-xl"
               />
             </div>
           </div>
@@ -327,32 +339,32 @@ export default function LandingPage() {
       <CounsellingBanner />
 
       {/* ─── Key Stats Bar ────────────────────────────────────────────────── */}
-      <section className="bg-card py-8 md:pb-6 md:pt-0 border-y md:border-y-0 border-border">
-        <div className="max-w-[70rem] mx-auto px-4 relative md:bottom-10 md:-mb-10">
-          <div className="rounded-2xl border border-border bg-card shadow-[0_10px_40px_-12px_rgba(0,0,0,0.12)]">
-            <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border">
-              <div className="flex flex-col items-center text-center gap-2 px-4 py-6 md:py-8">
-                <Users className="h-7 w-7 text-primary" />
-                <p className="text-2xl md:text-3xl font-black font-display text-foreground">20+</p>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Founding Faculty (IITians)</p>
+      <section className="bg-card py-3 sm:py-8 md:pb-6 md:pt-0 border-y md:border-y-0 border-border">
+        <div className="max-w-[70rem] mx-auto px-2.5 sm:px-4 relative md:bottom-10 md:-mb-10">
+          <div className="rounded-2xl border border-border bg-card shadow-[0_10px_40px_-12px_rgba(0,0,0,0.12)] p-1.5 sm:p-0">
+            <div className="grid grid-cols-2 md:grid-cols-4 divide-y-0 divide-x-0 md:divide-x divide-border gap-1.5 sm:gap-0">
+              <div className="flex flex-col items-center text-center gap-0.5 sm:gap-2 px-2 sm:px-4 py-2.5 sm:py-6 md:py-8 bg-slate-50/50 sm:bg-transparent rounded-xl sm:rounded-none">
+                <Users className="h-4 w-4 sm:h-7 sm:w-7 text-primary" />
+                <p className="text-base sm:text-2xl md:text-3xl font-black font-display text-foreground">20+</p>
+                <p className="text-[9px] sm:text-xs md:text-sm font-medium text-muted-foreground leading-tight">Founding Faculty (IITians)</p>
               </div>
 
-              <div className="flex flex-col items-center text-center gap-2 px-4 py-6 md:py-8">
-                <FileText className="h-7 w-7 text-primary" />
-                <p className="text-2xl md:text-3xl font-black font-display text-foreground">500+</p>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Mock Tests & DPP Sets</p>
+              <div className="flex flex-col items-center text-center gap-0.5 sm:gap-2 px-2 sm:px-4 py-2.5 sm:py-6 md:py-8 bg-slate-50/50 sm:bg-transparent rounded-xl sm:rounded-none">
+                <FileText className="h-4 w-4 sm:h-7 sm:w-7 text-primary" />
+                <p className="text-base sm:text-2xl md:text-3xl font-black font-display text-foreground">500+</p>
+                <p className="text-[9px] sm:text-xs md:text-sm font-medium text-muted-foreground leading-tight">Mock Tests & DPP Sets</p>
               </div>
 
-              <div className="flex flex-col items-center text-center gap-2 px-4 py-6 md:py-8">
-                <GraduationCap className="h-7 w-7 text-primary" />
-                <p className="text-2xl md:text-3xl font-black font-display text-foreground">1-on-1</p>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Personalized Mentorship</p>
+              <div className="flex flex-col items-center text-center gap-0.5 sm:gap-2 px-2 sm:px-4 py-3 sm:py-6 md:py-8 bg-slate-50/50 sm:bg-transparent rounded-xl sm:rounded-none">
+                <GraduationCap className="h-4 w-4 sm:h-7 sm:w-7 text-primary" />
+                <p className="text-base sm:text-2xl md:text-3xl font-black font-display text-foreground">1-on-1</p>
+                <p className="text-[9px] sm:text-xs md:text-sm font-medium text-muted-foreground leading-tight">Personalized Mentorship</p>
               </div>
 
-              <div className="flex flex-col items-center text-center gap-2 px-4 py-6 md:py-8">
-                <Trophy className="h-7 w-7 text-primary" />
-                <p className="text-2xl md:text-3xl font-black font-display text-foreground">100%</p>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Comprehensive Coverage</p>
+              <div className="flex flex-col items-center text-center gap-0.5 sm:gap-2 px-2 sm:px-4 py-2.5 sm:py-6 md:py-8 bg-slate-50/50 sm:bg-transparent rounded-xl sm:rounded-none">
+                <Trophy className="h-4 w-4 sm:h-7 sm:w-7 text-primary" />
+                <p className="text-base sm:text-2xl md:text-3xl font-black font-display text-foreground">100%</p>
+                <p className="text-[9px] sm:text-xs md:text-sm font-medium text-muted-foreground leading-tight">Comprehensive Coverage</p>
               </div>
             </div>
           </div>
@@ -360,56 +372,56 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Choose Your Exam Section ─────────────────────────────────────── */}
-      <section id="courses" className="bg-card py-16 md:py-24">
-        <div className="max-w-[70rem] mx-auto px-4">
+      <section id="courses" className="bg-card py-8 sm:py-16 md:py-24">
+        <div className="max-w-[70rem] mx-auto px-3 sm:px-4">
           <div className="text-center max-w-2xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-black font-display text-foreground tracking-tight">
+            <h2 className="text-xl sm:text-4xl font-black font-display text-foreground tracking-tight leading-tight">
               Choose Your Exam
             </h2>
-            <p className="mt-3 text-base text-muted-foreground">
+            <p className="mt-1.5 sm:mt-3 text-xs sm:text-base text-muted-foreground">
               Focused preparation tracks tailored for every target competitive goal
             </p>
           </div>
 
-          <div className="mt-12 grid gap-8 md:grid-cols-3">
+          <div className="mt-6 sm:mt-12 grid gap-4 sm:gap-6 md:grid-cols-3">
             {/* IIT-JEE Card */}
             <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="p-3">
-                <div className="overflow-hidden rounded-xl bg-[#F7EFD9] dark:bg-[#121C3B] p-4 flex items-center justify-center">
+              <div className="p-2 sm:p-3">
+                <div className="overflow-hidden rounded-xl bg-[#F7EFD9] dark:bg-[#121C3B] p-2 sm:p-4 flex items-center justify-center">
                   <Image
                     src="/exam-svgs/iit-jee.svg"
                     alt="IIT-JEE courses"
                     width={400}
                     height={260}
-                    className="h-44 w-full object-contain transition-transform duration-500 group-hover:scale-105"
+                    className="h-28 sm:h-44 w-full object-contain transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
               </div>
-              <div className="px-6 pb-6 pt-2 flex flex-col flex-1">
-                <h3 className="mb-4 text-2xl font-black font-display text-foreground">
+              <div className="px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-2 flex flex-col flex-1">
+                <h3 className="mb-2 sm:mb-4 text-lg sm:text-2xl font-black font-display text-foreground">
                   IIT-JEE Main & Advanced
                 </h3>
-                <ul className="space-y-3 mb-6 flex-1">
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                <ul className="space-y-2 sm:space-y-3 mb-4 sm:mb-6 flex-1">
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     Strong Subject Conceptual Foundations
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     Advanced Problem-Solving Worksheets
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     Complete JEE Main & Advanced Syllabus
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     IIT Admission-Focused Test Series
                   </li>
                 </ul>
                 <button
                   onClick={() => setIsLoginModalOpen(true)}
-                  className="w-full text-center rounded-xl bg-primary/10 border border-primary/30 py-2.5 text-sm font-bold text-primary group-hover:bg-primary group-hover:text-navy transition-colors"
+                  className="w-full text-center rounded-xl bg-primary/10 border border-primary/30 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-primary group-hover:bg-primary group-hover:text-navy transition-colors"
                 >
                   Explore JEE Prep
                 </button>
@@ -418,42 +430,42 @@ export default function LandingPage() {
 
             {/* NEET Card */}
             <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="p-3">
-                <div className="overflow-hidden rounded-xl bg-[#F7EFD9] dark:bg-[#121C3B] p-4 flex items-center justify-center">
+              <div className="p-2 sm:p-3">
+                <div className="overflow-hidden rounded-xl bg-[#F7EFD9] dark:bg-[#121C3B] p-2 sm:p-4 flex items-center justify-center">
                   <Image
                     src="/exam-svgs/neet.svg"
                     alt="NEET courses"
                     width={400}
                     height={260}
-                    className="h-44 w-full object-contain transition-transform duration-500 group-hover:scale-105"
+                    className="h-28 sm:h-44 w-full object-contain transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
               </div>
-              <div className="px-6 pb-6 pt-2 flex flex-col flex-1">
-                <h3 className="mb-4 text-2xl font-black font-display text-foreground">
+              <div className="px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-2 flex flex-col flex-1">
+                <h3 className="mb-2 sm:mb-4 text-lg sm:text-2xl font-black font-display text-foreground">
                   NEET UG Medical
                 </h3>
-                <ul className="space-y-3 mb-6 flex-1">
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                <ul className="space-y-2 sm:space-y-3 mb-4 sm:mb-6 flex-1">
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     Dedicated Medical Entrance Focus
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     NCERT Line-by-Line Biology Breakdown
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     High-Yield Physics & Chemistry DPPs
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     NTA Replica CBT Mock Test Series
                   </li>
                 </ul>
                 <button
                   onClick={() => setIsLoginModalOpen(true)}
-                  className="w-full text-center rounded-xl bg-primary/10 border border-primary/30 py-2.5 text-sm font-bold text-primary group-hover:bg-primary group-hover:text-navy transition-colors"
+                  className="w-full text-center rounded-xl bg-primary/10 border border-primary/30 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-primary group-hover:bg-primary group-hover:text-navy transition-colors"
                 >
                   Explore NEET Prep
                 </button>
@@ -462,42 +474,42 @@ export default function LandingPage() {
 
             {/* Foundation Card */}
             <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="p-3">
-                <div className="overflow-hidden rounded-xl bg-[#F7EFD9] dark:bg-[#121C3B] p-4 flex items-center justify-center">
+              <div className="p-2 sm:p-3">
+                <div className="overflow-hidden rounded-xl bg-[#F7EFD9] dark:bg-[#121C3B] p-2 sm:p-4 flex items-center justify-center">
                   <Image
                     src="/exam-svgs/foundation.svg"
                     alt="Foundation courses"
                     width={400}
                     height={260}
-                    className="h-44 w-full object-contain transition-transform duration-500 group-hover:scale-105"
+                    className="h-28 sm:h-44 w-full object-contain transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
               </div>
-              <div className="px-6 pb-6 pt-2 flex flex-col flex-1">
-                <h3 className="mb-4 text-2xl font-black font-display text-foreground">
+              <div className="px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-2 flex flex-col flex-1">
+                <h3 className="mb-2 sm:mb-4 text-lg sm:text-2xl font-black font-display text-foreground">
                   Foundation (8th - 10th)
                 </h3>
-                <ul className="space-y-3 mb-6 flex-1">
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                <ul className="space-y-2 sm:space-y-3 mb-4 sm:mb-6 flex-1">
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     Classes 8th, 9th & 10th Curriculum
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     Olympiad & NTSE Groundwork
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     Early Competitive Exam Edge
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <li className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
                     Conceptual Science & Math Mastery
                   </li>
                 </ul>
                 <button
                   onClick={() => setIsLoginModalOpen(true)}
-                  className="w-full text-center rounded-xl bg-primary/10 border border-primary/30 py-2.5 text-sm font-bold text-primary group-hover:bg-primary group-hover:text-navy transition-colors"
+                  className="w-full text-center rounded-xl bg-primary/10 border border-primary/30 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-primary group-hover:bg-primary group-hover:text-navy transition-colors"
                 >
                   Explore Foundation
                 </button>
@@ -508,174 +520,233 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Mobile App Promotion ─────────────────────────────────────────── */}
-      <section id="mobile-app" className="bg-primary/5 py-16 md:py-24 border-y border-border">
-        <div className="max-w-[70rem] mx-auto px-4">
-          <div className="grid items-center gap-10 md:grid-cols-2">
+      <section id="mobile-app" className="bg-primary/5 py-10 sm:py-16 md:py-24 border-y border-border">
+        <div className="max-w-[70rem] mx-auto px-3 sm:px-4">
+          <div className="grid items-center gap-6 md:gap-10 md:grid-cols-2">
             <div className="text-center md:text-left">
-              <h2 className="text-3xl md:text-4xl font-black font-display text-foreground tracking-tight">
+              <h2 className="text-xl sm:text-3xl md:text-4xl font-black font-display text-foreground tracking-tight leading-tight">
                 Join thousands of students on the app today!
               </h2>
-              <ul className="mt-6 space-y-4 inline-block text-left">
-                <li className="flex items-center gap-3.5 text-base md:text-lg text-foreground font-semibold">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-navy">
-                    <Check className="h-4 w-4 stroke-[3]" />
+              <ul className="mt-4 sm:mt-6 space-y-2.5 sm:space-y-4 inline-block text-left">
+                <li className="flex items-center gap-2.5 sm:gap-3.5 text-xs sm:text-base md:text-lg text-foreground font-semibold">
+                  <span className="flex h-5 w-5 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full bg-primary text-navy">
+                    <Check className="h-3 w-3 sm:h-4 sm:w-4 stroke-[3]" />
                   </span>
                   Live & recorded classes available at ease
                 </li>
-                <li className="flex items-center gap-3.5 text-base md:text-lg text-foreground font-semibold">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-navy">
-                    <Check className="h-4 w-4 stroke-[3]" />
+                <li className="flex items-center gap-2.5 sm:gap-3.5 text-xs sm:text-base md:text-lg text-foreground font-semibold">
+                  <span className="flex h-5 w-5 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full bg-primary text-navy">
+                    <Check className="h-3 w-3 sm:h-4 sm:w-4 stroke-[3]" />
                   </span>
                   Smart dashboard for progress tracking
                 </li>
-                <li className="flex items-center gap-3.5 text-base md:text-lg text-foreground font-semibold">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-navy">
-                    <Check className="h-4 w-4 stroke-[3]" />
+                <li className="flex items-center gap-2.5 sm:gap-3.5 text-xs sm:text-base md:text-lg text-foreground font-semibold">
+                  <span className="flex h-5 w-5 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full bg-primary text-navy">
+                    <Check className="h-3 w-3 sm:h-4 sm:w-4 stroke-[3]" />
                   </span>
                   Lakhs of practice questions & PYQ banks
                 </li>
               </ul>
 
-              <div className="mt-8 flex flex-wrap justify-center md:justify-start gap-4">
+              <div className="mt-6 sm:mt-8 flex flex-wrap justify-center md:justify-start gap-2.5 sm:gap-4">
                 <button
                   onClick={() => setIsLoginModalOpen(true)}
-                  className="flex items-center gap-3 rounded-xl bg-navy px-6 py-3 text-white hover:bg-navy/90 transition-colors shadow-md"
+                  className="flex items-center gap-2.5 sm:gap-3 rounded-xl bg-navy px-4 py-2 sm:px-6 sm:py-3 text-white hover:bg-navy/90 transition-colors shadow-md"
                 >
-                  <Smartphone className="h-6 w-6 text-primary" />
+                  <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   <div className="text-left">
-                    <span className="block text-[10px] uppercase tracking-wider text-white/70">GET IT ON</span>
-                    <span className="block text-base font-bold">Google Play</span>
+                    <span className="block text-[9px] sm:text-[10px] uppercase tracking-wider text-white/70">GET IT ON</span>
+                    <span className="block text-xs sm:text-base font-bold">Google Play</span>
                   </div>
                 </button>
                 <button
                   onClick={() => setIsLoginModalOpen(true)}
-                  className="flex items-center gap-3 rounded-xl bg-navy px-6 py-3 text-white hover:bg-navy/90 transition-colors shadow-md"
+                  className="flex items-center gap-2.5 sm:gap-3 rounded-xl bg-navy px-4 py-2 sm:px-6 sm:py-3 text-white hover:bg-navy/90 transition-colors shadow-md"
                 >
-                  <Smartphone className="h-6 w-6 text-primary" />
+                  <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   <div className="text-left">
-                    <span className="block text-[10px] uppercase tracking-wider text-white/70">Download on the</span>
-                    <span className="block text-base font-bold">App Store</span>
+                    <span className="block text-[9px] sm:text-[10px] uppercase tracking-wider text-white/70">Download on the</span>
+                    <span className="block text-xs sm:text-base font-bold">App Store</span>
                   </div>
                 </button>
               </div>
             </div>
 
-            <div className="flex justify-center">
+            <div className="flex justify-center mt-2 sm:mt-0">
               <Image
                 src="/mobile-app.png"
                 alt="ARKE Scholars mobile app preview"
                 width={300}
                 height={500}
-                className="w-52 md:w-64 drop-shadow-2xl hover:scale-105 transition-transform duration-300"
+                className="w-36 sm:w-52 md:w-64 drop-shadow-2xl hover:scale-105 transition-transform duration-300"
               />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Meet Your Mentors Section ────────────────────────────────────── */}
-      <section id="mentors" className="bg-background py-16 md:py-24">
-        <div className="max-w-[70rem] mx-auto px-4">
-          <div className="text-center max-w-2xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-black font-display text-foreground tracking-tight">
-              Meet Your Mentors
+      {/* ─── Under the Shadow of TITANS Section ────────────────────────────────────── */}
+      <section id="mentors" className="bg-slate-50/70 py-8 sm:py-16 md:py-24 border-y border-emerald-100/60 overflow-hidden">
+        <div className="max-w-[70rem] mx-auto px-3 sm:px-6">
+          <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-12">
+            <h2 className="text-xl sm:text-4xl md:text-5xl font-black font-display text-[#0F6B3E] tracking-tight leading-tight">
+              Under the shadow of TITANS
             </h2>
-            <p className="mt-3 text-base text-muted-foreground">
-              IITians, IIMians & MIT graduates — here to guide your exam journey
+            <p className="mt-1.5 sm:mt-3 text-xs sm:text-base text-gray-600 font-medium">
+              Learn directly from MIT Graduates, IIM Alumni & Top IIT Rankers
             </p>
           </div>
 
-          <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-            {MENTORS.map((mentor, i) => (
-              <div
-                key={i}
-                className="flex flex-col items-center text-center rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="relative w-24 h-24 rounded-full overflow-hidden mb-4 border-2 border-primary/40 shadow-inner">
-                  <Image
-                    src={mentor.image}
-                    alt={mentor.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <h4 className="font-display font-bold text-lg text-foreground">{mentor.name}</h4>
-                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">{mentor.exp}</p>
+          {/* 1. MIT Hero Section */}
+          <div className="flex flex-col items-center mb-8 sm:mb-14">
+            <div className="bg-[#1B2952] text-white px-4 sm:px-7 py-0.5 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-black tracking-widest uppercase mb-2.5 sm:mb-5 shadow-md">
+              MIT
+            </div>
+            <div className="bg-white border-2 border-amber-400 rounded-2xl p-3.5 sm:p-6 shadow-md hover:shadow-lg transition-all flex flex-col items-center text-center max-w-[250px] sm:max-w-sm w-full">
+              <div className="relative w-20 h-24 sm:w-28 sm:h-32 rounded-xl overflow-hidden mb-2 sm:mb-3 border-2 border-amber-300 shadow-sm shrink-0">
+                <Image src={TITAN_HERO.image} alt={TITAN_HERO.name} fill className="object-cover" />
               </div>
-            ))}
+              <h3 className="font-extrabold text-base sm:text-xl text-gray-900 leading-snug">{TITAN_HERO.name}</h3>
+              <p className="text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 px-2 sm:px-3.5 py-0.5 sm:py-1 rounded-full mt-1 sm:mt-1.5 border border-emerald-200/60 leading-tight max-w-full truncate">
+                {TITAN_HERO.degree}
+              </p>
+              <p className="text-[9px] sm:text-[11px] font-semibold text-emerald-800 mt-1 leading-tight max-w-full truncate">
+                {TITAN_HERO.extra}
+              </p>
+            </div>
+          </div>
+
+          {/* 2. IIM Section */}
+          <div className="flex flex-col items-center mb-8 sm:mb-14">
+            <div className="bg-[#1B2952] text-white px-4 sm:px-7 py-0.5 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-black tracking-widest uppercase mb-3 sm:mb-6 shadow-md">
+              IIM
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-6 max-w-sm sm:max-w-md w-full">
+              {IIM_MENTORS.map((m, i) => (
+                <div key={i} className="bg-white border-2 border-amber-400/80 rounded-xl sm:rounded-2xl p-2 sm:p-4 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center min-w-0 w-full overflow-hidden">
+                  <div className="relative w-16 h-20 sm:w-20 sm:h-24 rounded-lg overflow-hidden mb-1.5 sm:mb-3 border border-amber-300 shadow-sm shrink-0">
+                    <Image src={m.image} alt={m.name} fill className="object-cover" />
+                  </div>
+                  <h4 className="font-bold text-xs sm:text-base text-gray-900 leading-snug w-full truncate">{m.name}</h4>
+                  <p className="text-[9px] sm:text-xs font-extrabold text-emerald-700 bg-emerald-50 px-1.5 sm:px-2.5 py-0.5 rounded-full mt-1 border border-emerald-200/50 leading-tight max-w-full truncate">
+                    {m.exp}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 3. IIT (Top 200) Section */}
+          <div className="flex flex-col items-center mb-8 sm:mb-14">
+            <div className="bg-[#1B2952] text-white px-4 sm:px-7 py-0.5 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-black tracking-widest uppercase mb-3 sm:mb-6 shadow-md">
+              IIT (Top 200)
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-5 w-full">
+              {IIT_TOP_RANKERS.map((m, i) => (
+                <div key={i} className="bg-white border-2 border-amber-400/70 hover:border-amber-500 rounded-xl p-2 sm:p-3.5 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center min-w-0 w-full overflow-hidden">
+                  <div className="relative w-16 h-20 sm:w-20 sm:h-24 rounded-lg overflow-hidden mb-1.5 sm:mb-2.5 border border-amber-300/60 shadow-sm shrink-0">
+                    <Image src={m.image} alt={m.name} fill className="object-cover" />
+                  </div>
+                  <h4 className="font-bold text-xs sm:text-sm text-gray-900 leading-snug w-full truncate">{m.name}</h4>
+                  <p className="text-[9px] sm:text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 sm:px-2 py-0.5 rounded-full mt-1 border border-emerald-200/50 leading-tight max-w-full truncate">
+                    {m.exp}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. Senior Faculty Section */}
+          <div className="flex flex-col items-center">
+            <div className="bg-[#1B2952] text-white px-4 sm:px-7 py-0.5 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-black tracking-widest uppercase mb-3 sm:mb-6 shadow-md">
+              Senior Faculty
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-5 max-w-2xl w-full">
+              {OTHER_FACULTY.map((m, i) => (
+                <div key={i} className="bg-white border border-slate-200 hover:border-amber-400 rounded-xl p-2 sm:p-3.5 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center min-w-0 w-full overflow-hidden">
+                  <div className="relative w-16 h-20 sm:w-20 sm:h-24 rounded-lg overflow-hidden mb-1.5 sm:mb-2.5 border border-slate-200 shadow-sm shrink-0">
+                    <Image src={m.image} alt={m.name} fill className="object-cover" />
+                  </div>
+                  <h4 className="font-bold text-xs sm:text-sm text-gray-900 leading-snug w-full truncate">{m.name}</h4>
+                  <p className="text-[9px] sm:text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 sm:px-2 py-0.5 rounded-full mt-1 border border-emerald-200/50 leading-tight max-w-full truncate">
+                    {m.exp}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* ─── Why ARKE Features Section ───────────────────────────────────── */}
-      <section id="features" className="bg-card py-16 md:py-24 border-t border-border">
-        <div className="max-w-[70rem] mx-auto px-4">
+      <section id="features" className="bg-card py-8 sm:py-16 md:py-24 border-t border-border">
+        <div className="max-w-[70rem] mx-auto px-3 sm:px-4">
           <div className="text-center max-w-2xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-black font-display text-foreground tracking-tight">
+            <h2 className="text-xl sm:text-4xl font-black font-display text-foreground tracking-tight leading-tight">
               Why ARKE Scholars?
             </h2>
-            <p className="mt-3 text-base text-muted-foreground">
+            <p className="mt-1.5 sm:mt-3 text-xs sm:text-base text-muted-foreground">
               Everything you need to crack JEE Main, JEE Advanced & NEET
             </p>
           </div>
 
-          <div className="mt-12 grid gap-8 md:grid-cols-3">
-            <div className="rounded-2xl border border-border bg-background p-6 space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <Video className="h-6 w-6" />
+          <div className="mt-6 sm:mt-12 grid gap-3 sm:gap-8 md:grid-cols-3">
+            <div className="rounded-2xl border border-border bg-background p-3.5 sm:p-6 space-y-2 sm:space-y-4">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <Video className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
-              <h3 className="text-xl font-bold font-display text-foreground">Interactive Live HD Classes</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-sm sm:text-xl font-bold font-display text-foreground">Interactive Live HD Classes</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Real-time classroom streaming with live polls, raised hand audio feature, and automatic topic-wise class recordings.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border bg-background p-6 space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <BookOpen className="h-6 w-6" />
+            <div className="rounded-2xl border border-border bg-background p-3.5 sm:p-6 space-y-2 sm:space-y-4">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <BookOpen className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
-              <h3 className="text-xl font-bold font-display text-foreground">Structured Study Material</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-sm sm:text-xl font-bold font-display text-foreground">Structured Study Material</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Chapter-wise theory notes, mind maps, formula handbooks, and line-by-line NCERT breakdowns for Physics, Chemistry & Biology.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border bg-background p-6 space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <FileText className="h-6 w-6" />
+            <div className="rounded-2xl border border-border bg-background p-3.5 sm:p-6 space-y-2 sm:space-y-4">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <FileText className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
-              <h3 className="text-xl font-bold font-display text-foreground">NTA-Pattern CBT Mock Tests</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-sm sm:text-xl font-bold font-display text-foreground">NTA-Pattern CBT Mock Tests</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Authentic computer-based test replica featuring chapter tests, major mock series, instant score analytics & All India Ranks.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border bg-background p-6 space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <BarChart className="h-6 w-6" />
+            <div className="rounded-2xl border border-border bg-background p-3.5 sm:p-6 space-y-2 sm:space-y-4">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <BarChart className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
-              <h3 className="text-xl font-bold font-display text-foreground">AI-Powered Analytics</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-sm sm:text-xl font-bold font-display text-foreground">AI-Powered Analytics</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Smart weakness heatmaps, score predictors, and automated level-wise revision problem recommendations.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border bg-background p-6 space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <Brain className="h-6 w-6" />
+            <div className="rounded-2xl border border-border bg-background p-3.5 sm:p-6 space-y-2 sm:space-y-4">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <Brain className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
-              <h3 className="text-xl font-bold font-display text-foreground">24/7 Doubt Resolution</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-sm sm:text-xl font-bold font-display text-foreground">24/7 Doubt Resolution</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Snap & solve photo engine providing instant step-by-step video solutions backed by live mentor assistance.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border bg-background p-6 space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <Shield className="h-6 w-6" />
+            <div className="rounded-2xl border border-border bg-background p-3.5 sm:p-6 space-y-2 sm:space-y-4">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <Shield className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
-              <h3 className="text-xl font-bold font-display text-foreground">1-on-1 Mentorship</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-sm sm:text-xl font-bold font-display text-foreground">1-on-1 Mentorship</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Dedicated personal academic counsellors to keep your study schedule on track and build exam confidence.
               </p>
             </div>
@@ -684,18 +755,18 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Frequently Asked Questions ───────────────────────────────────── */}
-      <section id="faqs" className="bg-background py-16 md:py-24">
-        <div className="max-w-4xl mx-auto px-4">
+      <section id="faqs" className="bg-background py-8 sm:py-16 md:py-24">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4">
           <div className="text-center">
-            <h2 className="text-3xl md:text-4xl font-black font-display text-foreground tracking-tight">
+            <h2 className="text-xl sm:text-4xl font-black font-display text-foreground tracking-tight leading-tight">
               Frequently Asked Questions
             </h2>
-            <p className="mt-3 text-base text-muted-foreground">
+            <p className="mt-1.5 sm:mt-3 text-xs sm:text-base text-muted-foreground">
               Got questions? We've got answers.
             </p>
           </div>
 
-          <div className="mt-10 space-y-4">
+          <div className="mt-5 sm:mt-10 space-y-2.5 sm:space-y-4">
             {FAQS.map((faq, index) => (
               <div
                 key={index}
@@ -703,10 +774,10 @@ export default function LandingPage() {
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                  className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left font-display font-bold text-lg text-foreground hover:text-primary transition-colors"
+                  className="flex w-full items-center justify-between gap-2.5 px-3.5 py-3 sm:px-6 sm:py-5 text-left font-display font-bold text-xs sm:text-lg text-foreground hover:text-primary transition-colors leading-snug"
                 >
                   <span>{faq.question}</span>
-                  <ChevronDown className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 ${openFaq === index ? "rotate-180 text-primary" : ""
+                  <ChevronDown className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-muted-foreground transition-transform duration-200 ${openFaq === index ? "rotate-180 text-primary" : ""
                     }`} />
                 </button>
 
@@ -717,7 +788,7 @@ export default function LandingPage() {
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="px-6 pb-5 text-sm text-muted-foreground leading-relaxed border-t border-border/50 pt-3"
+                      className="px-3.5 pb-3.5 sm:px-6 sm:pb-5 text-xs sm:text-sm text-muted-foreground leading-relaxed border-t border-border/50 pt-2.5"
                     >
                       {faq.answer}
                     </motion.div>
@@ -730,31 +801,31 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Bottom Call to Action Banner ──────────────────────────────────── */}
-      <section className="bg-gradient-to-r from-navy via-navy-light to-navy py-16 text-white text-center">
-        <div className="max-w-4xl mx-auto px-4 space-y-6">
-          <h2 className="text-3xl md:text-5xl font-black font-display tracking-tight text-white">
+      <section className="bg-gradient-to-r from-navy via-navy-light to-navy py-8 sm:py-16 text-white text-center">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-6">
+          <h2 className="text-xl sm:text-4xl md:text-5xl font-black font-display tracking-tight text-white leading-tight">
             Ready to Crack JEE or NEET?
           </h2>
-          <p className="text-base md:text-lg text-white/80 max-w-xl mx-auto">
+          <p className="text-xs sm:text-base md:text-lg text-white/80 max-w-xl mx-auto leading-relaxed">
             Join thousands of scholars achieving top ranks with ARKE Scholars today.
           </p>
           <div>
             <button
               onClick={() => setIsLoginModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] px-8 py-4 text-base font-bold text-navy shadow-xl hover:scale-105 transition-transform"
+              className="inline-flex items-center gap-1.5 rounded-pill bg-gradient-to-r from-[#E4B94F] via-[#C99A2E] to-[#9A6E1C] px-5 py-2.5 sm:px-8 sm:py-4 text-xs sm:text-base font-bold text-navy shadow-xl hover:scale-105 transition-transform"
             >
               Start Free Trial Now
-              <ArrowRight className="h-5 w-5" />
+              <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           </div>
         </div>
       </section>
 
       {/* ─── Footer ────────────────────────────────────────────────────────── */}
-      <footer className="bg-navy text-white/80 py-12 border-t border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-8 md:grid-cols-4">
+      <footer className="bg-navy text-white/80 py-6 sm:py-12 border-t border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-5 sm:gap-8 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
           {/* Brand Col */}
-          <div className="space-y-4">
+          <div className="space-y-2.5 sm:space-y-4">
             <div className="flex items-center gap-3">
               <ArkeLogo variant="light" size="md" />
             </div>
@@ -765,8 +836,8 @@ export default function LandingPage() {
 
           {/* Quick Links */}
           <div>
-            <h4 className="font-display font-bold text-sm text-white uppercase tracking-wider mb-4">Exam Prep</h4>
-            <ul className="space-y-2 text-xs">
+            <h4 className="font-display font-bold text-xs sm:text-sm text-white uppercase tracking-wider mb-2 sm:mb-4">Exam Prep</h4>
+            <ul className="space-y-1.5 sm:space-y-2 text-xs">
               <li><a href="#courses" className="hover:text-primary transition-colors">IIT-JEE Main & Advanced</a></li>
               <li><a href="#courses" className="hover:text-primary transition-colors">NEET UG Medical Prep</a></li>
               <li><a href="#courses" className="hover:text-primary transition-colors">Class 8th - 10th Foundation</a></li>
@@ -776,8 +847,8 @@ export default function LandingPage() {
 
           {/* Features Links */}
           <div>
-            <h4 className="font-display font-bold text-sm text-white uppercase tracking-wider mb-4">Features</h4>
-            <ul className="space-y-2 text-xs">
+            <h4 className="font-display font-bold text-xs sm:text-sm text-white uppercase tracking-wider mb-2 sm:mb-4">Features</h4>
+            <ul className="space-y-1.5 sm:space-y-2 text-xs">
               <li><a href="#features" className="hover:text-primary transition-colors">Interactive Live Classes</a></li>
               <li><a href="#features" className="hover:text-primary transition-colors">NCERT Study Material</a></li>
               <li><a href="#features" className="hover:text-primary transition-colors">AI Performance Analytics</a></li>
@@ -787,8 +858,8 @@ export default function LandingPage() {
 
           {/* Legal / Contact */}
           <div>
-            <h4 className="font-display font-bold text-sm text-white uppercase tracking-wider mb-4">Contact & Support</h4>
-            <ul className="space-y-2.5 text-xs text-white/70">
+            <h4 className="font-display font-bold text-xs sm:text-sm text-white uppercase tracking-wider mb-2 sm:mb-4">Contact & Support</h4>
+            <ul className="space-y-1.5 sm:space-y-2 text-xs text-white/70">
               <li className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
                 <span>Phone: <a href="tel:+917607151617" className="hover:text-white font-medium">+91-7607151617</a></span>
@@ -799,7 +870,7 @@ export default function LandingPage() {
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span>Email: <a href="mailto:Contact@arkescholars.com" className="hover:text-white font-medium">Contact@arkescholars.com</a></span>
+                <span className="truncate">Email: <a href="mailto:Contact@arkescholars.com" className="hover:text-white font-medium">Contact@arkescholars.com</a></span>
               </li>
               <li className="flex items-center gap-2">
                 <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -816,7 +887,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 mt-8 pt-6 border-t border-white/10 text-center text-xs text-white/50">
+        <div className="max-w-7xl mx-auto px-4 mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/10 text-center text-xs text-white/50">
           © 2026 ARKE Scholars (arkescholars.com). All rights reserved.
         </div>
       </footer>
