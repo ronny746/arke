@@ -3,7 +3,24 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
-import { ArrowLeft, CheckCircle, XCircle, AlertCircle, Award, PlayCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  CheckCircle, 
+  XCircle, 
+  AlertCircle, 
+  Award, 
+  PlayCircle, 
+  Loader2, 
+  ChevronDown, 
+  ChevronUp, 
+  BookOpen, 
+  Sparkles, 
+  RotateCcw, 
+  Eye, 
+  EyeOff,
+  CheckCircle2,
+  HelpCircle
+} from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card } from '@/components/ui/index.jsx';
 import { Button } from '@/components/ui/Button.jsx';
@@ -19,8 +36,10 @@ export default function ExamAnalysis() {
   const [generatingDPP, setGeneratingDPP] = useState(false);
   const [remedialDpps, setRemedialDpps] = useState([]);
   const [expandedSubject, setExpandedSubject] = useState(null);
-  const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
-  const [showMyAnswers, setShowMyAnswers] = useState(true);
+  
+  // Solution view modes: 'solutions' (show all options, chosen & correct option + solution) vs 'practice' (interactive self-practice)
+  const [viewMode, setViewMode] = useState<'solutions' | 'practice'>('solutions');
+  const [practiceState, setPracticeState] = useState<Record<string, { selectedOptionId: string | null; isRevealed: boolean }>>({});
 
   const handleGenerateDPP = async (parentSessionId = null, customWeakTopics = null) => {
     try {
@@ -99,6 +118,74 @@ export default function ExamAnalysis() {
     }
   };
 
+  const handlePracticeSelectOption = (questionId: string, optionId: string) => {
+    setPracticeState(prev => ({
+      ...prev,
+      [questionId]: {
+        selectedOptionId: optionId,
+        isRevealed: true
+      }
+    }));
+  };
+
+  const handleToggleRevealPractice = (questionId: string) => {
+    setPracticeState(prev => {
+      const current = prev[questionId] || { selectedOptionId: null, isRevealed: false };
+      return {
+        ...prev,
+        [questionId]: {
+          selectedOptionId: current.selectedOptionId,
+          isRevealed: !current.isRevealed
+        }
+      };
+    });
+  };
+
+  const handleResetPracticeQuestion = (questionId: string) => {
+    setPracticeState(prev => {
+      const updated = { ...prev };
+      delete updated[questionId];
+      return updated;
+    });
+  };
+
+  const handleRevealAllInActiveSubject = () => {
+    if (!data?.detailedQuestions) return;
+    const currentSubjectQuestions = data.detailedQuestions.filter(q => {
+      const subjectName = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
+      return subjectName === activeSubject;
+    });
+
+    setPracticeState(prev => {
+      const updated = { ...prev };
+      currentSubjectQuestions.forEach(q => {
+        updated[q._id] = {
+          selectedOptionId: updated[q._id]?.selectedOptionId || null,
+          isRevealed: true
+        };
+      });
+      return updated;
+    });
+    toast.success('All solutions in this subject revealed');
+  };
+
+  const handleResetAllInActiveSubject = () => {
+    if (!data?.detailedQuestions) return;
+    const currentSubjectQuestions = data.detailedQuestions.filter(q => {
+      const subjectName = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
+      return subjectName === activeSubject;
+    });
+
+    setPracticeState(prev => {
+      const updated = { ...prev };
+      currentSubjectQuestions.forEach(q => {
+        delete updated[q._id];
+      });
+      return updated;
+    });
+    toast.success('Practice reset for this subject');
+  };
+
   if (loading) {
     return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div></div>;
   }
@@ -111,6 +198,11 @@ export default function ExamAnalysis() {
     const value = Math.max(0, Math.round(Number(seconds) || 0));
     return value >= 60 ? `${Math.floor(value / 60)}m ${value % 60}s` : `${value}s`;
   };
+
+  const activeSubjectQuestions = detailedQuestions.filter(q => {
+    const subjectName = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
+    return subjectName === activeSubject;
+  });
 
   return (
     <div className="space-y-6 animate-fade-in p-6">
@@ -148,18 +240,6 @@ export default function ExamAnalysis() {
               <h3 className="text-xl font-bold text-gray-800">Comprehensive Performance Breakdown</h3>
               <p className="text-sm text-gray-500 mt-1">Detailed analysis by Subject, Topic, and Difficulty Level. Note: 'Weak' means accuracy &lt; 50%.</p>
             </div>
-            {/* DPP Generation Feature Hidden as requested */}
-            {false && remedialDpps.length === 0 && (
-              <Button 
-                size="sm" 
-                onClick={() => handleGenerateDPP()} 
-                disabled={generatingDPP}
-                className="bg-primary-600 hover:bg-primary-700 text-white shadow-md whitespace-nowrap"
-              >
-                {generatingDPP ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <PlayCircle className="w-4 h-4 mr-2" />}
-                Generate DPP for Weak Topics
-              </Button>
-            )}
           </div>
           
           <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 pb-4">
@@ -203,11 +283,6 @@ export default function ExamAnalysis() {
                           
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {['Easy', 'Medium', 'Hard'].map(diff => {
-                              const stats = nestedStats[subject][topic][diff] || {
-                                accuracy: 0,
-                                totalQuestions: 0
-                              };
-                              
                               // Calculate exact stats from detailedQuestions
                               const qs = detailedQuestions.filter(q => {
                                 const qSubj = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
@@ -276,193 +351,363 @@ export default function ExamAnalysis() {
         </Card>
       </div>
 
-      {/* Adaptive Remedial Track / DPP Generation Hidden as requested */}
-      {false && remedialDpps.length > 0 && (
-        <Card className="p-6 mt-6 border-primary-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center gap-3 mb-6">
-            <PlayCircle className="w-6 h-6 text-primary-600" />
-            <h3 className="text-xl font-bold text-gray-800">Adaptive Remedial Track</h3>
-          </div>
-          <div className="space-y-4">
-            {remedialDpps.map((dpp, index) => {
-              // Calculate weak topics for this specific DPP if completed
-              let dppWeakTopics = [];
-              if (dpp.status === 'COMPLETED') {
-                const topicStats = {};
-                // Look at all questions in the DPP. If not answered correctly, it counts as wrong.
-                dpp.questions?.forEach(q => {
-                  const ans = dpp.answers?.find(a => a.questionId === q.questionId || a.questionId === (q.question && q.question._id) || a.questionId === q._id);
-                  const isCorrect = ans ? ans.isCorrect : false;
-                  
-                  const qObj = q.question || q;
-                  const subject = qObj.subject?.name || qObj.subjectName || (typeof qObj.subject === 'string' ? qObj.subject : 'Unknown');
-                  const topic = qObj.topic?.name || qObj.topicName || (typeof qObj.topic === 'string' ? qObj.topic : 'Unknown');
-                  
-                  if (subject === 'Unknown' || topic === 'Unknown') return; // Skip if we can't identify
-
-                  const key = `${subject}||${topic}`;
-                  
-                  if (!topicStats[key]) topicStats[key] = { subject, topic, correct: 0, total: 0 };
-                  topicStats[key].total++;
-                  if (isCorrect) topicStats[key].correct++;
-                });
-                
-                Object.keys(topicStats).forEach(key => {
-                  const acc = (topicStats[key].correct / topicStats[key].total) * 100;
-                  if (acc < 50) dppWeakTopics.push({ subject: topicStats[key].subject, topic: topicStats[key].topic });
-                });
-              }
-
-              const isLatestLevel = index === remedialDpps.length - 1;
-
-              return (
-                <div key={dpp._id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span className="bg-primary-100 text-primary-700 font-bold px-2 py-1 rounded text-xs">Level {index + 1}</span>
-                      <h4 className="font-bold text-gray-800">{dpp.title}</h4>
-                    </div>
-                    <div className="mt-2 text-sm text-gray-500">
-                      Status: <span className={`font-semibold ${dpp.status === 'COMPLETED' ? 'text-success-600' : 'text-amber-600'}`}>{dpp.status.replace('_', ' ')}</span>
-                      {dpp.status === 'COMPLETED' && ` • Score: ${dpp.score} / ${dpp.totalMarks}`}
-                    </div>
-                    {dpp.status === 'COMPLETED' && dppWeakTopics.length > 0 && (
-                      <div className="mt-2 text-sm text-danger-600 font-medium">
-                        <AlertCircle className="w-4 h-4 inline mr-1" />
-                        Still weak in: {dppWeakTopics.map(t => t.topic).join(', ')}
-                      </div>
-                    )}
-                    {dpp.status === 'COMPLETED' && dppWeakTopics.length === 0 && dpp.score > 0 && (
-                      <div className="mt-2 text-sm text-success-600 font-medium">
-                        <CheckCircle className="w-4 h-4 inline mr-1" />
-                        Mastered all topics in this session!
-                      </div>
-                    )}
-                    {dpp.status === 'COMPLETED' && dppWeakTopics.length === 0 && dpp.score === 0 && (
-                      <div className="mt-2 text-sm text-amber-600 font-medium">
-                        <AlertCircle className="w-4 h-4 inline mr-1" />
-                        Score is 0. Attempt more questions to improve.
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    {dpp.status === 'COMPLETED' ? (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => router.push(`/student/practice/${dpp._id}/play`)}>Review</Button>
-                        {dppWeakTopics.length > 0 && isLatestLevel && (
-                          <Button 
-                            variant="primary" 
-                            size="sm" 
-                            disabled={generatingDPP}
-                            onClick={() => handleGenerateDPP(dpp._id, dppWeakTopics)}
-                          >
-                            Generate Level {index + 2} DPP
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <Button variant="primary" size="sm" onClick={() => router.push(`/student/practice/${dpp._id}/play`)}>Resume</Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
-
       <Card className="overflow-hidden mt-6">
-        <div className="flex border-b overflow-x-auto">
+        {/* Subject Navigation Tabs */}
+        <div className="flex border-b overflow-x-auto bg-gray-50/50">
           {subjects.map(sub => (
             <button
               key={sub}
               onClick={() => setActiveSubject(sub)}
-              className={`px-6 py-4 font-semibold whitespace-nowrap transition-colors ${activeSubject === sub ? 'border-b-2 border-primary-600 text-primary-600 bg-primary-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+              className={`px-6 py-4 font-semibold whitespace-nowrap transition-colors ${activeSubject === sub ? 'border-b-2 border-primary-600 text-primary-600 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
             >
               {sub} ({subjectStats[sub].score} M)
             </button>
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-b bg-white px-6 py-3">
-          <span className="mr-1 text-xs font-bold uppercase tracking-wide text-gray-500">Review answers</span>
-          <button type="button" aria-pressed={showCorrectAnswers} onClick={() => setShowCorrectAnswers(value => !value)} className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${showCorrectAnswers ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>Show correct answers</button>
-          <button type="button" aria-pressed={showMyAnswers} onClick={() => setShowMyAnswers(value => !value)} className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${showMyAnswers ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>Show my answers</button>
-          {!showCorrectAnswers && !showMyAnswers && <span className="text-xs text-amber-700">Choose at least one answer view to review options.</span>}
+        {/* View Mode Switcher Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b bg-white px-6 py-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Solution View:</span>
+            <div className="inline-flex rounded-xl bg-gray-100 p-1 border border-gray-200 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setViewMode('solutions')}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                  viewMode === 'solutions'
+                    ? 'bg-white text-primary-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                Full Solutions View
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('practice')}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                  viewMode === 'practice'
+                    ? 'bg-primary-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Practice Mode (Self-Test)
+              </button>
+            </div>
+          </div>
+
+          {viewMode === 'practice' ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRevealAllInActiveSubject}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                Reveal All Solutions
+              </button>
+              <button
+                type="button"
+                onClick={handleResetAllInActiveSubject}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset Subject
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500 font-medium">
+              Showing all questions with chosen answers, correct solutions & explanations
+            </div>
+          )}
         </div>
 
-        <div className="p-6 space-y-8 bg-gray-50">
-          {detailedQuestions.filter(q => {
-            const subjectName = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
-            return subjectName === activeSubject;
-          }).map((q, index) => {
+        {/* Informational Banner for Practice Mode */}
+        {viewMode === 'practice' && (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200 px-6 py-3 flex items-center gap-3 text-amber-900 text-xs sm:text-sm">
+            <Sparkles className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>
+              <strong>Practice Mode Active:</strong> Test your understanding! Click on any option to verify your answer and reveal the step-by-step solution.
+            </span>
+          </div>
+        )}
+
+        {/* Questions List */}
+        <div className="p-6 space-y-8 bg-gray-50/60">
+          {activeSubjectQuestions.map((q, index) => {
             const isAttempted = q.userAnswer && q.userAnswer.status !== 'NOT_ANSWERED';
             const isCorrect = q.isCorrect;
+            const practice = practiceState[q._id] || { selectedOptionId: null, isRevealed: false };
 
             return (
-              <div key={q._id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex gap-3 items-start">
-                    <span className="bg-gray-100 text-gray-700 font-bold px-3 py-1 rounded">Q {index + 1}</span>
-                    <div className="prose max-w-none text-gray-800" dangerouslySetInnerHTML={{ __html: q.questionText }} />
+              <div key={q._id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200/80 transition-all hover:shadow-md">
+                {/* Question Top Header */}
+                <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3 mb-4 pb-3 border-b border-gray-100">
+                  <div className="flex gap-3 items-start flex-1">
+                    <span className="bg-primary-50 text-primary-700 font-bold px-3 py-1.5 rounded-lg text-sm whitespace-nowrap border border-primary-100 shadow-xs">
+                      Q {index + 1}
+                    </span>
+                    <div className="prose max-w-none text-gray-800 text-base font-medium" dangerouslySetInnerHTML={{ __html: q.questionText }} />
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="text-sm font-medium text-gray-500 whitespace-nowrap">Marks: {q.marks} | -{q.negativeMarks}</span>
-                    {!isAttempted ? (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-bold flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Skipped</span>
-                    ) : isCorrect ? (
-                      <span className="px-2 py-1 bg-success-100 text-success-700 text-xs rounded-full font-bold flex items-center gap-1"><CheckCircle className="w-3 h-3"/> Correct (+{q.marksObtained})</span>
-                    ) : (
-                      <span className="px-2 py-1 bg-danger-100 text-danger-700 text-xs rounded-full font-bold flex items-center gap-1"><XCircle className="w-3 h-3"/> Incorrect ({q.marksObtained})</span>
+                  <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-2 shrink-0">
+                    <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md">
+                      Marks: +{q.marks} | -{q.negativeMarks}
+                    </span>
+                    {viewMode === 'solutions' && (
+                      <div>
+                        {!isAttempted ? (
+                          <span className="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs rounded-full font-bold flex items-center gap-1 border border-amber-200">
+                            <AlertCircle className="w-3.5 h-3.5"/> Skipped in Exam
+                          </span>
+                        ) : isCorrect ? (
+                          <span className="px-2.5 py-1 bg-success-50 text-success-700 text-xs rounded-full font-bold flex items-center gap-1 border border-success-200">
+                            <CheckCircle className="w-3.5 h-3.5"/> Correct in Exam (+{q.marksObtained})
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 bg-danger-50 text-danger-700 text-xs rounded-full font-bold flex items-center gap-1 border border-danger-200">
+                            <XCircle className="w-3.5 h-3.5"/> Incorrect in Exam ({q.marksObtained})
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div className="mb-4 ml-12 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Your time: {q.studentTimeSeconds > 0 ? formatSeconds(q.studentTimeSeconds) : 'Not recorded'}</span>
-                  <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">Class average: {q.averageTimeSeconds > 0 ? formatSeconds(q.averageTimeSeconds) : 'Not available yet'}</span>
-                </div>
+                {/* Question Time Analytics (in solutions mode) */}
+                {viewMode === 'solutions' && (
+                  <div className="mb-4 ml-0 sm:ml-11 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 border border-slate-200/60">
+                      Your time: {q.studentTimeSeconds > 0 ? formatSeconds(q.studentTimeSeconds) : 'Not recorded'}
+                    </span>
+                    <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800 border border-violet-200/60">
+                      Class average: {q.averageTimeSeconds > 0 ? formatSeconds(q.averageTimeSeconds) : 'Not available yet'}
+                    </span>
+                  </div>
+                )}
 
-                <div className="space-y-3 pl-12">
-                  {q.options.filter((opt) => {
-                    const isSelected = q.userAnswer && (q.userAnswer.selectedOptionId === opt._id || q.userAnswer.selectedOptionId === opt.id);
-                    return (showCorrectAnswers && opt.isCorrect) || (showMyAnswers && isSelected);
-                  }).map((opt) => {
-                    const isSelected = q.userAnswer && (q.userAnswer.selectedOptionId === opt._id || q.userAnswer.selectedOptionId === opt.id);
-                    const isActualCorrect = opt.isCorrect;
-                    
-                    let borderClass = 'border-gray-200';
-                    let bgClass = 'bg-white';
-                    let icon = null;
-
-                    if (isActualCorrect) {
-                      borderClass = 'border-success-500 ring-1 ring-success-500';
-                      bgClass = 'bg-success-50';
-                      icon = <CheckCircle className="w-5 h-5 text-success-500" />;
-                    } else if (isSelected && !isActualCorrect) {
-                      borderClass = 'border-danger-500';
-                      bgClass = 'bg-danger-50';
-                      icon = <XCircle className="w-5 h-5 text-danger-500" />;
-                    }
-
-                    return (
-                      <div key={opt._id} className={`flex items-center gap-3 p-3 rounded-lg border ${borderClass} ${bgClass}`}>
-                        <div className="w-5 flex justify-center">{icon}</div>
-                        <div className="text-gray-800" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                {/* Practice Mode Feedback Banner (when revealed) */}
+                {viewMode === 'practice' && practice.isRevealed && (
+                  <div className="mb-4 ml-0 sm:ml-11">
+                    {practice.selectedOptionId ? (
+                      (() => {
+                        const selectedOpt = q.options.find(opt => opt._id === practice.selectedOptionId || opt.id === practice.selectedOptionId);
+                        const isSelectionCorrect = selectedOpt?.isCorrect;
+                        return isSelectionCorrect ? (
+                          <div className="p-3 bg-success-50 border border-success-200 rounded-xl flex items-center justify-between text-success-800 text-sm font-semibold animate-fade-in">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-5 h-5 text-success-600" />
+                              <span>🎉 Spot on! You chose the correct option!</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleResetPracticeQuestion(q._id)}
+                              className="text-xs text-success-700 hover:text-success-900 underline flex items-center gap-1 font-bold"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Practice Again
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-rose-800 text-sm font-semibold animate-fade-in">
+                            <div className="flex items-center gap-2">
+                              <XCircle className="w-5 h-5 text-rose-600" />
+                              <span>Incorrect choice. The correct option is highlighted in green below.</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleResetPracticeQuestion(q._id)}
+                              className="text-xs text-rose-700 hover:text-rose-900 underline flex items-center gap-1 font-bold"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Try Again
+                            </button>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-blue-800 text-sm font-semibold animate-fade-in">
+                        <div className="flex items-center gap-2">
+                          <Eye className="w-5 h-5 text-blue-600" />
+                          <span>Solution revealed. The correct answer is highlighted in green below.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleResetPracticeQuestion(q._id)}
+                          className="text-xs text-blue-700 hover:text-blue-900 underline flex items-center gap-1 font-bold"
+                        >
+                          <RotateCcw className="w-3 h-3" /> Practice Again
+                        </button>
                       </div>
-                    );
+                    )}
+                  </div>
+                )}
+
+                {/* Options List */}
+                <div className="space-y-3 sm:pl-11">
+                  {q.options.map((opt, optIndex) => {
+                    const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
+                    
+                    if (viewMode === 'solutions') {
+                      // Mode 1: Full Solution View (All options with chosen and correct option clearly highlighted)
+                      const isChosenByStudent = q.userAnswer && (q.userAnswer.selectedOptionId === opt._id || q.userAnswer.selectedOptionId === opt.id);
+                      const isActualCorrect = opt.isCorrect;
+
+                      let containerStyle = 'border-gray-200 bg-white hover:border-gray-300';
+                      let labelStyle = 'bg-gray-100 text-gray-700 border-gray-300';
+                      let badge = null;
+
+                      if (isActualCorrect && isChosenByStudent) {
+                        containerStyle = 'border-success-500 bg-success-50/70 ring-1 ring-success-500';
+                        labelStyle = 'bg-success-600 text-white border-success-600';
+                        badge = (
+                          <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
+                            <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Your Choice (Correct)
+                          </span>
+                        );
+                      } else if (isActualCorrect) {
+                        containerStyle = 'border-success-500 bg-success-50/50 ring-1 ring-success-500';
+                        labelStyle = 'bg-success-600 text-white border-success-600';
+                        badge = (
+                          <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
+                            <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Correct Answer
+                          </span>
+                        );
+                      } else if (isChosenByStudent && !isActualCorrect) {
+                        containerStyle = 'border-danger-500 bg-danger-50/70 ring-1 ring-danger-500';
+                        labelStyle = 'bg-danger-600 text-white border-danger-600';
+                        badge = (
+                          <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-danger-300">
+                            <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Choice (Incorrect)
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <div key={opt._id} className={`flex items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${containerStyle}`}>
+                          <div className="flex items-start sm:items-center gap-3 flex-1">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border shrink-0 ${labelStyle}`}>
+                              {optionLabel}
+                            </div>
+                            <div className="text-gray-800 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                          </div>
+                          {badge && <div className="shrink-0 ml-2">{badge}</div>}
+                        </div>
+                      );
+                    } else {
+                      // Mode 2: Practice Mode (Clean options initially, interactive click reveals answer & solution)
+                      if (!practice.isRevealed) {
+                        return (
+                          <div
+                            key={opt._id}
+                            onClick={() => handlePracticeSelectOption(q._id, opt._id)}
+                            className="flex items-start sm:items-center gap-3 p-3.5 rounded-xl border border-gray-200 bg-white hover:border-primary-400 hover:bg-primary-50/40 hover:shadow-sm cursor-pointer transition-all group"
+                          >
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border border-gray-300 bg-gray-100 text-gray-700 group-hover:bg-primary-600 group-hover:text-white group-hover:border-primary-600 transition-colors shrink-0">
+                              {optionLabel}
+                            </div>
+                            <div className="text-gray-800 text-sm leading-relaxed flex-1 group-hover:text-gray-900" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                            <span className="text-[11px] font-semibold text-gray-400 group-hover:text-primary-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                              Click to select
+                            </span>
+                          </div>
+                        );
+                      } else {
+                        // Practice Mode when revealed
+                        const isSelectedInPractice = practice.selectedOptionId === opt._id || practice.selectedOptionId === opt.id;
+                        const isActualCorrect = opt.isCorrect;
+
+                        let containerStyle = 'border-gray-200 bg-white';
+                        let labelStyle = 'bg-gray-100 text-gray-700 border-gray-300';
+                        let badge = null;
+
+                        if (isActualCorrect && isSelectedInPractice) {
+                          containerStyle = 'border-success-500 bg-success-50/70 ring-1 ring-success-500';
+                          labelStyle = 'bg-success-600 text-white border-success-600';
+                          badge = (
+                            <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
+                              <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Your Selection (Correct)
+                            </span>
+                          );
+                        } else if (isActualCorrect) {
+                          containerStyle = 'border-success-500 bg-success-50/60 ring-1 ring-success-500';
+                          labelStyle = 'bg-success-600 text-white border-success-600';
+                          badge = (
+                            <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
+                              <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Correct Answer
+                            </span>
+                          );
+                        } else if (isSelectedInPractice && !isActualCorrect) {
+                          containerStyle = 'border-danger-500 bg-danger-50/70 ring-1 ring-danger-500';
+                          labelStyle = 'bg-danger-600 text-white border-danger-600';
+                          badge = (
+                            <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-danger-300">
+                              <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Selection (Incorrect)
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <div key={opt._id} className={`flex items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${containerStyle}`}>
+                            <div className="flex items-start sm:items-center gap-3 flex-1">
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border shrink-0 ${labelStyle}`}>
+                                {optionLabel}
+                              </div>
+                              <div className="text-gray-800 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                            </div>
+                            {badge && <div className="shrink-0 ml-2">{badge}</div>}
+                          </div>
+                        );
+                      }
+                    }
                   })}
-                  {!showCorrectAnswers && !showMyAnswers && <p className="rounded-lg border border-dashed border-gray-300 bg-white px-3 py-3 text-sm text-gray-500">Turn on “Show correct answers” or “Show my answers” above.</p>}
-                  {showCorrectAnswers || showMyAnswers ? null : null}
                 </div>
 
-                {q.explanation && (
-                  <div className="mt-4 ml-12 p-4 bg-primary-50 rounded-lg border border-primary-100">
-                    <div className="flex items-center gap-2 text-primary-700 font-semibold mb-2 text-sm">
-                      <Award className="w-4 h-4 text-primary-500" /> Explanation & Solution
+                {/* Practice Mode Action Toolbar (Show Solution Button / Reset) */}
+                {viewMode === 'practice' && (
+                  <div className="mt-4 sm:ml-11 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                    {!practice.isRevealed ? (
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <HelpCircle className="w-3.5 h-3.5 text-gray-400" /> Select an option above to test yourself, or
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleRevealPractice(q._id)}
+                          className="text-xs text-primary-700 border-primary-200 hover:bg-primary-50"
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1" />
+                          Show Solution & Answer
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between w-full">
+                        <button
+                          type="button"
+                          onClick={() => handleResetPracticeQuestion(q._id)}
+                          className="text-xs font-bold text-gray-600 hover:text-gray-900 flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" /> Re-attempt Question
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRevealPractice(q._id)}
+                          className="text-xs font-semibold text-gray-500 hover:text-gray-700 flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <EyeOff className="w-3.5 h-3.5" /> Hide Solution
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Full Explanation & Solution Card (shown in Full Solutions View or in Practice Mode when revealed) */}
+                {q.explanation && (viewMode === 'solutions' || (viewMode === 'practice' && practice.isRevealed)) && (
+                  <div className="mt-5 sm:ml-11 p-5 bg-gradient-to-br from-primary-50/70 to-indigo-50/40 rounded-xl border border-primary-100 shadow-inner animate-fade-in">
+                    <div className="flex items-center gap-2 text-primary-800 font-bold mb-3 text-sm">
+                      <Award className="w-4 h-4 text-primary-600" />
+                      Complete Step-by-Step Solution & Explanation
                     </div>
-                    <div className="text-gray-700 text-sm prose max-w-none" dangerouslySetInnerHTML={{ __html: q.explanation }} />
+                    <div className="text-gray-700 text-sm leading-relaxed prose max-w-none bg-white/70 p-4 rounded-lg border border-primary-100/50" dangerouslySetInnerHTML={{ __html: q.explanation }} />
                   </div>
                 )}
               </div>
