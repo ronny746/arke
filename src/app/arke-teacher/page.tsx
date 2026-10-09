@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Lock, Mail, GraduationCap, Video, FileText, MessageSquare, Star } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, Phone, GraduationCap, Video, FileText, MessageSquare, Star } from 'lucide-react';
 import Image from 'next/image';
 import ArkeLogo from '@/components/ArkeLogo';
 import toast from 'react-hot-toast';
@@ -17,6 +17,7 @@ const features = [
 
 export default function TeacherLogin() {
   const [email, setEmail] = useState('');
+  const [authMethod, setAuthMethod] = useState<'email' | 'mobile'>('email');
   const [otp, setOtp] = useState('');
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,18 +25,23 @@ export default function TeacherLogin() {
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) { toast.error('Please enter your email'); return; }
+    if (!email) { toast.error(`Please enter your ${authMethod === 'email' ? 'email address' : 'mobile number'}`); return; }
+    if (authMethod === 'mobile' && email.replace(/\D/g, '').slice(-10).length !== 10) {
+      toast.error('Please enter a valid 10-digit mobile number');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/auth/email/request-otp', {
+      const mobile = email.replace(/\D/g, '').slice(-10);
+      const res = await fetch(authMethod === 'email' ? '/api/v1/auth/email/request-otp' : '/api/v1/auth/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role: 'teacher' })
+        body: JSON.stringify(authMethod === 'email' ? { email, role: 'teacher' } : { phone: mobile, role: 'teacher' })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to send OTP');
       
-      toast.success('OTP sent to your email!');
+      toast.success(`OTP sent to your ${authMethod === 'email' ? 'email' : 'registered mobile number'}!`);
       setShowOtpInput(true);
     } catch (error: any) {
       toast.error(error.message || 'Failed to send OTP');
@@ -49,10 +55,11 @@ export default function TeacherLogin() {
     if (!otp) { toast.error('Please enter the OTP'); return; }
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/auth/email/verify-otp', {
+      const mobile = email.replace(/\D/g, '').slice(-10);
+      const res = await fetch(authMethod === 'email' ? '/api/v1/auth/email/verify-otp' : '/api/v1/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp, role: 'teacher' }) 
+        body: JSON.stringify(authMethod === 'email' ? { email, otp, role: 'teacher' } : { phone: mobile, otp, role: 'teacher' })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Login failed');
@@ -167,14 +174,19 @@ export default function TeacherLogin() {
             {/* Email */}
             {!showOtpInput && (
               <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Email Address</label>
+                <div className="mb-3 grid grid-cols-2 rounded-xl bg-gray-100 p-1" role="group" aria-label="Choose sign-in method">
+                  <button type="button" onClick={() => { setAuthMethod('email'); setEmail(''); }} className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${authMethod === 'email' ? 'bg-white text-green-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Email OTP</button>
+                  <button type="button" onClick={() => { setAuthMethod('mobile'); setEmail(''); }} className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${authMethod === 'mobile' ? 'bg-white text-green-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Mobile OTP</button>
+                </div>
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">{authMethod === 'email' ? 'Email address' : 'Registered mobile number'}</label>
                 <div className="relative">
-                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  {authMethod === 'email' ? <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" /> : <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />}
                   <input
-                    type="email"
+                    type={authMethod === 'email' ? 'email' : 'tel'}
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="teacher@arke.pro"
+                    placeholder={authMethod === 'email' ? 'teacher@arke.pro' : '9876543210'}
+                    inputMode={authMethod === 'email' ? 'email' : 'numeric'}
                     className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-100 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-green-500 transition-all text-sm font-medium"
                     required
                   />
@@ -203,7 +215,7 @@ export default function TeacherLogin() {
                   onClick={() => setShowOtpInput(false)}
                   className="text-xs text-green-600 mt-2 hover:underline"
                 >
-                  Change Email
+                  Change {authMethod === 'email' ? 'email' : 'mobile number'}
                 </button>
               </div>
             )}

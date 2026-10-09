@@ -351,6 +351,20 @@ export default function StudentDashboard() {
         </div>
       </header>
 
+      {activeClasses.length > 0 && (() => {
+        const liveClass: any = activeClasses[0];
+        const schedule = liveClass.classScheduleId || {};
+        const subject = schedule.subjectId?.name || 'Live class';
+        const batch = [schedule.batchId?.name, schedule.batchId?.section ? `Section ${schedule.batchId.section}` : ''].filter(Boolean).join(' · ');
+        const joinUrl = liveClass.meetingLink || liveClass.startUrl;
+        return <section className="animate-pulse rounded-3xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 p-1 shadow-xl shadow-emerald-700/20 motion-reduce:animate-none">
+          <div className="flex flex-col gap-4 rounded-[1.35rem] bg-[#063d35]/92 px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-300 text-[#063d35]"><Video size={20} /></span><div><p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-200">Live now · your batch</p><h2 className="mt-0.5 text-lg font-black">{subject}</h2><p className="mt-0.5 text-sm text-emerald-50/80">{batch || 'Your scheduled class'}{liveClass.teacherId ? ` · ${liveClass.teacherId.firstName || ''} ${liveClass.teacherId.lastName || ''}`.trim() : ''}</p></div></div>
+            <button type="button" onClick={() => joinUrl ? window.open(joinUrl, '_blank', 'noopener,noreferrer') : toast.error('Meeting link is not available yet.')} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 py-3 text-sm font-black text-[#0B132B] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]">Join now <ArrowRight size={17} /></button>
+          </div>
+        </section>;
+      })()}
+
       {/* Promotional Banners Carousel */}
       <BannerCarousel />
 

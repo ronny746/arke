@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Link as LinkIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Link as LinkIcon, Search } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { DataTable, RowActions } from '@/components/tables/DataTable.jsx';
 import { Card, Avatar, Badge } from '@/components/ui/index.jsx';
@@ -27,6 +27,10 @@ export default function Parents() {
   const [showDelete, setShowDelete] = useState(null);
   const [showLink, setShowLink] = useState(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentClassFilter, setStudentClassFilter] = useState('');
+  const [studentBatchFilter, setStudentBatchFilter] = useState('');
+  const [batches, setBatches] = useState([]);
   const [formLoading, setFormLoading] = useState(false);
   
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '', status: 'active' });
@@ -34,6 +38,7 @@ export default function Parents() {
   useEffect(() => {
     fetchParents();
     fetchStudents(); // Pre-fetch students for linking
+    adminAPI.getBatches().then(res => setBatches(res.data?.data || [])).catch(() => setBatches([]));
   }, []);
 
   const fetchParents = async () => {
@@ -142,6 +147,16 @@ export default function Parents() {
       setFormLoading(false);
     }
   };
+
+  const linkableStudents = students.filter((student: any) => {
+    const search = studentSearch.trim().toLowerCase();
+    const metadata = student.metadata || {};
+    const studentClass = metadata.studentClass || metadata.class || student.class || '';
+    const rollNo = metadata.rollNo || student.rollNo || '';
+    const studentBatchIds = (student.batchIds || student.batches || []).map((batch: any) => String(batch?._id || batch));
+    const matchesSearch = !search || `${student.firstName || ''} ${student.lastName || ''} ${student.email || ''} ${student.phone || ''} ${rollNo}`.toLowerCase().includes(search);
+    return matchesSearch && (!studentClassFilter || String(studentClass) === studentClassFilter) && (!studentBatchFilter || studentBatchIds.includes(studentBatchFilter));
+  });
 
   const columns = [
     {
@@ -296,11 +311,17 @@ export default function Parents() {
               <div className="mb-4 text-sm text-surface-600">
                 Linking student to parent: <span className="font-semibold">{showLink.firstName} {showLink.lastName}</span>
               </div>
+              <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                <label className="relative sm:col-span-3"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" /><Input value={studentSearch} onChange={e => setStudentSearch(e.target.value)} placeholder="Search name, roll number, mobile or email" className="pl-9" /></label>
+                <Select value={studentClassFilter} onChange={e => setStudentClassFilter(e.target.value)}><option value="">All classes</option>{['Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'Dropper'].map(value => <option key={value} value={value}>{value}</option>)}</Select>
+                <Select value={studentBatchFilter} onChange={e => setStudentBatchFilter(e.target.value)}><option value="">All batches</option>{batches.map((batch: any) => <option key={batch._id || batch.id} value={batch._id || batch.id}>{batch.name}{batch.section ? ` · ${batch.section}` : ''}</option>)}</Select>
+                <p className="self-center text-xs text-surface-500">{linkableStudents.length} matching student{linkableStudents.length === 1 ? '' : 's'}</p>
+              </div>
               <FormField label="Select Student" required>
                 <Select value={selectedStudentId} onChange={e => setSelectedStudentId(e.target.value)} required>
                   <option value="">-- Choose Student --</option>
-                  {students.map(s => (
-                    <option key={s._id || s.id} value={s._id || s.id}>{s.firstName} {s.lastName} ({s.email})</option>
+                  {linkableStudents.map((s: any) => (
+                    <option key={s._id || s.id} value={s._id || s.id}>{s.firstName} {s.lastName} · {s.metadata?.rollNo || s.rollNo || 'Roll pending'}{s.metadata?.studentClass || s.metadata?.class || s.class ? ` · ${s.metadata?.studentClass || s.metadata?.class || s.class}` : ''}</option>
                   ))}
                 </Select>
               </FormField>

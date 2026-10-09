@@ -89,6 +89,7 @@ export default function TeacherFlagsPage() {
   // Modal / DPP Creator State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState<{ _id: string; firstName: string; lastName: string } | null>(null);
+  const [targetStudentIds, setTargetStudentIds] = useState<string[]>([]);
   const [selectedTopicsForDPP, setSelectedTopicsForDPP] = useState<string[]>([]);
   const [targetSubject, setTargetSubject] = useState<string>('General');
   const [dppMode, setDppMode] = useState<'AUTO' | 'MANUAL'>('AUTO');
@@ -326,9 +327,19 @@ export default function TeacherFlagsPage() {
 
   // Topics available for currently targeted student in modal
   const studentAvailableTopics = useMemo(() => {
-    if (!targetStudent?._id) return [];
-    return flags.filter(f => f.studentId?._id === targetStudent._id);
-  }, [flags, targetStudent]);
+    if (targetStudentIds.length === 0) return [];
+    return flags.filter(f => targetStudentIds.includes(f.studentId?._id || '') && f.subjectName === targetSubject);
+  }, [flags, targetStudentIds, targetSubject]);
+
+  const targetStudentNames = useMemo(() => {
+    const names = new Map<string, string>();
+    flags.forEach(flag => {
+      if (targetStudentIds.includes(flag.studentId?._id || '') && flag.studentId) {
+        names.set(flag.studentId._id, `${flag.studentId.firstName} ${flag.studentId.lastName}`.trim());
+      }
+    });
+    return Array.from(names.values());
+  }, [flags, targetStudentIds]);
 
   // Open Modal for Single Flag
   const handleOpenSingleDPP = (flag: TopicFlag) => {
@@ -338,6 +349,7 @@ export default function TeacherFlagsPage() {
       firstName: flag.studentId.firstName,
       lastName: flag.studentId.lastName
     });
+    setTargetStudentIds([flag.studentId._id]);
     setTargetSubject(flag.subjectName || 'General');
     setSelectedTopicsForDPP([flag.topicName]);
     setDppMode('AUTO');
@@ -354,21 +366,28 @@ export default function TeacherFlagsPage() {
 
   // Open Modal for Multiple Selected Flags or Selected Student
   const handleOpenMultiTopicDPP = (studentOverride?: { _id: string; firstName: string; lastName: string }) => {
+    const selectedFlagObjects = flags.filter(f => selectedFlagIds.includes(f._id) && f.studentId?._id);
+    const selectedRecipientIds = [...new Set(selectedFlagObjects.map(f => f.studentId!._id))];
     const student = studentOverride || (selectedStudentId !== 'ALL' 
       ? uniqueStudents.find(s => s._id === selectedStudentId) 
-      : null);
+      : selectedFlagObjects[0]?.studentId || null);
 
     if (!student) {
       toast.error('Please filter by a specific student or select topic rows first.');
       return;
     }
 
-    const studentFlags = flags.filter(f => f.studentId?._id === student._id);
+    const recipientIds = studentOverride || selectedStudentId !== 'ALL'
+      ? [student._id]
+      : selectedRecipientIds;
+    const studentFlags = flags.filter(f => recipientIds.includes(f.studentId?._id || ''));
     let topicsToSelect: string[] = [];
     
-    if (selectedFlagIds.length > 0) {
-      const selectedFlagObjects = flags.filter(f => selectedFlagIds.includes(f._id) && f.studentId?._id === student._id);
-      topicsToSelect = selectedFlagObjects.map(f => f.topicName);
+    const primarySubject = selectedFlagObjects[0]?.subjectName || studentFlags[0]?.subjectName || 'General';
+    if (selectedFlagObjects.length > 0) {
+      topicsToSelect = selectedFlagObjects
+        .filter(f => f.subjectName === primarySubject)
+        .map(f => f.topicName);
     }
     
     if (topicsToSelect.length === 0) {
@@ -385,10 +404,10 @@ export default function TeacherFlagsPage() {
       firstName: 'firstName' in student ? (student as any).firstName : student.name.split(' ')[0],
       lastName: 'lastName' in student ? (student as any).lastName : student.name.split(' ').slice(1).join(' ')
     });
+    setTargetStudentIds(recipientIds);
 
-    const primarySubject = studentFlags[0]?.subjectName || 'General';
     setTargetSubject(primarySubject);
-    setSelectedTopicsForDPP(topicsToSelect);
+    setSelectedTopicsForDPP([...new Set(topicsToSelect)]);
     setDppMode('AUTO');
     setAutoDifficulty('Easy');
     setAutoNumQuestions(Math.min(30, Math.max(10, topicsToSelect.length * 3)));
@@ -435,12 +454,13 @@ export default function TeacherFlagsPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setTargetStudent(null);
+    setTargetStudentIds([]);
     setSelectedTopicsForDPP([]);
   };
 
   // Auto Generate Multi-Topic DPP
   const handleGenerateAutoDPP = async () => {
-    if (!targetStudent?._id) {
+    if (targetStudentIds.length === 0) {
       toast.error('Invalid student selection');
       return;
     }
@@ -458,12 +478,12 @@ export default function TeacherFlagsPage() {
       }));
 
       const matchedFlagIds = flags
-        .filter(f => f.studentId?._id === targetStudent._id && selectedTopicsForDPP.includes(f.topicName))
+        .filter(f => targetStudentIds.includes(f.studentId?._id || '') && f.subjectName === targetSubject && selectedTopicsForDPP.includes(f.topicName))
         .map(f => f._id);
 
       const res = await teacherAPI.generateDPP({
         sessionType: 'DPP',
-        targetStudentId: targetStudent._id,
+        studentIds: targetStudentIds,
         subject: targetSubject,
         topics: selectedTopicsForDPP,
         subjectTopicPairs,
@@ -473,7 +493,7 @@ export default function TeacherFlagsPage() {
       });
 
       if (res.data?.success) {
-        toast.success(`Multi-Topic Remedial DPP (${selectedTopicsForDPP.length} topics) assigned to ${targetStudent.firstName}!`);
+        toast.success(`Remedial DPP assigned to ${targetStudentIds.length} student${targetStudentIds.length === 1 ? '' : 's'}.`);
         handleCloseModal();
         setSelectedFlagIds([]);
         fetchFlags();
@@ -516,7 +536,7 @@ export default function TeacherFlagsPage() {
 
   // Save Manual DPP
   const handleSaveManualDPP = async () => {
-    if (!targetStudent?._id) {
+    if (targetStudentIds.length === 0) {
       toast.error('Invalid student selection');
       return;
     }
@@ -531,12 +551,12 @@ export default function TeacherFlagsPage() {
     try {
       setSavingManual(true);
       const matchedFlagIds = flags
-        .filter(f => f.studentId?._id === targetStudent._id && selectedTopicsForDPP.includes(f.topicName))
+        .filter(f => targetStudentIds.includes(f.studentId?._id || '') && f.subjectName === targetSubject && selectedTopicsForDPP.includes(f.topicName))
         .map(f => f._id);
 
       const res = await teacherAPI.createManualDPP({
         sessionType: 'DPP',
-        targetStudentId: targetStudent._id,
+        studentIds: targetStudentIds,
         title: dppTitle.trim() || `Remedial DPP: ${targetSubject} (${selectedTopicsForDPP.join(', ')})`,
         subject: targetSubject,
         topics: selectedTopicsForDPP,
@@ -546,7 +566,7 @@ export default function TeacherFlagsPage() {
       });
 
       if (res.data?.success) {
-        toast.success(`Custom Multi-Topic DPP assigned to ${targetStudent.firstName}!`);
+        toast.success(`Custom remedial DPP assigned to ${targetStudentIds.length} student${targetStudentIds.length === 1 ? '' : 's'}.`);
         handleCloseModal();
         setSelectedFlagIds([]);
         fetchFlags();
@@ -1233,7 +1253,7 @@ export default function TeacherFlagsPage() {
                     </span>
                   </div>
                   <h3 className="text-lg sm:text-xl font-black text-white">
-                    Assign Remedial DPP for {targetStudent.firstName} {targetStudent.lastName}
+                    Assign Remedial DPP to {targetStudentIds.length === 1 ? `${targetStudent.firstName} ${targetStudent.lastName}` : `${targetStudentIds.length} selected students`}
                   </h3>
                   <p className="text-xs text-gray-300 mt-0.5">
                     Subject: <strong className="text-white">{targetSubject}</strong> • Choose topics and configure auto/manual question set
@@ -1358,7 +1378,7 @@ export default function TeacherFlagsPage() {
                     <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 text-xs text-gray-600 space-y-1">
                       <p>• <strong>Subject:</strong> {targetSubject}</p>
                       <p>• <strong>Selected Topics ({selectedTopicsForDPP.length}):</strong> {selectedTopicsForDPP.join(', ')}</p>
-                      <p>• <strong>Target Student:</strong> {targetStudent.firstName} {targetStudent.lastName}</p>
+                      <p>• <strong>Recipients:</strong> {targetStudentNames.slice(0, 3).join(', ')}{targetStudentNames.length > 3 ? ` +${targetStudentNames.length - 3} more` : ''}</p>
                       <p>• <strong>Student Access:</strong> The student will immediately see this DPP in their portal under <em>Daily Practice (DPP)</em>.</p>
                     </div>
                   </div>

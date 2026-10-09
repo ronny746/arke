@@ -47,6 +47,17 @@ export default function ExamPlayer() {
   
   const timerRef = useRef(null);
   const snapshotIntervalRef = useRef(null);
+  const questionOpenedAtRef = useRef(Date.now());
+
+  const elapsedForQuestion = (questionId) => {
+    const existing = submission?.answers?.find(answer => answer.questionId === questionId);
+    const elapsed = Math.max(0, Math.ceil((Date.now() - questionOpenedAtRef.current) / 1000));
+    return Number(existing?.timeSpentSeconds || 0) + elapsed;
+  };
+
+  useEffect(() => {
+    questionOpenedAtRef.current = Date.now();
+  }, [currentQIdx]);
 
   const takeAndUploadSnapshot = async () => {
     if (!videoRef.current || !canvasRef.current || submitting) return;
@@ -273,7 +284,7 @@ export default function ExamPlayer() {
     if (existingIdx === -1) {
       newAnswers.push({ questionId: qId, selectedOptionId: null, status: 'NOT_ANSWERED' });
       setSubmission({ ...submission, answers: newAnswers });
-      studentAPI.saveAnswer(id, { questionId: qId, selectedOptionId: null, status: 'NOT_ANSWERED' }).catch(()=>{});
+      studentAPI.saveAnswer(id, { questionId: qId, selectedOptionId: null, status: 'NOT_ANSWERED', timeSpentSeconds: elapsedForQuestion(qId) }).catch(()=>{});
     }
   }, [currentQIdx, examState, submitting]);
 
@@ -287,7 +298,7 @@ export default function ExamPlayer() {
       newAnswers.push({ questionId, selectedOptionId: optionId, status: 'NOT_ANSWERED' });
     }
     setSubmission({ ...submission, answers: newAnswers });
-    studentAPI.saveAnswer(id, { questionId, selectedOptionId: optionId, status: newAnswers[existingIdx]?.status || 'NOT_ANSWERED' }).catch(()=>{});
+    studentAPI.saveAnswer(id, { questionId, selectedOptionId: optionId, status: newAnswers[existingIdx]?.status || 'NOT_ANSWERED', timeSpentSeconds: elapsedForQuestion(questionId) }).catch(()=>{});
   };
 
   const goToNext = () => {
@@ -316,7 +327,7 @@ export default function ExamPlayer() {
       ans.status = status;
     }
     setSubmission({ ...submission, answers: newAnswers });
-    await studentAPI.saveAnswer(id, { questionId: qId, selectedOptionId: ans.selectedOptionId, status }).catch(()=>{});
+    await studentAPI.saveAnswer(id, { questionId: qId, selectedOptionId: ans.selectedOptionId, status, timeSpentSeconds: elapsedForQuestion(qId) }).catch(()=>{});
     goToNext();
   };
 
@@ -350,7 +361,7 @@ export default function ExamPlayer() {
       newAnswers[existingIdx].selectedOptionId = null;
       newAnswers[existingIdx].status = 'NOT_ANSWERED';
       setSubmission({ ...submission, answers: newAnswers });
-      await studentAPI.saveAnswer(id, { questionId, selectedOptionId: null, status: 'NOT_ANSWERED' });
+      await studentAPI.saveAnswer(id, { questionId, selectedOptionId: null, status: 'NOT_ANSWERED', timeSpentSeconds: elapsedForQuestion(questionId) });
     }
   };
 

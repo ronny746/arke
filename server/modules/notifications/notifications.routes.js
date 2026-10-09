@@ -18,7 +18,7 @@ router.post(
 
 router.post('/devices', validate(registerPushDeviceSchema), NotificationsController.registerPushDevice);
 router.delete('/devices', NotificationsController.removePushDevice);
-router.post('/broadcast', rbacMiddleware.requireRole([ROLES.SUPER_ADMIN]), validate(broadcastNotificationSchema), NotificationsController.broadcastNotification);
+router.post('/broadcast', rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.TEACHER]), validate(broadcastNotificationSchema), NotificationsController.broadcastNotification);
 
 router.get(
   '/',

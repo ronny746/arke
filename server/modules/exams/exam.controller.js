@@ -5,7 +5,7 @@ const { getTopicFlag } = require('../arke-portal/portal.rules');
 const FlagService = require('../performance-flags/performance-flags.service');
 const { createRemedialSessions } = require('../arke-portal/remedial.service');
 
-const calculateAnalysisData = (submission, questions) => {
+const calculateAnalysisData = (submission, questions, averageTimeByQuestion = new Map()) => {
   let totalMarks = 0;
   let score = 0;
   let subjectStats = {};
@@ -82,6 +82,8 @@ const calculateAnalysisData = (submission, questions) => {
 
     totalMarks += qMarks;
     qObj.userAnswer = userAns || null;
+    qObj.studentTimeSeconds = Number(userAns?.timeSpentSeconds || 0);
+    qObj.averageTimeSeconds = Number(averageTimeByQuestion.get(String(q._id)) || 0);
     let isCorrect = false;
     let marksObtained = 0;
 
@@ -172,6 +174,17 @@ const calculateAnalysisData = (submission, questions) => {
     totalMarks,
     score
   };
+};
+
+const getQuestionAverageTimes = async (examId) => {
+  const ExamSubmission = require('./exam-submission.model');
+  const rows = await ExamSubmission.aggregate([
+    { $match: { exam: new (require('mongoose').Types.ObjectId)(examId), status: { $in: ['SUBMITTED', 'AUTO_SUBMITTED'] } } },
+    { $unwind: '$answers' },
+    { $match: { 'answers.timeSpentSeconds': { $gt: 0 } } },
+    { $group: { _id: '$answers.questionId', averageTimeSeconds: { $avg: '$answers.timeSpentSeconds' } } }
+  ]);
+  return new Map(rows.map(row => [String(row._id), Math.round(row.averageTimeSeconds)]));
 };
 
 exports.createExam = async (req, res) => {
@@ -574,7 +587,7 @@ exports.getParentExamAnalysis = async (req, res) => {
       .populate('topic', 'name')
       .sort('order');
 
-    const analysis = calculateAnalysisData(submission, questions);
+    const analysis = calculateAnalysisData(submission, questions, await getQuestionAverageTimes(examId));
 
     res.status(200).json({
       success: true,
@@ -619,7 +632,7 @@ exports.getExamAnalysis = async (req, res) => {
       .populate('topic', 'name')
       .sort('order');
 
-    const analysis = calculateAnalysisData(submission, questions);
+    const analysis = calculateAnalysisData(submission, questions, await getQuestionAverageTimes(examId));
 
     res.status(200).json({
       success: true,
@@ -664,7 +677,7 @@ exports.getAdminExamAnalysis = async (req, res) => {
       .populate('topic', 'name')
       .sort('order');
 
-    const analysis = calculateAnalysisData(submission, questions);
+    const analysis = calculateAnalysisData(submission, questions, await getQuestionAverageTimes(examId));
 
     res.status(200).json({
       success: true,
@@ -732,7 +745,7 @@ exports.startExam = async (req, res) => {
 
 exports.saveAnswer = async (req, res) => {
   try {
-    const { questionId, selectedOptionId, status, violations } = req.body;
+    const { questionId, selectedOptionId, status, violations, timeSpentSeconds } = req.body;
     const examId = req.params.id;
     const studentId = req.user.userId;
     const ExamSubmission = require('./exam-submission.model');
@@ -746,11 +759,15 @@ exports.saveAnswer = async (req, res) => {
     if (ansIndex !== -1) {
       submission.answers[ansIndex].selectedOptionId = selectedOptionId;
       submission.answers[ansIndex].status = status || 'ANSWERED';
+      if (Number.isFinite(Number(timeSpentSeconds))) {
+        submission.answers[ansIndex].timeSpentSeconds = Math.max(Number(submission.answers[ansIndex].timeSpentSeconds || 0), Math.max(0, Math.floor(Number(timeSpentSeconds))));
+      }
     } else {
       submission.answers.push({
         questionId,
         selectedOptionId,
-        status: status || 'ANSWERED'
+        status: status || 'ANSWERED',
+        timeSpentSeconds: Number.isFinite(Number(timeSpentSeconds)) ? Math.max(0, Math.floor(Number(timeSpentSeconds))) : 0
       });
     }
 

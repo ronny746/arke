@@ -82,12 +82,29 @@ exports.getFilters = async (req, res) => {
 // Generate a new DPP or Practice Session
 exports.generateSession = async (req, res) => {
   try {
-    const { sessionType = 'DPP', subject, chapter, topic, topics, subjectTopicPairs, difficulty, numberOfQuestions, linkedExamId, parentSessionId, studentId: customStudentId, targetStudentId, flagId, flagIds } = req.body;
+    const { sessionType = 'DPP', subject, chapter, topic, topics, subjectTopicPairs, difficulty, numberOfQuestions, linkedExamId, parentSessionId, studentId: customStudentId, targetStudentId, studentIds, flagId, flagIds } = req.body;
     const instituteId = req.user.instituteId;
-    
-    let studentId = req.user.userId;
-    if ((req.user.role === 'teacher' || req.user.role === 'admin' || req.user.role === 'superadmin' || req.user.role === 'ADMIN' || req.user.role === 'TEACHER') && (customStudentId || targetStudentId)) {
-      studentId = customStudentId || targetStudentId;
+    const role = String(req.user.role || '').toLowerCase();
+    const isStaff = ['teacher', 'admin', 'superadmin', 'admin_acadops'].includes(role);
+    const requestedStudentIds = [...new Set((Array.isArray(studentIds) ? studentIds : [customStudentId || targetStudentId]).filter(Boolean).map(String))];
+    const recipientIds = isStaff && requestedStudentIds.length ? requestedStudentIds : [String(req.user.userId)];
+    const studentId = recipientIds[0];
+
+    if (role === 'teacher') {
+      const Batch = require('../batches/batches.model');
+      const accessibleBatches = await Batch.find({
+        instituteId,
+        students: { $in: recipientIds },
+        $or: [{ batchTeacherId: req.user.userId }, { teachers: req.user.userId }]
+      }).select('students');
+      const allowed = new Set(accessibleBatches.flatMap(batch => (batch.students || []).map(id => String(id))));
+      if (recipientIds.some(id => !allowed.has(id))) {
+        return res.status(403).json({ success: false, message: 'A selected student is not in one of your assigned batches.' });
+      }
+    }
+    if (isStaff) {
+      const validCount = await UserModel.countDocuments({ _id: { $in: recipientIds }, instituteId, role: 'student', isActive: true });
+      if (validCount !== recipientIds.length) return res.status(400).json({ success: false, message: 'One or more selected students are inactive or unavailable.' });
     }
 
     if (!sessionType || !['DPP', 'PRACTICE'].includes(sessionType)) {
@@ -265,10 +282,9 @@ exports.generateSession = async (req, res) => {
       : (subject || 'Remedial');
     const title = `${sessionType} - ${displayTopic} (${embeddedQuestions.length} Qs)`;
     
-    const isByTeacher = (req.user.role === 'teacher' || req.user.role === 'admin' || req.user.role === 'superadmin' || req.user.role === 'ADMIN' || req.user.role === 'TEACHER') || (studentId && req.user.userId && studentId.toString() !== req.user.userId.toString());
+    const isByTeacher = isStaff || (studentId && req.user.userId && studentId.toString() !== req.user.userId.toString());
 
     const sessionData = {
-      student: studentId,
       institute: instituteId,
       sessionType,
       title,
@@ -286,11 +302,21 @@ exports.generateSession = async (req, res) => {
     if (linkedExamId) sessionData.linkedExamId = linkedExamId;
     if (parentSessionId) sessionData.parentSessionId = parentSessionId;
 
-    const session = await PracticeSession.create(sessionData);
+    const sessions = await PracticeSession.insertMany(recipientIds.map(recipientId => ({ ...sessionData, student: recipientId })));
+    const session = sessions[0];
 
     if (Array.isArray(flagIds) && flagIds.length > 0) {
       const PerformanceFlag = require('../performance-flags/performance-flags.model');
-      await PerformanceFlag.updateMany({ _id: { $in: flagIds } }, { $set: { remedialSessionId: session._id } });
+      const sessionsByStudentId = new Map(sessions.map(createdSession => [String(createdSession.student), createdSession._id]));
+      const selectedFlags = await PerformanceFlag.find({ _id: { $in: flagIds }, studentId: { $in: recipientIds } }).select('_id studentId');
+      if (selectedFlags.length) {
+        await PerformanceFlag.bulkWrite(selectedFlags.map(flag => ({
+          updateOne: {
+            filter: { _id: flag._id },
+            update: { $set: { remedialSessionId: sessionsByStudentId.get(String(flag.studentId)) || session._id } }
+          }
+        })));
+      }
     } else if (flagId) {
       const PerformanceFlag = require('../performance-flags/performance-flags.model');
       await PerformanceFlag.findByIdAndUpdate(flagId, { remedialSessionId: session._id });
@@ -303,7 +329,19 @@ exports.generateSession = async (req, res) => {
       );
     }
     
-    res.status(201).json({ success: true, message: 'DPP generated and assigned successfully!', data: session });
+    if (isStaff) {
+      const NotificationsService = require('../notifications/notifications.service');
+      await NotificationsService.createForUsers({
+        instituteId,
+        userIds: recipientIds,
+        title: 'New remedial DPP assigned',
+        message: `${title} is ready for you.`,
+        type: 'INFO',
+        metadata: { entityType: 'practice', sessionIds: sessions.map(createdSession => String(createdSession._id)) },
+        io: req.app.get('io')
+      });
+    }
+    res.status(201).json({ success: true, message: `DPP assigned to ${sessions.length} student${sessions.length === 1 ? '' : 's'} successfully!`, data: sessions.length === 1 ? session : { assigned: sessions.length, sessions } });
     
   } catch (error) {
     console.error("Error generating session:", error);
@@ -317,6 +355,7 @@ exports.createManualSession = async (req, res) => {
     const {
       studentId: customStudentId,
       targetStudentId,
+      studentIds,
       sessionType = 'DPP',
       title,
       subject,
@@ -331,13 +370,33 @@ exports.createManualSession = async (req, res) => {
     } = req.body;
 
     const instituteId = req.user.instituteId;
-    let studentId = req.user.userId;
-    if ((req.user.role === 'teacher' || req.user.role === 'admin' || req.user.role === 'superadmin' || req.user.role === 'ADMIN' || req.user.role === 'TEACHER') && (customStudentId || targetStudentId)) {
-      studentId = customStudentId || targetStudentId;
+    const role = String(req.user.role || '').toLowerCase();
+    const isStaff = ['teacher', 'admin', 'superadmin', 'admin_acadops'].includes(role);
+    const requestedStudentIds = [...new Set((Array.isArray(studentIds) ? studentIds : [customStudentId || targetStudentId]).filter(Boolean).map(String))];
+    const recipientIds = isStaff && requestedStudentIds.length ? requestedStudentIds : [String(req.user.userId)];
+
+    if (!recipientIds.length) {
+      return res.status(400).json({ success: false, message: 'Student ID is required.' });
     }
 
-    if (!studentId) {
-      return res.status(400).json({ success: false, message: 'Student ID is required.' });
+    // Never let a teacher assign work to unrelated students. A teacher can
+    // target only learners in a batch explicitly assigned to that teacher.
+    if (role === 'teacher') {
+      const Batch = require('../batches/batches.model');
+      const accessibleBatches = await Batch.find({
+        instituteId,
+        students: { $in: recipientIds },
+        $or: [{ batchTeacherId: req.user.userId }, { teachers: req.user.userId }]
+      }).select('students');
+      const accessibleStudentIds = new Set(accessibleBatches.flatMap(batch => (batch.students || []).map(id => String(id))));
+      const forbidden = recipientIds.filter(id => !accessibleStudentIds.has(id));
+      if (forbidden.length) return res.status(403).json({ success: false, message: 'A selected student is not in one of your assigned batches.' });
+    }
+
+    if (isStaff) {
+      const User = require('../users/users.model');
+      const validCount = await User.countDocuments({ _id: { $in: recipientIds }, instituteId, role: 'student', isActive: true });
+      if (validCount !== recipientIds.length) return res.status(400).json({ success: false, message: 'One or more selected students are inactive or unavailable.' });
     }
 
     let finalQuestions = [];
@@ -408,7 +467,7 @@ exports.createManualSession = async (req, res) => {
 
     const sessionTitle = title || `Remedial DPP: ${subject || 'General'} - ${topic || 'Practice'} (${finalQuestions.length} Qs)`;
 
-    const session = await PracticeSession.create({
+    const sessions = await PracticeSession.insertMany(recipientIds.map(studentId => ({
       student: studentId,
       institute: instituteId,
       sessionType: sessionType || 'DPP',
@@ -422,27 +481,42 @@ exports.createManualSession = async (req, res) => {
       totalQuestions: finalQuestions.length,
       totalMarks,
       score: 0
-    });
+    })));
 
     if (Array.isArray(flagIds) && flagIds.length > 0) {
       const PerformanceFlag = require('../performance-flags/performance-flags.model');
-      await PerformanceFlag.updateMany({ _id: { $in: flagIds } }, { $set: { remedialSessionId: session._id } });
-    } else if (flagId) {
+      const sessionsByStudentId = new Map(sessions.map(createdSession => [String(createdSession.student), createdSession._id]));
+      const selectedFlags = await PerformanceFlag.find({ _id: { $in: flagIds }, studentId: { $in: recipientIds } }).select('_id studentId');
+      await PerformanceFlag.bulkWrite(selectedFlags.map(flag => ({
+        updateOne: { filter: { _id: flag._id }, update: { $set: { remedialSessionId: sessionsByStudentId.get(String(flag.studentId)) } } }
+      })));
+    } else if (flagId && recipientIds.length === 1) {
       const PerformanceFlag = require('../performance-flags/performance-flags.model');
-      await PerformanceFlag.findByIdAndUpdate(flagId, { remedialSessionId: session._id });
-    } else if (studentId && (topic || (topics && topics.length > 0))) {
+      await PerformanceFlag.findByIdAndUpdate(flagId, { remedialSessionId: sessions[0]._id });
+    } else if (recipientIds.length && (topic || (topics && topics.length > 0))) {
       const topicList = topics && topics.length > 0 ? topics : [topic];
       const PerformanceFlag = require('../performance-flags/performance-flags.model');
       await PerformanceFlag.updateMany(
-        { studentId, topicName: { $in: topicList }, flag: { $in: ['RED', 'YELLOW'] } },
-        { $set: { remedialSessionId: session._id } }
+        { studentId: { $in: recipientIds }, topicName: { $in: topicList }, flag: { $in: ['RED', 'YELLOW'] } },
+        { $set: { remedialSessionId: sessions[0]._id } }
       );
     }
 
+    const NotificationsService = require('../notifications/notifications.service');
+    await NotificationsService.createForUsers({
+      instituteId,
+      userIds: recipientIds,
+      title: 'New remedial DPP assigned',
+      message: `${sessionTitle} is ready for you.`,
+      type: 'INFO',
+      metadata: { entityType: 'practice', sessionIds: sessions.map(session => String(session._id)) },
+      io: req.app.get('io')
+    });
+
     return res.status(201).json({
       success: true,
-      message: 'Custom DPP assigned to student successfully!',
-      data: session
+      message: `Custom DPP assigned to ${sessions.length} student${sessions.length === 1 ? '' : 's'} successfully!`,
+      data: sessions.length === 1 ? sessions[0] : { assigned: sessions.length, sessions }
     });
   } catch (error) {
     console.error('Error creating manual DPP session:', error);

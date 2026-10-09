@@ -127,6 +127,7 @@ export default function StudentLayout({ children }) {
         { icon: LayoutList, label: 'My Courses', to: '/student/batches' },
         { icon: BookOpen, label: 'Study Materials', to: '/student/study-materials' },
         { icon: Video, label: 'Live Classes', to: '/student/live-classes' },
+        { icon: Calendar, label: 'Timetable', to: '/student/timetable' },
         { icon: MessageSquare, label: 'Q&A / Doubts', to: '/student/doubts' },
       ]
     },
@@ -143,6 +144,7 @@ export default function StudentLayout({ children }) {
   const isRestricted = (
     (pathname.includes('/student/study-materials') && !access.studyMaterials) ||
     (pathname.includes('/student/live-classes') && !access.liveClasses) ||
+    (pathname.includes('/student/timetable') && !access.liveClasses) ||
     ((pathname.includes('/student/dpp') || pathname.includes('/student/practice')) && !access.dpps) ||
     (pathname.includes('/student/exams') && !access.testSeries)
   );

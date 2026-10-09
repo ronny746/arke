@@ -8,5 +8,6 @@ exports.startLiveClassSchema = Joi.object({
 });
 
 exports.endLiveClassSchema = Joi.object({
-  recordingUrl: Joi.string().uri().optional()
+  recordingUrl: Joi.string().uri().optional(),
+  notesUrl: Joi.string().uri().optional()
 });

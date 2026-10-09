@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, Video, FileText, CheckCircle, ArrowUpRight, BookOpen, Star, Clock, GraduationCap } from 'lucide-react';
+import { Users, Video, FileText, CheckCircle, ArrowUpRight, BookOpen, Star, Clock, GraduationCap, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function TeacherDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [activeClasses, setActiveClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,10 +20,11 @@ export default function TeacherDashboard() {
     const fetchDashboard = async () => {
       try {
         const { teacherAPI } = await import('@/api/teacher');
-        const res = await teacherAPI.getDashboard();
+        const [res, liveRes] = await Promise.all([teacherAPI.getDashboard(), teacherAPI.getLiveClasses()]);
         if (res.data?.success) {
           setDashboardData(res.data.data);
         }
+        setActiveClasses((liveRes.data?.data || []).filter((item: any) => item.status === 'ONGOING'));
       } catch (err) {
         console.error(err);
       } finally {
@@ -56,6 +58,35 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
+      {activeClasses.length > 0 && (() => {
+        const liveClass = activeClasses[0];
+        const schedule = liveClass.classScheduleId || {};
+        const joinUrl = liveClass.startUrl || liveClass.meetingLink;
+        return <section className="animate-pulse rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-700 p-1 shadow-lg shadow-emerald-800/20 motion-reduce:animate-none">
+          <div className="flex flex-col gap-3 rounded-[0.9rem] bg-[#063d35]/95 p-4 text-white sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-3"><span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-300 text-[#063d35]"><Radio size={19} /></span><div><p className="text-[10px] font-black tracking-[0.12em] text-emerald-200">YOUR CLASS IS LIVE</p><h2 className="mt-0.5 font-black">{schedule.subjectId?.name || 'Live class'} · {schedule.batchId?.name || 'Batch'}</h2><p className="mt-0.5 text-xs text-emerald-50/80">Students can join now. Reopen Zoom or end the session from Live Classes.</p></div></div><button type="button" onClick={() => joinUrl && window.open(joinUrl, '_blank', 'noopener,noreferrer')} className="rounded-xl bg-amber-300 px-4 py-2.5 text-xs font-black text-[#0B132B] shadow-sm transition-transform hover:scale-[1.02]">Rejoin live class</button></div>
+        </section>;
+      })()}
+
+      {/* Assigned batches are the teacher's first operational context. */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="font-bold text-gray-800 text-sm">My Courses & Batches</h2>
+            <p className="text-[11px] text-gray-500 mt-0.5">Courses and learners assigned to you by the admin.</p>
+          </div>
+          <button onClick={() => router.push('/teacher/timetable')} className="text-xs font-bold text-[#1a7a35] hover:underline">Open full weekly timetable →</button>
+        </div>
+        {(dashboardData?.assignedBatches || []).length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {dashboardData.assignedBatches.map((batch) => (
+              <button key={batch._id} onClick={() => router.push('/teacher/students')} className="text-left rounded-xl border border-gray-100 bg-[#f8fafc] p-4 hover:border-[#1a7a35]/40 hover:bg-[#ecfdf5] transition-colors">
+                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-bold text-gray-800 truncate">{batch.courseName}</p><p className="text-xs text-gray-500 mt-1">{batch.name}{batch.section ? ` · ${batch.section}` : ''}</p></div><GraduationCap size={18} className="text-[#1a7a35] shrink-0" /></div><p className="mt-3 text-xs font-semibold text-[#1a7a35]">{batch.studentCount} assigned {batch.studentCount === 1 ? 'student' : 'students'}</p>
+              </button>
+            ))}
+          </div>
+        ) : <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-600">No course or batch is assigned to you yet. Ask an admin to assign you to a batch.</div>}
+      </section>
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -87,37 +118,6 @@ export default function TeacherDashboard() {
           </motion.button>
         ))}
       </div>
-
-      {/* Assigned course context */}
-      <section className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div>
-            <h2 className="font-bold text-gray-800 text-sm">My Courses & Batches</h2>
-            <p className="text-[11px] text-gray-500 mt-0.5">Courses and learners assigned to you by the admin.</p>
-          </div>
-          <button onClick={() => router.push('/teacher/students')} className="text-xs font-bold text-[#1a7a35] hover:underline">Open student roster →</button>
-        </div>
-        {(dashboardData?.assignedBatches || []).length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {dashboardData.assignedBatches.map((batch) => (
-              <button key={batch._id} onClick={() => router.push('/teacher/students')} className="text-left rounded-xl border border-gray-100 bg-[#f8fafc] p-4 hover:border-[#1a7a35]/40 hover:bg-[#ecfdf5] transition-colors">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-gray-800 truncate">{batch.courseName}</p>
-                    <p className="text-xs text-gray-500 mt-1">{batch.name}{batch.section ? ` · ${batch.section}` : ''}</p>
-                  </div>
-                  <GraduationCap size={18} className="text-[#1a7a35] shrink-0" />
-                </div>
-                <p className="mt-3 text-xs font-semibold text-[#1a7a35]">{batch.studentCount} assigned {batch.studentCount === 1 ? 'student' : 'students'}</p>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-600">
-            No course or batch is assigned to you yet. Ask an admin to assign you to a batch; its enrolled students will appear here and under <strong>My Students</strong>.
-          </div>
-        )}
-      </section>
 
       {/* Schedule + Assigned students */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

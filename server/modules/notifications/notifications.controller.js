@@ -30,6 +30,12 @@ exports.broadcastNotification = async (req, res, next) => {
   try {
     const { audience, batchId, userId, title, message, type } = req.body;
     const instituteId = req.user.instituteId;
+    const isTeacher = String(req.user.role).toLowerCase() === 'teacher';
+    // Teachers can only send a one-way announcement to students in one of
+    // their own batches. They can never enumerate or message an institute.
+    if (isTeacher && audience !== 'batch_students') {
+      return res.status(403).json({ success: false, message: 'Teachers may broadcast only to students in one of their assigned batches.' });
+    }
     let userIds = [];
     if (audience === 'all_students' || audience === 'all_parents') {
       const role = audience === 'all_students' ? 'student' : 'parent';
@@ -40,7 +46,11 @@ exports.broadcastNotification = async (req, res, next) => {
       if (!recipient) return res.status(404).json({ success: false, message: 'Active recipient not found.' });
       userIds = [recipient._id];
     } else {
-      const batch = await Batch.findOne({ _id: batchId, instituteId, isActive: true }).select('students');
+      const batchQuery = { _id: batchId, instituteId, isActive: true };
+      if (isTeacher) {
+        batchQuery.$or = [{ batchTeacherId: req.user.userId }, { teachers: req.user.userId }];
+      }
+      const batch = await Batch.findOne(batchQuery).select('students');
       if (!batch) return res.status(404).json({ success: false, message: 'Active batch not found.' });
       userIds = batch.students;
       if (audience === 'batch_families' && userIds.length) {

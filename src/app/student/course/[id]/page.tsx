@@ -1193,8 +1193,9 @@ export default function StudentCourseDetailPage() {
 
           </div>
 
-          {/* Right Column: Sticky Purchase & Batch Status Card */}
-          <div className="lg:w-1/3 w-full">
+          {/* A purchased course must not continue to advertise purchase. Classroom access
+              remains in the main course tabs, so the entire commercial card disappears. */}
+          {!isEnrolled && <div className="lg:w-1/3 w-full">
             <div className="sticky top-20 bg-white rounded-3xl border border-gray-200/80 shadow-xl overflow-hidden">
               <div className="h-2.5 bg-gradient-to-r from-[#0B132B] via-[#C99A2E] to-[#0B132B]" />
               
@@ -1225,49 +1226,7 @@ export default function StudentCourseDetailPage() {
                 </div>
 
                 {/* Primary CTA */}
-                {isEnrolled ? (
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => {
-                        setActiveTab('classroom');
-                        const el = document.getElementById('classroom-content');
-                        if (el) el.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      className="w-full py-4 rounded-2xl text-white font-black text-base shadow-xl flex items-center justify-center gap-2 transition-all hover:opacity-95 cursor-pointer"
-                      style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}
-                    >
-                      <CheckCircle2 size={20} />
-                      <span>Access Course Classroom</span>
-                    </button>
-
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      <button 
-                        onClick={() => router.push('/student/live-classes')}
-                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 border border-gray-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <Video size={14} className="text-emerald-600" /> Live Classes
-                      </button>
-                      <button 
-                        onClick={() => router.push('/student/study-materials')}
-                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-purple-50 text-gray-700 hover:text-purple-700 border border-gray-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <BookOpen size={14} className="text-purple-600" /> Study Notes
-                      </button>
-                      <button 
-                        onClick={() => router.push('/student/dpp')}
-                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-amber-50 text-gray-700 hover:text-amber-700 border border-gray-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <FileCheck size={14} className="text-amber-600" /> Daily DPPs
-                      </button>
-                      <button 
-                        onClick={() => router.push('/student/exams')}
-                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-gray-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <Trophy size={14} className="text-blue-600" /> Mock Exams
-                      </button>
-                    </div>
-                  </div>
-                ) : user && (
+                {user && (
                   !user.firstName || 
                   !user.lastName || 
                   !user.phone || 
@@ -1340,7 +1299,7 @@ export default function StudentCourseDetailPage() {
 
               </div>
             </div>
-          </div>
+          </div>}
 
         </div>
 

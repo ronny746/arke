@@ -51,6 +51,13 @@ const examSubmissionSchema = new mongoose.Schema({
     marksObtained: {
       type: Number,
       default: 0
+    },
+    // Accumulated client-visible dwell time for this question. Older attempts
+    // safely remain at zero and are excluded from cohort-average calculations.
+    timeSpentSeconds: {
+      type: Number,
+      min: 0,
+      default: 0
     }
   }],
   score: {

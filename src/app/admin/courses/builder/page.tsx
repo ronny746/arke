@@ -46,6 +46,9 @@ const EXAM_OPTIONS = [
 
 const CLASS_OPTIONS = [
   { id: 'ALL', label: 'All Classes' },
+  { id: 'Class 6', label: 'Class 6' },
+  { id: 'Class 7', label: 'Class 7' },
+  { id: 'Class 8', label: 'Class 8' },
   { id: 'Class 9', label: 'Class 9' },
   { id: 'Class 10', label: 'Class 10' },
   { id: 'Class 11', label: 'Class 11' },

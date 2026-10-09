@@ -23,6 +23,7 @@ export default function StudentDPPPage() {
   const router = useRouter();
   
   const [allDpps, setAllDpps] = useState<any[]>([]);
+  const [topicFlags, setTopicFlags] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'ASSIGNED' | 'HISTORY'>('ASSIGNED');
 
@@ -37,9 +38,13 @@ export default function StudentDPPPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const historyRes = await studentAPI.getPracticeHistory({ sessionType: 'DPP' }).catch(() => ({ data: { data: [] } }));
+      const [historyRes, flagsRes] = await Promise.all([
+        studentAPI.getPracticeHistory({ sessionType: 'DPP' }).catch(() => ({ data: { data: [] } })),
+        studentAPI.getTopicFlags().catch(() => ({ data: { data: [] } }))
+      ]);
       const historyList = historyRes.data?.data || [];
       setAllDpps(historyList);
+      setTopicFlags(flagsRes.data?.data || []);
     } catch (error) {
       toast.error('Failed to load DPP assignments');
     } finally {
@@ -120,6 +125,13 @@ export default function StudentDPPPage() {
     });
     return Array.from(set);
   }, [allDpps]);
+
+  const flagForDpp = (dpp: any) => topicFlags.find(flag => String(flag.remedialSessionId?._id || flag.remedialSessionId || '') === String(dpp._id));
+  const flagStyle = (flag?: any) => {
+    if (flag?.flag === 'RED') return { border: 'border-rose-300', tint: 'from-rose-50/70 to-white', badge: 'bg-rose-600', label: 'Needs attention' };
+    if (flag?.flag === 'YELLOW') return { border: 'border-amber-300', tint: 'from-amber-50/70 to-white', badge: 'bg-amber-500', label: 'Improving' };
+    return { border: 'border-emerald-300', tint: 'from-emerald-50/70 to-white', badge: 'bg-emerald-600', label: flag?.flag === 'GREEN' ? 'On track' : 'Teacher assigned' };
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-12 animate-fade-in">
@@ -269,6 +281,8 @@ export default function StudentDPPPage() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {pendingTeacherDpps.map((dpp) => {
+                          const performanceFlag = flagForDpp(dpp);
+                          const performanceStyle = flagStyle(performanceFlag);
                           const topicsList = dpp.filters?.topics && dpp.filters.topics.length > 0
                             ? dpp.filters.topics
                             : (dpp.filters?.topic ? [dpp.filters.topic] : []);
@@ -281,12 +295,12 @@ export default function StudentDPPPage() {
                           return (
                             <div 
                               key={dpp._id}
-                              className="bg-gradient-to-br from-white to-emerald-50/20 rounded-3xl p-6 border-2 border-emerald-200 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
+                              className={`bg-gradient-to-br ${performanceStyle.tint} rounded-3xl p-6 border-2 ${performanceStyle.border} shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between`}
                             >
                               <div className="space-y-3">
                                 <div className="flex items-start justify-between gap-2">
-                                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-emerald-600 text-white flex items-center gap-1 shadow-xs">
-                                    <Sparkles size={11} /> Teacher Assigned
+                                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg ${performanceStyle.badge} text-white flex items-center gap-1 shadow-xs`}>
+                                    <Sparkles size={11} /> {performanceStyle.label}
                                   </span>
                                   <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
                                     {isStarted ? 'In Progress' : 'Pending Attempt'}

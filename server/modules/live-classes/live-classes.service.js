@@ -35,6 +35,42 @@ const serializeLiveClass = (liveClass) => {
   return doc;
 };
 
+const publishLibraryAssets = async (liveClass) => {
+  if (!liveClass?.recordingUrl && !liveClass?.notesUrl) return;
+  const Resource = require('../resources/resources.model');
+  await liveClass.populate({
+    path: 'classScheduleId',
+    populate: [{ path: 'batchId', populate: { path: 'courseId', select: '_id' } }, { path: 'subjectId', select: 'name' }]
+  });
+  const schedule = liveClass.classScheduleId;
+  if (!schedule?.batchId) return;
+  const batch = schedule.batchId;
+  const base = `${schedule.subjectId?.name || 'Class'} · ${batch.name || 'Batch'} · ${new Date(liveClass.createdAt).toLocaleDateString('en-IN')}`;
+  const resources = [
+    liveClass.recordingUrl && { key: 'recording', title: `Recorded lecture: ${base}`, type: 'VIDEO', fileUrl: liveClass.recordingUrl, description: 'Automatically added when the live class ended.' },
+    liveClass.notesUrl && { key: 'notes', title: `Class notes: ${base}`, type: 'NOTES', fileUrl: liveClass.notesUrl, description: 'Automatically added when the live class ended.' }
+  ].filter(Boolean);
+  await Promise.all(resources.map((asset) => Resource.findOneAndUpdate(
+    { instituteId: liveClass.instituteId, title: asset.title },
+    {
+      $set: {
+        fileUrl: asset.fileUrl,
+        description: asset.description,
+        type: asset.type,
+        subjectId: schedule.subjectId?._id || schedule.subjectId,
+        batchId: batch._id,
+        batchIds: [batch._id],
+        courseIds: batch.courseId?._id ? [batch.courseId._id] : [],
+        uploaderId: liveClass.teacherId,
+        isBankMaterial: false,
+        isActive: true
+      },
+      $setOnInsert: { title: asset.title }
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  )));
+};
+
 exports.startLiveClass = async (reqOrUser, payload) => {
   let reqUser;
   let req = null;
@@ -265,6 +301,7 @@ exports.endLiveClass = async (id, reqUser, payload = {}) => {
 
   let participantsData = [];
   let recordingUrl = payload && payload.recordingUrl ? payload.recordingUrl : liveClass.recordingUrl;
+  const notesUrl = payload && payload.notesUrl ? payload.notesUrl : liveClass.notesUrl;
 
   if (liveClass.meetingId && process.env.ZOOM_CLIENT_ID) {
     try {
@@ -296,9 +333,11 @@ exports.endLiveClass = async (id, reqUser, payload = {}) => {
 
   liveClass.status = 'COMPLETED';
   if (recordingUrl) liveClass.recordingUrl = recordingUrl;
+  if (notesUrl) liveClass.notesUrl = notesUrl;
   if (participantsData.length > 0) liveClass.participants = participantsData;
 
   await liveClass.save();
+  await publishLibraryAssets(liveClass);
   return liveClass;
 };
 
@@ -348,5 +387,6 @@ exports.syncZoomData = async (id) => {
   if (recordingUrl) liveClass.recordingUrl = recordingUrl;
 
   await liveClass.save();
+  await publishLibraryAssets(liveClass);
   return liveClass;
 };

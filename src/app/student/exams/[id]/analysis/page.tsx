@@ -19,6 +19,8 @@ export default function ExamAnalysis() {
   const [generatingDPP, setGeneratingDPP] = useState(false);
   const [remedialDpps, setRemedialDpps] = useState([]);
   const [expandedSubject, setExpandedSubject] = useState(null);
+  const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
+  const [showMyAnswers, setShowMyAnswers] = useState(true);
 
   const handleGenerateDPP = async (parentSessionId = null, customWeakTopics = null) => {
     try {
@@ -105,6 +107,10 @@ export default function ExamAnalysis() {
 
   const { submission, subjectStats, detailedQuestions, totalMarks, score, nestedStats } = data;
   const subjects = Object.keys(subjectStats);
+  const formatSeconds = (seconds: number) => {
+    const value = Math.max(0, Math.round(Number(seconds) || 0));
+    return value >= 60 ? `${Math.floor(value / 60)}m ${value % 60}s` : `${value}s`;
+  };
 
   return (
     <div className="space-y-6 animate-fade-in p-6">
@@ -379,6 +385,13 @@ export default function ExamAnalysis() {
           ))}
         </div>
 
+        <div className="flex flex-wrap items-center gap-2 border-b bg-white px-6 py-3">
+          <span className="mr-1 text-xs font-bold uppercase tracking-wide text-gray-500">Review answers</span>
+          <button type="button" aria-pressed={showCorrectAnswers} onClick={() => setShowCorrectAnswers(value => !value)} className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${showCorrectAnswers ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>Show correct answers</button>
+          <button type="button" aria-pressed={showMyAnswers} onClick={() => setShowMyAnswers(value => !value)} className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${showMyAnswers ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>Show my answers</button>
+          {!showCorrectAnswers && !showMyAnswers && <span className="text-xs text-amber-700">Choose at least one answer view to review options.</span>}
+        </div>
+
         <div className="p-6 space-y-8 bg-gray-50">
           {detailedQuestions.filter(q => {
             const subjectName = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
@@ -406,8 +419,16 @@ export default function ExamAnalysis() {
                   </div>
                 </div>
 
+                <div className="mb-4 ml-12 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Your time: {q.studentTimeSeconds > 0 ? formatSeconds(q.studentTimeSeconds) : 'Not recorded'}</span>
+                  <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">Class average: {q.averageTimeSeconds > 0 ? formatSeconds(q.averageTimeSeconds) : 'Not available yet'}</span>
+                </div>
+
                 <div className="space-y-3 pl-12">
-                  {q.options.map((opt) => {
+                  {q.options.filter((opt) => {
+                    const isSelected = q.userAnswer && (q.userAnswer.selectedOptionId === opt._id || q.userAnswer.selectedOptionId === opt.id);
+                    return (showCorrectAnswers && opt.isCorrect) || (showMyAnswers && isSelected);
+                  }).map((opt) => {
                     const isSelected = q.userAnswer && (q.userAnswer.selectedOptionId === opt._id || q.userAnswer.selectedOptionId === opt.id);
                     const isActualCorrect = opt.isCorrect;
                     
@@ -432,6 +453,8 @@ export default function ExamAnalysis() {
                       </div>
                     );
                   })}
+                  {!showCorrectAnswers && !showMyAnswers && <p className="rounded-lg border border-dashed border-gray-300 bg-white px-3 py-3 text-sm text-gray-500">Turn on “Show correct answers” or “Show my answers” above.</p>}
+                  {showCorrectAnswers || showMyAnswers ? null : null}
                 </div>
 
                 {q.explanation && (
