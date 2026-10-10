@@ -12,3 +12,15 @@ exports.getChild = async (req, res, next) => {
 exports.getBatch = async (req, res, next) => {
   try { return successResponse(res, 'Batch topic flags retrieved successfully', await FlagService.getBatchFlags(req.user.userId, req.user.instituteId, req.params.batchId)); } catch (error) { next(error); }
 };
+
+exports.getStudentFlags = async (req, res, next) => {
+  try {
+    return successResponse(
+      res,
+      'Student topic performance flags retrieved successfully',
+      await FlagService.getMyFlags(req.params.studentId, req.query)
+    );
+  } catch (error) {
+    next(error);
+  }
+};

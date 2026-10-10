@@ -2,7 +2,6 @@
 
 import { PageHeader } from '@/components/layout/index.jsx';
 import StudentPerformanceDashboard from '@/components/analytics/StudentPerformanceDashboard';
-import { TopicFlagsPanel } from '@/components/analytics/TopicFlagsPanel';
 import { useRouter } from 'next/navigation';
 
 export default function StudentPerformancePage() {
@@ -26,10 +25,6 @@ export default function StudentPerformancePage() {
         onExamClick={handleExamClick} 
         onDppClick={() => router.push('/student/dpp')}
       />
-      <section className="space-y-3">
-        <div><h2 className="font-display text-xl font-semibold">Topic health</h2><p className="text-sm text-surface-500">Every topic is marked after a submitted test. Red topics include a remedial DPP when questions are available.</p></div>
-        <TopicFlagsPanel />
-      </section>
     </div>
   );
 }

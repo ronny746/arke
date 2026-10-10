@@ -30,6 +30,8 @@ export const adminAPI = {
   deleteBatch: (id) => axiosInstance.delete(`/batches/${id}`),
   assignUserToBatch: (batchId, data) => axiosInstance.post(`/batches/${batchId}/assign`, data),
   syncUserBatches: (data) => axiosInstance.post(`/batches/sync-student`, data),
+  getBatchPerformance: (batchId, params) => axiosInstance.get(`/analytics-reports/batch/${batchId}/performance`, { params }),
+  getStudentPerformance: (studentId) => axiosInstance.get(`/analytics-reports/student/${studentId}/performance`),
 
   // Timetable / Schedule
   createClassSchedule: (data) => axiosInstance.post('/classes-schedule', data),

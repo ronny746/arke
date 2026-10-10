@@ -28,7 +28,12 @@ import {
   Award,
   Calendar,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Users,
+  Send,
+  Filter,
+  CheckCheck,
+  ArrowRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -80,11 +85,23 @@ export default function TeacherFlagsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState('ALL');
   const [selectedSubject, setSelectedSubject] = useState('ALL');
+  const [selectedTopic, setSelectedTopic] = useState('ALL');
   const [selectedFlag, setSelectedFlag] = useState<'ALL' | 'RED' | 'YELLOW' | 'GREEN'>('ALL');
   const [sortBy, setSortBy] = useState<'score_asc' | 'score_desc' | 'student_name' | 'topic_name'>('score_asc');
 
   // Multi-Topic Selection from Table
   const [selectedFlagIds, setSelectedFlagIds] = useState<string[]>([]);
+
+  // Sub-mode for Topic Flags: 'COHORTS' (Grouped by Weak Topic) or 'TABLE' (Individual Student Rows)
+  const [flagsSubMode, setFlagsSubMode] = useState<'COHORTS' | 'TABLE'>('COHORTS');
+
+  // Cohort Filters and Selection State
+  const [cohortSearch, setCohortSearch] = useState('');
+  const [cohortSubjectFilter, setCohortSubjectFilter] = useState('ALL');
+  const [cohortTopicFilter, setCohortTopicFilter] = useState('ALL');
+  const [cohortSeverityFilter, setCohortSeverityFilter] = useState<'ALL' | 'RED_ONLY' | 'HAS_UNASSIGNED'>('ALL');
+  const [cohortSortBy, setCohortSortBy] = useState<'most_students' | 'lowest_accuracy' | 'topic_name'>('most_students');
+  const [cohortSelections, setCohortSelections] = useState<Record<string, string[]>>({});
 
   // Modal / DPP Creator State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,6 +137,7 @@ export default function TeacherFlagsPage() {
   const [assignedDpps, setAssignedDpps] = useState<any[]>([]);
   const [loadingAssignedDpps, setLoadingAssignedDpps] = useState(false);
   const [dppFilterStudentId, setDppFilterStudentId] = useState('ALL');
+  const [dppFilterTopic, setDppFilterTopic] = useState('ALL');
   const [dppFilterStatus, setDppFilterStatus] = useState<'ALL' | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'>('ALL');
   const [dppSearchQuery, setDppSearchQuery] = useState('');
 
@@ -167,6 +185,9 @@ export default function TeacherFlagsPage() {
     fetchFlags();
     fetchAssignedDpps();
     setSelectedStudentId('ALL');
+    setSelectedTopic('ALL');
+    setCohortTopicFilter('ALL');
+    setDppFilterTopic('ALL');
     setSelectedFlagIds([]);
   }, [batchId]);
 
@@ -225,6 +246,39 @@ export default function TeacherFlagsPage() {
     return Array.from(subs).sort();
   }, [flags]);
 
+  // Unique Topics List for Filtering Flags (Contextual to selected subject)
+  const availableTopics = useMemo(() => {
+    const topics = new Set<string>();
+    flags.forEach(f => {
+      if (f.topicName && (selectedSubject === 'ALL' || f.subjectName === selectedSubject)) {
+        topics.add(f.topicName);
+      }
+    });
+    return Array.from(topics).sort();
+  }, [flags, selectedSubject]);
+
+  // Unique Topics for Weak Cohorts (Contextual to selected cohort subject)
+  const availableCohortTopics = useMemo(() => {
+    const topics = new Set<string>();
+    flags.forEach(f => {
+      if ((f.flag === 'RED' || f.flag === 'YELLOW') && f.topicName && (cohortSubjectFilter === 'ALL' || f.subjectName === cohortSubjectFilter)) {
+        topics.add(f.topicName);
+      }
+    });
+    return Array.from(topics).sort();
+  }, [flags, cohortSubjectFilter]);
+
+  // Unique Topics for Assigned DPPs Filter
+  const uniqueDppTopics = useMemo(() => {
+    const set = new Set<string>();
+    assignedDpps.forEach(d => {
+      (d.filters?.topics || []).forEach((t: string) => {
+        if (t) set.add(t);
+      });
+    });
+    return Array.from(set).sort();
+  }, [assignedDpps]);
+
   // Filtered & Sorted Flags
   const filteredFlags = useMemo(() => {
     return flags.filter(flag => {
@@ -236,6 +290,9 @@ export default function TeacherFlagsPage() {
       
       // Subject filter
       if (selectedSubject !== 'ALL' && flag.subjectName !== selectedSubject) return false;
+
+      // Topic filter
+      if (selectedTopic !== 'ALL' && flag.topicName !== selectedTopic) return false;
       
       // Search filter
       if (searchQuery.trim()) {
@@ -262,7 +319,7 @@ export default function TeacherFlagsPage() {
       }
       return 0;
     });
-  }, [flags, selectedStudentId, selectedFlag, selectedSubject, searchQuery, sortBy]);
+  }, [flags, selectedStudentId, selectedFlag, selectedSubject, selectedTopic, searchQuery, sortBy]);
 
   // Filtered Assigned DPPs
   const filteredAssignedDpps = useMemo(() => {
@@ -272,6 +329,8 @@ export default function TeacherFlagsPage() {
       if (dppFilterStatus === 'COMPLETED' && d.status !== 'COMPLETED') return false;
       if (dppFilterStatus === 'IN_PROGRESS' && (d.status !== 'IN_PROGRESS' || !d.answers || d.answers.length === 0)) return false;
       if (dppFilterStatus === 'PENDING' && (d.status === 'COMPLETED' || (d.answers && d.answers.length > 0))) return false;
+
+      if (dppFilterTopic !== 'ALL' && !(d.filters?.topics || []).includes(dppFilterTopic)) return false;
 
       if (dppSearchQuery.trim()) {
         const q = dppSearchQuery.toLowerCase().trim();
@@ -286,7 +345,7 @@ export default function TeacherFlagsPage() {
       }
       return true;
     });
-  }, [assignedDpps, dppFilterStudentId, dppFilterStatus, dppSearchQuery]);
+  }, [assignedDpps, dppFilterStudentId, dppFilterTopic, dppFilterStatus, dppSearchQuery]);
 
   // Metric counts for Flags
   const stats = useMemo(() => {
@@ -325,21 +384,275 @@ export default function TeacherFlagsPage() {
     return { total, completed, inProgress, pending, avgAccuracy };
   }, [assignedDpps]);
 
-  // Topics available for currently targeted student in modal
-  const studentAvailableTopics = useMemo(() => {
-    if (targetStudentIds.length === 0) return [];
-    return flags.filter(f => targetStudentIds.includes(f.studentId?._id || '') && f.subjectName === targetSubject);
-  }, [flags, targetStudentIds, targetSubject]);
+  // Cohort Interfaces
+  interface CohortStudent {
+    studentId: string;
+    studentName: string;
+    rollNo?: string;
+    percentage: number;
+    flag: 'RED' | 'YELLOW' | 'GREEN';
+    flagId: string;
+    examTitle?: string;
+    hasRemedy: boolean;
+    remedialSessionId?: any;
+  }
 
-  const targetStudentNames = useMemo(() => {
-    const names = new Map<string, string>();
-    flags.forEach(flag => {
-      if (targetStudentIds.includes(flag.studentId?._id || '') && flag.studentId) {
-        names.set(flag.studentId._id, `${flag.studentId.firstName} ${flag.studentId.lastName}`.trim());
+  interface WeakTopicCohort {
+    key: string;
+    subjectName: string;
+    topicName: string;
+    students: CohortStudent[];
+    redCount: number;
+    yellowCount: number;
+    unassignedCount: number;
+    avgPercentage: number;
+  }
+
+  // Aggregated Weak Topic Cohorts (Groups students sharing the same weak topics)
+  const weakTopicCohorts = useMemo(() => {
+    const map = new Map<string, {
+      key: string;
+      subjectName: string;
+      topicName: string;
+      students: CohortStudent[];
+      redCount: number;
+      yellowCount: number;
+      unassignedCount: number;
+      totalScore: number;
+    }>();
+
+    flags.forEach(f => {
+      if ((f.flag === 'RED' || f.flag === 'YELLOW') && f.studentId?._id && f.topicName) {
+        const subject = f.subjectName || 'General';
+        const key = `${subject}:::${f.topicName}`;
+        const hasRemedy = Boolean(f.remedialSessionId);
+
+        const studentInfo: CohortStudent = {
+          studentId: f.studentId._id,
+          studentName: `${f.studentId.firstName || ''} ${f.studentId.lastName || ''}`.trim() || 'Student',
+          rollNo: f.studentId.metadata?.rollNo,
+          percentage: f.percentage,
+          flag: f.flag,
+          flagId: f._id,
+          examTitle: f.examId?.title,
+          hasRemedy,
+          remedialSessionId: f.remedialSessionId
+        };
+
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            subjectName: subject,
+            topicName: f.topicName,
+            students: [studentInfo],
+            redCount: f.flag === 'RED' ? 1 : 0,
+            yellowCount: f.flag === 'YELLOW' ? 1 : 0,
+            unassignedCount: hasRemedy ? 0 : 1,
+            totalScore: f.percentage
+          });
+        } else {
+          const entry = map.get(key)!;
+          const existingIdx = entry.students.findIndex(s => s.studentId === studentInfo.studentId);
+          if (existingIdx === -1) {
+            entry.students.push(studentInfo);
+            if (f.flag === 'RED') entry.redCount += 1;
+            if (f.flag === 'YELLOW') entry.yellowCount += 1;
+            if (!hasRemedy) entry.unassignedCount += 1;
+            entry.totalScore += f.percentage;
+          } else if (studentInfo.percentage < entry.students[existingIdx].percentage) {
+            entry.students[existingIdx] = studentInfo;
+          }
+        }
       }
     });
-    return Array.from(names.values());
+
+    const cohorts: WeakTopicCohort[] = Array.from(map.values()).map(c => ({
+      key: c.key,
+      subjectName: c.subjectName,
+      topicName: c.topicName,
+      students: c.students.sort((a, b) => a.percentage - b.percentage),
+      redCount: c.redCount,
+      yellowCount: c.yellowCount,
+      unassignedCount: c.unassignedCount,
+      avgPercentage: c.students.length > 0 ? Math.round(c.totalScore / c.students.length) : 0
+    }));
+
+    return cohorts
+      .filter(c => {
+        if (cohortSubjectFilter !== 'ALL' && c.subjectName !== cohortSubjectFilter) return false;
+        if (cohortTopicFilter !== 'ALL' && c.topicName !== cohortTopicFilter) return false;
+        if (cohortSeverityFilter === 'RED_ONLY' && c.redCount === 0) return false;
+        if (cohortSeverityFilter === 'HAS_UNASSIGNED' && c.unassignedCount === 0) return false;
+        if (cohortSearch.trim()) {
+          const q = cohortSearch.toLowerCase().trim();
+          const matchTopic = c.topicName.toLowerCase().includes(q);
+          const matchSubject = c.subjectName.toLowerCase().includes(q);
+          const matchStudent = c.students.some(s => s.studentName.toLowerCase().includes(q) || (s.rollNo || '').toLowerCase().includes(q));
+          if (!matchTopic && !matchSubject && !matchStudent) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (cohortSortBy === 'most_students') return b.students.length - a.students.length;
+        if (cohortSortBy === 'lowest_accuracy') return a.avgPercentage - b.avgPercentage;
+        if (cohortSortBy === 'topic_name') return a.topicName.localeCompare(b.topicName);
+        return 0;
+      });
+  }, [flags, cohortSubjectFilter, cohortTopicFilter, cohortSeverityFilter, cohortSearch, cohortSortBy]);
+
+  // Cohort Selection Helpers
+  const toggleStudentInCohort = (cohortKey: string, allStudentIds: string[], studentId: string) => {
+    setCohortSelections(prev => {
+      const current = prev[cohortKey] !== undefined ? prev[cohortKey] : allStudentIds;
+      const next = current.includes(studentId)
+        ? current.filter(id => id !== studentId)
+        : [...current, studentId];
+      return { ...prev, [cohortKey]: next };
+    });
+  };
+
+  const selectAllInCohort = (cohortKey: string, allStudentIds: string[]) => {
+    setCohortSelections(prev => ({
+      ...prev,
+      [cohortKey]: allStudentIds
+    }));
+  };
+
+  const deselectAllInCohort = (cohortKey: string) => {
+    setCohortSelections(prev => ({
+      ...prev,
+      [cohortKey]: []
+    }));
+  };
+
+  // 1-Click Launch DPP Creator for a Specific Weak Topic Cohort
+  const handleOpenCohortDPP = (cohort: WeakTopicCohort) => {
+    const selectedIds = cohortSelections[cohort.key] !== undefined 
+      ? cohortSelections[cohort.key] 
+      : cohort.students.map(s => s.studentId);
+    
+    if (selectedIds.length === 0) {
+      toast.error('Please select at least 1 student from this weak topic cohort.');
+      return;
+    }
+
+    const primaryStudent = cohort.students.find(s => selectedIds.includes(s.studentId));
+    setTargetStudent(primaryStudent ? {
+      _id: primaryStudent.studentId,
+      firstName: primaryStudent.studentName.split(' ')[0],
+      lastName: primaryStudent.studentName.split(' ').slice(1).join(' ')
+    } : null);
+
+    setTargetStudentIds(selectedIds);
+    setTargetSubject(cohort.subjectName);
+    setSelectedTopicsForDPP([cohort.topicName]);
+    setDppMode('AUTO');
+    setAutoDifficulty(cohort.avgPercentage < 35 ? 'Easy' : 'Medium');
+    setAutoNumQuestions(10);
+    setDppTitle(`Remedial DPP: ${cohort.topicName} (${selectedIds.length} Students)`);
+    setSelectedQuestionIds([]);
+    setCustomQuestions([]);
+    setManualSubTab('BANK');
+    setIsModalOpen(true);
+
+    fetchBankQuestionsForTopics(cohort.subjectName, [cohort.topicName]);
+  };
+
+  // Selection from Table View
+  const selectedTableFlags = useMemo(() => {
+    return flags.filter(f => selectedFlagIds.includes(f._id) && f.studentId?._id);
+  }, [flags, selectedFlagIds]);
+
+  const uniqueSelectedTableStudentIds = useMemo(() => {
+    return [...new Set(selectedTableFlags.map(f => f.studentId!._id))];
+  }, [selectedTableFlags]);
+
+  const selectedTableTopics = useMemo(() => {
+    return [...new Set(selectedTableFlags.map(f => f.topicName).filter(Boolean))];
+  }, [selectedTableFlags]);
+
+  // Launch DPP Creator for selected rows in Table View
+  const handleOpenTableSelectedDPP = () => {
+    if (uniqueSelectedTableStudentIds.length === 0) {
+      toast.error('Please select at least one student topic evaluation.');
+      return;
+    }
+
+    const primarySubject = selectedTableFlags[0]?.subjectName || 'General';
+    const topicsToAssign = selectedTableTopics.length > 0 
+      ? selectedTableTopics 
+      : [selectedTableFlags[0]?.topicName || 'General Practice'];
+
+    const firstStudent = selectedTableFlags[0]?.studentId;
+    if (firstStudent) {
+      setTargetStudent({
+        _id: firstStudent._id,
+        firstName: firstStudent.firstName,
+        lastName: firstStudent.lastName
+      });
+    }
+
+    setTargetStudentIds(uniqueSelectedTableStudentIds);
+    setTargetSubject(primarySubject);
+    setSelectedTopicsForDPP(topicsToAssign);
+    setDppMode('AUTO');
+    setAutoDifficulty('Easy');
+    setAutoNumQuestions(Math.min(30, Math.max(10, topicsToAssign.length * 3)));
+    setDppTitle(`Remedial DPP: ${topicsToAssign.slice(0, 2).join(', ')} (${uniqueSelectedTableStudentIds.length} Students)`);
+    setSelectedQuestionIds([]);
+    setCustomQuestions([]);
+    setManualSubTab('BANK');
+    setIsModalOpen(true);
+
+    fetchBankQuestionsForTopics(primarySubject, topicsToAssign);
+  };
+
+  // Deduplicated topics available for currently targeted student(s) in modal
+  const studentAvailableTopics = useMemo(() => {
+    if (targetStudentIds.length === 0) return [];
+    const map = new Map<string, { topicName: string; subjectName: string; avgScore: number; flagsCount: number; hasRed: boolean; hasYellow: boolean }>();
+    
+    flags.forEach(f => {
+      if (targetStudentIds.includes(f.studentId?._id || '') && f.subjectName === targetSubject && f.topicName) {
+        const existing = map.get(f.topicName);
+        if (existing) {
+          existing.avgScore = Math.round((existing.avgScore * existing.flagsCount + f.percentage) / (existing.flagsCount + 1));
+          existing.flagsCount += 1;
+          if (f.flag === 'RED') existing.hasRed = true;
+          if (f.flag === 'YELLOW') existing.hasYellow = true;
+        } else {
+          map.set(f.topicName, {
+            topicName: f.topicName,
+            subjectName: f.subjectName,
+            avgScore: f.percentage,
+            flagsCount: 1,
+            hasRed: f.flag === 'RED',
+            hasYellow: f.flag === 'YELLOW'
+          });
+        }
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.topicName.localeCompare(b.topicName));
+  }, [flags, targetStudentIds, targetSubject]);
+
+  // Recipient Students Detailed List for Modal
+  const targetStudentsList = useMemo(() => {
+    const map = new Map<string, { _id: string; name: string; rollNo?: string }>();
+    flags.forEach(flag => {
+      if (targetStudentIds.includes(flag.studentId?._id || '') && flag.studentId) {
+        map.set(flag.studentId._id, {
+          _id: flag.studentId._id,
+          name: `${flag.studentId.firstName} ${flag.studentId.lastName}`.trim(),
+          rollNo: flag.studentId.metadata?.rollNo
+        });
+      }
+    });
+    return Array.from(map.values());
   }, [flags, targetStudentIds]);
+
+  const targetStudentNames = useMemo(() => {
+    return targetStudentsList.map(s => s.name);
+  }, [targetStudentsList]);
 
   // Open Modal for Single Flag
   const handleOpenSingleDPP = (flag: TopicFlag) => {
@@ -664,13 +977,12 @@ export default function TeacherFlagsPage() {
             </div>
           </div>
 
-          {/* Control & Filter Toolbar */}
+          {/* Top Control Bar: Batch Selector & View Sub-mode */}
           <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-            {/* Row 1: Batch & Student Pickers */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               
               {/* Batch Selector */}
-              <div className="space-y-1">
+              <div className="w-full md:w-80 space-y-1">
                 <label className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
                   <GraduationCap size={14} className="text-[#1a7a35]" /> Select Batch:
                 </label>
@@ -687,300 +999,686 @@ export default function TeacherFlagsPage() {
                 </select>
               </div>
 
-              {/* Dedicated Student Filter Dropdown */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
-                  <User size={14} className="text-blue-600" /> Filter by Student:
-                </label>
-                <select
-                  value={selectedStudentId}
-                  onChange={e => setSelectedStudentId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              {/* Sub-mode Switcher */}
+              <div className="flex items-center bg-gray-100 p-1 rounded-2xl border border-gray-200/80 self-start md:self-end">
+                <button
+                  type="button"
+                  onClick={() => setFlagsSubMode('COHORTS')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                    flagsSubMode === 'COHORTS'
+                      ? 'bg-[#1a7a35] text-white shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  <option value="ALL">All Students in Batch ({uniqueStudents.length})</option>
-                  {uniqueStudents.map(student => (
-                    <option key={student._id} value={student._id}>
-                      {student.name} {student.rollNo ? `(Roll: ${student.rollNo})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Search Box */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
-                  <Search size={14} className="text-gray-400" /> Keyword Search:
-                </label>
-                <div className="relative">
-                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input 
-                    type="text"
-                    placeholder="Search topic, subject, student..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7a35]/20 focus:border-[#1a7a35]"
-                  />
-                  {searchQuery && (
-                    <button 
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
+                  <Users size={15} />
+                  <span>Weak Topic Cohorts (Group by Topic)</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    flagsSubMode === 'COHORTS' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700'
+                  }`}>
+                    {weakTopicCohorts.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFlagsSubMode('TABLE')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                    flagsSubMode === 'TABLE'
+                      ? 'bg-[#1a7a35] text-white shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Layers size={15} />
+                  <span>All Student Evaluations (Table)</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    flagsSubMode === 'TABLE' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+                  }`}>
+                    {filteredFlags.length}
+                  </span>
+                </button>
               </div>
 
             </div>
 
-            {/* Row 2: Secondary Status & Sort Filters + Action CTA */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100 text-xs">
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Status Filter Buttons */}
-                <div className="flex items-center bg-gray-100 p-1 rounded-xl">
-                  <button
-                    onClick={() => setSelectedFlag('ALL')}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${selectedFlag === 'ALL' ? 'bg-white text-gray-800 shadow-xs' : 'text-gray-500 hover:text-gray-800'}`}
-                  >
-                    All ({flags.length})
-                  </button>
-                  <button
-                    onClick={() => setSelectedFlag('RED')}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${selectedFlag === 'RED' ? 'bg-rose-500 text-white shadow-xs' : 'text-rose-600 hover:text-rose-800'}`}
-                  >
-                    🔴 Red ({stats.red})
-                  </button>
-                  <button
-                    onClick={() => setSelectedFlag('YELLOW')}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${selectedFlag === 'YELLOW' ? 'bg-amber-500 text-white shadow-xs' : 'text-amber-600 hover:text-amber-800'}`}
-                  >
-                    🟡 Yellow ({stats.yellow})
-                  </button>
-                  <button
-                    onClick={() => setSelectedFlag('GREEN')}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${selectedFlag === 'GREEN' ? 'bg-emerald-600 text-white shadow-xs' : 'text-emerald-700 hover:text-emerald-900'}`}
-                  >
-                    🟢 Green ({stats.green})
-                  </button>
-                </div>
-
-                {/* Subject Dropdown */}
-                {availableSubjects.length > 0 && (
-                  <select
-                    value={selectedSubject}
-                    onChange={e => setSelectedSubject(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none"
-                  >
-                    <option value="ALL">All Subjects ({availableSubjects.length})</option>
-                    {availableSubjects.map(sub => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Right Side: Multi-Topic Action or Sort */}
-              <div className="flex items-center gap-3 ml-auto">
-                {(selectedStudentId !== 'ALL' || selectedFlagIds.length > 0) && (
-                  <button
-                    onClick={() => handleOpenMultiTopicDPP()}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#1a7a35] hover:bg-[#146029] text-white shadow-md flex items-center gap-1.5 transition-all"
-                  >
-                    <Sparkles size={14} />
-                    <span>Create Multi-Topic DPP {selectedFlagIds.length > 0 ? `(${selectedFlagIds.length} Selected)` : ''}</span>
-                  </button>
-                )}
-
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-400 font-medium">Sort:</span>
-                  <select
-                    value={sortBy}
-                    onChange={e => setSortBy(e.target.value as any)}
-                    className="px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none"
-                  >
-                    <option value="score_asc">Score (Lowest First)</option>
-                    <option value="score_desc">Score (Highest First)</option>
-                    <option value="student_name">Student Name (A-Z)</option>
-                    <option value="topic_name">Topic Name (A-Z)</option>
-                  </select>
-                </div>
-              </div>
+            {/* Quick Helper Banner */}
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50/70 border border-emerald-200/70 text-xs text-emerald-900">
+              <Sparkles size={14} className="text-[#1a7a35] shrink-0" />
+              <span>
+                <strong>1-Click Multi-Student Remedial DPP:</strong> Group students who share the exact same weak topics, pick recipients, and dispatch one tailored remedial DPP to all in a single click.
+              </span>
             </div>
           </div>
 
-          {/* Main Analysis Table */}
-          {loading ? (
-            <div className="bg-white rounded-2xl p-12 border border-gray-100 flex flex-col items-center justify-center space-y-3">
-              <Loader2 className="animate-spin text-[#1a7a35]" size={32} />
-              <p className="text-sm text-gray-500 font-medium">Analyzing batch performance results against threshold limits…</p>
-            </div>
-          ) : filteredFlags.length === 0 ? (
-            <div className="bg-white rounded-2xl p-12 border border-gray-100 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 flex items-center justify-center mx-auto">
-                <CheckCircle2 size={28} />
-              </div>
-              <h3 className="font-bold text-gray-800 text-base">No Matching Topic Evaluations Found</h3>
-              <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                {searchQuery || selectedSubject !== 'ALL' || selectedFlag !== 'ALL' || selectedStudentId !== 'ALL'
-                  ? 'Try adjusting your filters or search terms to see student topic evaluations.'
-                  : 'Topic flags will populate automatically as students complete exams and tests.'}
-              </p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/75 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                      <th className="py-3.5 px-4 w-10">
-                        <input 
-                          type="checkbox"
-                          checked={filteredFlags.length > 0 && selectedFlagIds.length === filteredFlags.length}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setSelectedFlagIds(filteredFlags.map(f => f._id));
-                            } else {
-                              setSelectedFlagIds([]);
-                            }
-                          }}
-                          className="rounded text-[#1a7a35] focus:ring-[#1a7a35]"
-                        />
-                      </th>
-                      <th className="py-3.5 px-4">Student</th>
-                      <th className="py-3.5 px-4">Subject</th>
-                      <th className="py-3.5 px-4">Topic / Chapter</th>
-                      <th className="py-3.5 px-4">Exam Source</th>
-                      <th className="py-3.5 px-4">Accuracy / Score</th>
-                      <th className="py-3.5 px-4">Remedial Status</th>
-                      <th className="py-3.5 px-5 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 text-sm">
-                    {filteredFlags.map((flag) => {
-                      const studentName = flag.studentId ? `${flag.studentId.firstName} ${flag.studentId.lastName}` : 'Unknown Student';
-                      const isRed = flag.flag === 'RED';
-                      const isYellow = flag.flag === 'YELLOW';
-                      const isChecked = selectedFlagIds.includes(flag._id);
+          {/* SUB-VIEW A: WEAK TOPIC COHORTS (GROUP BY TOPIC) */}
+          {flagsSubMode === 'COHORTS' && (
+            <div className="space-y-5">
+              {/* Cohorts Filter Toolbar */}
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+                  
+                  {/* Search */}
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                      type="text"
+                      placeholder="Search weak topic or student..."
+                      value={cohortSearch}
+                      onChange={e => setCohortSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs focus:ring-2 focus:ring-[#1a7a35]"
+                    />
+                    {cohortSearch && (
+                      <button 
+                        onClick={() => setCohortSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
 
-                      return (
-                        <tr key={flag._id} className={`hover:bg-gray-50/80 transition-colors ${isChecked ? 'bg-emerald-50/30' : ''}`}>
-                          
-                          {/* Checkbox */}
-                          <td className="py-3.5 px-4">
+                  {/* Subject Filter */}
+                  <div>
+                    <select
+                      value={cohortSubjectFilter}
+                      onChange={e => {
+                        setCohortSubjectFilter(e.target.value);
+                        setCohortTopicFilter('ALL');
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none"
+                    >
+                      <option value="ALL">All Subjects ({availableSubjects.length})</option>
+                      {availableSubjects.map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Topic Filter */}
+                  <div>
+                    <select
+                      value={cohortTopicFilter}
+                      onChange={e => setCohortTopicFilter(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none"
+                    >
+                      <option value="ALL">All Topics ({availableCohortTopics.length})</option>
+                      {availableCohortTopics.map(top => (
+                        <option key={top} value={top}>{top}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Severity Filter */}
+                  <div>
+                    <select
+                      value={cohortSeverityFilter}
+                      onChange={e => setCohortSeverityFilter(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none"
+                    >
+                      <option value="ALL">All Severity ({weakTopicCohorts.length})</option>
+                      <option value="RED_ONLY">Critical Only (Has Red Flag)</option>
+                      <option value="HAS_UNASSIGNED">Needs Remedy (Unassigned DPPs)</option>
+                    </select>
+                  </div>
+
+                  {/* Sort By */}
+                  <div>
+                    <select
+                      value={cohortSortBy}
+                      onChange={e => setCohortSortBy(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none"
+                    >
+                      <option value="most_students">Sort: Most Struggling Students</option>
+                      <option value="lowest_accuracy">Sort: Lowest Accuracy First</option>
+                      <option value="topic_name">Sort: Topic Name (A-Z)</option>
+                    </select>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Cohorts Grid */}
+              {loading ? (
+                <div className="bg-white rounded-2xl p-12 border border-gray-100 flex flex-col items-center justify-center space-y-3">
+                  <Loader2 className="animate-spin text-[#1a7a35]" size={32} />
+                  <p className="text-sm text-gray-500 font-medium">Clustering weak topic cohorts across batch students...</p>
+                </div>
+              ) : weakTopicCohorts.length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 border border-gray-100 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                    <CheckCircle2 size={28} />
+                  </div>
+                  <h3 className="font-bold text-gray-800 text-base">No Weak Topic Cohorts Found</h3>
+                  <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                    {cohortSearch || cohortSubjectFilter !== 'ALL' || cohortSeverityFilter !== 'ALL'
+                      ? 'No weak topic clusters match your active filters. Try clearing your search or filters.'
+                      : 'Great news! Either no students are flagged with Red/Yellow thresholds in this batch or exams have not been submitted yet.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {weakTopicCohorts.map(cohort => {
+                    const allCohortStudentIds = cohort.students.map(s => s.studentId);
+                    const selectedStudentIdsInCohort = cohortSelections[cohort.key] !== undefined
+                      ? cohortSelections[cohort.key]
+                      : allCohortStudentIds;
+                    const isAllSelected = selectedStudentIdsInCohort.length === cohort.students.length;
+                    const isNoneSelected = selectedStudentIdsInCohort.length === 0;
+
+                    return (
+                      <div 
+                        key={cohort.key}
+                        className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
+                      >
+                        {/* Card Header */}
+                        <div className="p-5 border-b border-gray-100 space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-emerald-50 text-[#1a7a35] border border-emerald-200">
+                                {cohort.subjectName}
+                              </span>
+                              <h4 className="text-base font-black text-gray-900 mt-1 leading-snug">
+                                {cohort.topicName}
+                              </h4>
+                            </div>
+
+                            {/* Accuracy & Severity Badges */}
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className="text-xs font-black text-gray-800 bg-gray-100 px-2 py-0.5 rounded-md">
+                                {cohort.avgPercentage}% Avg Score
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {cohort.redCount > 0 && (
+                                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
+                                    🔴 {cohort.redCount} Red
+                                  </span>
+                                )}
+                                {cohort.yellowCount > 0 && (
+                                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                    🟡 {cohort.yellowCount} Yellow
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Student Selection Toolbar */}
+                          <div className="flex items-center justify-between text-xs pt-1">
+                            <span className="font-semibold text-gray-600">
+                              <strong className="text-gray-900">{selectedStudentIdsInCohort.length}</strong> of {cohort.students.length} students selected
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => selectAllInCohort(cohort.key, allCohortStudentIds)}
+                                className={`text-[11px] font-bold hover:underline ${isAllSelected ? 'text-gray-400 cursor-default' : 'text-[#1a7a35]'}`}
+                                disabled={isAllSelected}
+                              >
+                                Select All ({cohort.students.length})
+                              </button>
+                              <span className="text-gray-300">•</span>
+                              <button
+                                type="button"
+                                onClick={() => deselectAllInCohort(cohort.key)}
+                                className={`text-[11px] font-bold hover:underline ${isNoneSelected ? 'text-gray-400 cursor-default' : 'text-rose-600'}`}
+                                disabled={isNoneSelected}
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Students List in this Cohort */}
+                        <div className="p-4 max-h-56 overflow-y-auto space-y-2 bg-gray-50/50 custom-scrollbar">
+                          {cohort.students.map(st => {
+                            const isSelected = selectedStudentIdsInCohort.includes(st.studentId);
+                            const isRed = st.flag === 'RED';
+
+                            return (
+                              <div 
+                                key={st.studentId}
+                                onClick={() => toggleStudentInCohort(cohort.key, allCohortStudentIds, st.studentId)}
+                                className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                                  isSelected 
+                                    ? 'bg-white border-[#1a7a35]/40 shadow-xs ring-1 ring-[#1a7a35]/20' 
+                                    : 'bg-white/60 border-gray-200 opacity-60 hover:opacity-100'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <input 
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {}} // handled by parent onClick
+                                    className="rounded text-[#1a7a35] focus:ring-[#1a7a35]"
+                                  />
+                                  <div className="w-6 h-6 rounded-full bg-emerald-50 text-[#1a7a35] font-black text-[11px] flex items-center justify-center border border-emerald-200 shrink-0">
+                                    {st.studentName.charAt(0)}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-gray-900 truncate">{st.studentName}</p>
+                                    <p className="text-[10px] text-gray-400">
+                                      {st.rollNo ? `Roll: ${st.rollNo}` : 'Student'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className={`text-[11px] font-black px-2 py-0.5 rounded-md ${
+                                    isRed ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  }`}>
+                                    {st.percentage}%
+                                  </span>
+                                  {st.hasRemedy ? (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                                      <Check size={10} /> Assigned
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 flex items-center gap-1">
+                                      <AlertTriangle size={10} /> Needs DPP
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Card Footer: 1-Click DPP Trigger */}
+                        <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
+                          <p className="text-xs text-gray-500 font-medium">
+                            {selectedStudentIdsInCohort.length === 0 ? (
+                              <span className="text-rose-500 font-bold">Pick at least 1 student</span>
+                            ) : (
+                              <span>Assign 1 remedial DPP to <strong>{selectedStudentIdsInCohort.length} students</strong></span>
+                            )}
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCohortDPP(cohort)}
+                            disabled={selectedStudentIdsInCohort.length === 0}
+                            className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#1a7a35] hover:bg-[#146029] text-white shadow-md flex items-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Sparkles size={14} />
+                            <span>Assign Remedial DPP to {selectedStudentIdsInCohort.length} Students</span>
+                          </button>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SUB-VIEW B: ALL STUDENT EVALUATIONS (TABLE) */}
+          {flagsSubMode === 'TABLE' && (
+            <div className="space-y-4">
+              {/* Table Filters Toolbar */}
+              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Dedicated Student Filter Dropdown */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
+                      <User size={14} className="text-blue-600" /> Filter by Student:
+                    </label>
+                    <select
+                      value={selectedStudentId}
+                      onChange={e => setSelectedStudentId(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    >
+                      <option value="ALL">All Students in Batch ({uniqueStudents.length})</option>
+                      {uniqueStudents.map(student => (
+                        <option key={student._id} value={student._id}>
+                          {student.name} {student.rollNo ? `(Roll: ${student.rollNo})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Search Box */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
+                      <Search size={14} className="text-gray-400" /> Keyword Search:
+                    </label>
+                    <div className="relative">
+                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input 
+                        type="text"
+                        placeholder="Search topic, subject, student..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7a35]/20 focus:border-[#1a7a35]"
+                      />
+                      {searchQuery && (
+                        <button 
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status & Sort Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Status Filter Buttons */}
+                    <div className="flex items-center bg-gray-100 p-1 rounded-xl">
+                      <button
+                        onClick={() => setSelectedFlag('ALL')}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all ${selectedFlag === 'ALL' ? 'bg-white text-gray-800 shadow-xs' : 'text-gray-500 hover:text-gray-800'}`}
+                      >
+                        All ({flags.length})
+                      </button>
+                      <button
+                        onClick={() => setSelectedFlag('RED')}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all ${selectedFlag === 'RED' ? 'bg-rose-500 text-white shadow-xs' : 'text-rose-600 hover:text-rose-800'}`}
+                      >
+                        🔴 Red ({stats.red})
+                      </button>
+                      <button
+                        onClick={() => setSelectedFlag('YELLOW')}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all ${selectedFlag === 'YELLOW' ? 'bg-amber-500 text-white shadow-xs' : 'text-amber-600 hover:text-amber-800'}`}
+                      >
+                        🟡 Yellow ({stats.yellow})
+                      </button>
+                      <button
+                        onClick={() => setSelectedFlag('GREEN')}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all ${selectedFlag === 'GREEN' ? 'bg-emerald-600 text-white shadow-xs' : 'text-emerald-700 hover:text-emerald-900'}`}
+                      >
+                        🟢 Green ({stats.green})
+                      </button>
+                    </div>
+
+                    {/* Subject Dropdown */}
+                    {availableSubjects.length > 0 && (
+                      <select
+                        value={selectedSubject}
+                        onChange={e => {
+                          setSelectedSubject(e.target.value);
+                          setSelectedTopic('ALL');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none"
+                      >
+                        <option value="ALL">All Subjects ({availableSubjects.length})</option>
+                        {availableSubjects.map(sub => (
+                          <option key={sub} value={sub}>{sub}</option>
+                        ))}
+                      </select>
+                    )}
+
+                    {/* Topic Dropdown */}
+                    {availableTopics.length > 0 && (
+                      <select
+                        value={selectedTopic}
+                        onChange={e => setSelectedTopic(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none max-w-[200px]"
+                      >
+                        <option value="ALL">All Topics ({availableTopics.length})</option>
+                        {availableTopics.map(top => (
+                          <option key={top} value={top}>{top}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Right Side: Multi-Topic Action or Sort */}
+                  <div className="flex items-center gap-3 ml-auto">
+                    {(selectedStudentId !== 'ALL' || selectedFlagIds.length > 0) && (
+                      <button
+                        onClick={() => handleOpenMultiTopicDPP()}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-[#1a7a35] hover:bg-[#146029] text-white shadow-md flex items-center gap-1.5 transition-all"
+                      >
+                        <Sparkles size={14} />
+                        <span>Create Multi-Topic DPP {selectedFlagIds.length > 0 ? `(${selectedFlagIds.length} Selected)` : ''}</span>
+                      </button>
+                    )}
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-gray-400 font-medium">Sort:</span>
+                      <select
+                        value={sortBy}
+                        onChange={e => setSortBy(e.target.value as any)}
+                        className="px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none"
+                      >
+                        <option value="score_asc">Score (Lowest First)</option>
+                        <option value="score_desc">Score (Highest First)</option>
+                        <option value="student_name">Student Name (A-Z)</option>
+                        <option value="topic_name">Topic Name (A-Z)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Analysis Table */}
+              {loading ? (
+                <div className="bg-white rounded-2xl p-12 border border-gray-100 flex flex-col items-center justify-center space-y-3">
+                  <Loader2 className="animate-spin text-[#1a7a35]" size={32} />
+                  <p className="text-sm text-gray-500 font-medium">Analyzing batch performance results against threshold limits…</p>
+                </div>
+              ) : filteredFlags.length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 border border-gray-100 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 flex items-center justify-center mx-auto">
+                    <CheckCircle2 size={28} />
+                  </div>
+                  <h3 className="font-bold text-gray-800 text-base">No Matching Topic Evaluations Found</h3>
+                  <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                    {searchQuery || selectedSubject !== 'ALL' || selectedFlag !== 'ALL' || selectedStudentId !== 'ALL'
+                      ? 'Try adjusting your filters or search terms to see student topic evaluations.'
+                      : 'Topic flags will populate automatically as students complete exams and tests.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100 bg-gray-50/75 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                          <th className="py-3.5 px-4 w-10">
                             <input 
                               type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {
-                                setSelectedFlagIds(prev => 
-                                  prev.includes(flag._id) ? prev.filter(id => id !== flag._id) : [...prev, flag._id]
-                                );
+                              checked={filteredFlags.length > 0 && selectedFlagIds.length === filteredFlags.length}
+                              onChange={e => {
+                                if (e.target.checked) {
+                                  setSelectedFlagIds(filteredFlags.map(f => f._id));
+                                } else {
+                                  setSelectedFlagIds([]);
+                                }
                               }}
                               className="rounded text-[#1a7a35] focus:ring-[#1a7a35]"
                             />
-                          </td>
-
-                          {/* Student Info */}
-                          <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-emerald-50 text-[#1a7a35] font-black text-xs flex items-center justify-center border border-emerald-200">
-                                {studentName.charAt(0)}
-                              </div>
-                              <div>
-                                <button
-                                  onClick={() => setSelectedStudentId(flag.studentId?._id || 'ALL')}
-                                  className="font-bold text-gray-900 leading-tight hover:text-[#1a7a35] text-left transition-colors"
-                                >
-                                  {studentName}
-                                </button>
-                                <p className="text-[11px] text-gray-400 mt-0.5">
-                                  {flag.studentId?.metadata?.rollNo ? `Roll: ${flag.studentId.metadata.rollNo}` : 'Student'}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Subject */}
-                          <td className="py-3.5 px-4">
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                              {flag.subjectName || 'General'}
-                            </span>
-                          </td>
-
-                          {/* Topic Name */}
-                          <td className="py-3.5 px-4">
-                            <p className="font-semibold text-gray-800 text-xs sm:text-sm">{flag.topicName}</p>
-                          </td>
-
-                          {/* Exam Title */}
-                          <td className="py-3.5 px-4 text-xs text-gray-500">
-                            {flag.examId?.title || 'Course Test'}
-                          </td>
-
-                          {/* Accuracy Score & Flag */}
-                          <td className="py-3.5 px-4">
-                            <div className="space-y-1">
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                isRed ? 'bg-rose-50 text-rose-700 border border-rose-200' :
-                                isYellow ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${isRed ? 'bg-rose-500' : isYellow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                                {flag.flag} • {flag.percentage}%
-                              </span>
-                              <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full ${isRed ? 'bg-rose-500' : isYellow ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                                  style={{ width: `${Math.min(100, flag.percentage)}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Remedial Status */}
-                          <td className="py-3.5 px-4">
-                            {flag.remedialSessionId ? (
-                              <button
-                                onClick={() => handleOpenDppResultReview(typeof flag.remedialSessionId === 'string' ? flag.remedialSessionId : (flag.remedialSessionId as any)._id)}
-                                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors"
-                              >
-                                <Check size={13} />
-                                <span>Remedy Assigned</span>
-                                <ExternalLink size={11} className="opacity-70" />
-                              </button>
-                            ) : isRed || isYellow ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
-                                <AlertTriangle size={13} /> Needs DPP
-                              </span>
-                            ) : (
-                              <span className="text-xs font-semibold text-gray-400">
-                                No action needed
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Action Button */}
-                          <td className="py-3.5 px-5 text-right">
-                            <button
-                              onClick={() => handleOpenSingleDPP(flag)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                                isRed 
-                                  ? 'bg-rose-600 text-white hover:bg-rose-700' 
-                                  : isYellow 
-                                  ? 'bg-amber-600 text-white hover:bg-amber-700'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                            >
-                              <Sparkles size={13} />
-                              <span>{flag.remedialSessionId ? 'Re-assign DPP' : 'Create DPP'}</span>
-                            </button>
-                          </td>
-
+                          </th>
+                          <th className="py-3.5 px-4">Student</th>
+                          <th className="py-3.5 px-4">Subject</th>
+                          <th className="py-3.5 px-4">Topic / Chapter</th>
+                          <th className="py-3.5 px-4">Exam Source</th>
+                          <th className="py-3.5 px-4">Accuracy / Score</th>
+                          <th className="py-3.5 px-4">Remedial Status</th>
+                          <th className="py-3.5 px-5 text-right">Action</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-sm">
+                        {filteredFlags.map((flag) => {
+                          const studentName = flag.studentId ? `${flag.studentId.firstName} ${flag.studentId.lastName}` : 'Unknown Student';
+                          const isRed = flag.flag === 'RED';
+                          const isYellow = flag.flag === 'YELLOW';
+                          const isChecked = selectedFlagIds.includes(flag._id);
+
+                          return (
+                            <tr key={flag._id} className={`hover:bg-gray-50/80 transition-colors ${isChecked ? 'bg-emerald-50/30' : ''}`}>
+                              
+                              {/* Checkbox */}
+                              <td className="py-3.5 px-4">
+                                <input 
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    setSelectedFlagIds(prev => 
+                                      prev.includes(flag._id) ? prev.filter(id => id !== flag._id) : [...prev, flag._id]
+                                    );
+                                  }}
+                                  className="rounded text-[#1a7a35] focus:ring-[#1a7a35]"
+                                />
+                              </td>
+
+                              {/* Student Info */}
+                              <td className="py-3.5 px-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-emerald-50 text-[#1a7a35] font-black text-xs flex items-center justify-center border border-emerald-200">
+                                    {studentName.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <button
+                                      onClick={() => setSelectedStudentId(flag.studentId?._id || 'ALL')}
+                                      className="font-bold text-gray-900 leading-tight hover:text-[#1a7a35] text-left transition-colors"
+                                    >
+                                      {studentName}
+                                    </button>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">
+                                      {flag.studentId?.metadata?.rollNo ? `Roll: ${flag.studentId.metadata.rollNo}` : 'Student'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Subject */}
+                              <td className="py-3.5 px-4">
+                                <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
+                                  {flag.subjectName || 'General'}
+                                </span>
+                              </td>
+
+                              {/* Topic Name & Cohort Shortcut */}
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-1">
+                                  <p className="font-semibold text-gray-800 text-xs sm:text-sm">{flag.topicName}</p>
+                                  {(isRed || isYellow) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCohortSearch(flag.topicName);
+                                        setFlagsSubMode('COHORTS');
+                                      }}
+                                      className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
+                                    >
+                                      <Users size={11} /> View Weak Cohort
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Exam Title */}
+                              <td className="py-3.5 px-4 text-xs text-gray-500">
+                                {flag.examId?.title || 'Course Test'}
+                              </td>
+
+                              {/* Accuracy Score & Flag */}
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-1">
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                    isRed ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                    isYellow ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                    'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isRed ? 'bg-rose-500' : isYellow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                    {flag.flag} • {flag.percentage}%
+                                  </span>
+                                  <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div 
+                                      className={`h-full rounded-full ${isRed ? 'bg-rose-500' : isYellow ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                      style={{ width: `${Math.min(100, flag.percentage)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Remedial Status */}
+                              <td className="py-3.5 px-4">
+                                {flag.remedialSessionId ? (
+                                  <button
+                                    onClick={() => handleOpenDppResultReview(typeof flag.remedialSessionId === 'string' ? flag.remedialSessionId : (flag.remedialSessionId as any)._id)}
+                                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors"
+                                  >
+                                    <Check size={13} />
+                                    <span>Remedy Assigned</span>
+                                    <ExternalLink size={11} className="opacity-70" />
+                                  </button>
+                                ) : isRed || isYellow ? (
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+                                    <AlertTriangle size={13} /> Needs DPP
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-semibold text-gray-400">
+                                    No action needed
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Action Button */}
+                              <td className="py-3.5 px-5 text-right">
+                                <button
+                                  onClick={() => handleOpenSingleDPP(flag)}
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                                    isRed 
+                                      ? 'bg-rose-600 text-white hover:bg-rose-700' 
+                                      : isYellow 
+                                      ? 'bg-amber-600 text-white hover:bg-amber-700'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  <Sparkles size={13} />
+                                  <span>{flag.remedialSessionId ? 'Re-assign DPP' : 'Create DPP'}</span>
+                                </button>
+                              </td>
+
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Floating Multi-Student Batch Action Bar in Table View */}
+              <AnimatePresence>
+                {selectedFlagIds.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 40 }}
+                    className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900/95 text-white backdrop-blur-md px-6 py-3.5 rounded-2xl shadow-2xl border border-gray-800 flex items-center gap-4 flex-wrap max-w-2xl"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-xs font-bold">
+                        {selectedFlagIds.length} evaluations selected across <strong className="text-emerald-400">{uniqueSelectedTableStudentIds.length} student{uniqueSelectedTableStudentIds.length === 1 ? '' : 's'}</strong>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-auto">
+                      <button
+                        onClick={handleOpenTableSelectedDPP}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-[#1a7a35] hover:bg-[#146029] text-white shadow-md flex items-center gap-1.5 transition-all"
+                      >
+                        <Sparkles size={14} />
+                        <span>Assign 1 Remedial DPP to All ({uniqueSelectedTableStudentIds.length})</span>
+                      </button>
+
+                      <button
+                        onClick={() => setSelectedFlagIds([])}
+                        className="px-3 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-white transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>
@@ -1058,6 +1756,19 @@ export default function TeacherFlagsPage() {
                   ))}
                 </select>
               )}
+
+              {uniqueDppTopics.length > 0 && (
+                <select
+                  value={dppFilterTopic}
+                  onChange={e => setDppFilterTopic(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 focus:outline-none max-w-[200px]"
+                >
+                  <option value="ALL">All Topics ({uniqueDppTopics.length})</option>
+                  {uniqueDppTopics.map(top => (
+                    <option key={top} value={top}>{top}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
@@ -1110,6 +1821,25 @@ export default function TeacherFlagsPage() {
             </div>
           ) : (
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+              {/* Performance Indicator Legend */}
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50/60">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600">
+                  <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold mr-1">Result Status & Color Code:</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100/80 text-rose-800 border border-rose-200 text-xs font-bold">
+                    <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span> &lt; 40% Urgent Attention
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100/80 text-amber-800 border border-amber-200 text-xs font-bold">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span> 40–69% Needs Practice
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100/80 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                    <span className="w-2 h-2 rounded-full bg-[#1a7a35]"></span> ≥ 70% Mastered
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 font-medium">
+                  Showing <strong>{filteredAssignedDpps.length}</strong> DPP records
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
@@ -1126,22 +1856,52 @@ export default function TeacherFlagsPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredAssignedDpps.map((dpp) => {
-                      const studentName = dpp.student ? `${dpp.student.firstName} ${dpp.student.lastName || ''}` : 'Unknown Student';
+                      const studentName = dpp.student ? `${dpp.student.firstName} ${dpp.student.lastName || ''}`.trim() : 'Unknown Student';
                       const isCompleted = dpp.status === 'COMPLETED';
                       const isStarted = dpp.answers && dpp.answers.length > 0;
                       const topicsList = dpp.filters?.topics || (dpp.filters?.topic ? [dpp.filters.topic] : []);
-                      const pct = dpp.totalMarks > 0 ? ((dpp.score / dpp.totalMarks) * 100).toFixed(0) : '0';
+                      
+                      const totalPossibleMarks = dpp.totalMarks > 0 ? dpp.totalMarks : (dpp.totalQuestions ? dpp.totalQuestions * 4 : 0);
+                      const achievedScore = typeof dpp.score === 'number' ? dpp.score : 0;
+                      const pctNum = totalPossibleMarks > 0 ? Math.round((achievedScore / totalPossibleMarks) * 100) : 0;
+                      const pct = pctNum.toString();
+
+                      const isLowPerformance = isCompleted && pctNum < 40;
+                      const isMidPerformance = isCompleted && pctNum >= 40 && pctNum < 70;
+                      const isHighPerformance = isCompleted && pctNum >= 70;
 
                       return (
-                        <tr key={dpp._id} className="hover:bg-gray-50/70 transition-colors">
+                        <tr 
+                          key={dpp._id} 
+                          className={`transition-colors ${
+                            isLowPerformance 
+                              ? 'bg-rose-50/30 hover:bg-rose-50/60' 
+                              : isMidPerformance 
+                              ? 'bg-amber-50/15 hover:bg-amber-50/40' 
+                              : 'hover:bg-gray-50/70'
+                          }`}
+                        >
                           {/* Student */}
                           <td className="py-3.5 px-5">
                             <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-full bg-emerald-50 text-[#1a7a35] font-black text-xs flex items-center justify-center border border-emerald-200">
+                              <div className={`w-7 h-7 rounded-full font-black text-xs flex items-center justify-center border ${
+                                isLowPerformance
+                                  ? 'bg-rose-100 text-rose-700 border-rose-300'
+                                  : isMidPerformance
+                                  ? 'bg-amber-100 text-amber-700 border-amber-300'
+                                  : 'bg-emerald-50 text-[#1a7a35] border-emerald-200'
+                              }`}>
                                 {studentName.charAt(0)}
                               </div>
                               <div>
-                                <p className="font-bold text-gray-900 text-xs">{studentName}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-bold text-gray-900 text-xs">{studentName}</p>
+                                  {isLowPerformance && (
+                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
+                                      Needs Attention
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-[10px] text-gray-400">
                                   {dpp.student?.metadata?.rollNo ? `Roll: ${dpp.student.metadata.rollNo}` : ''}
                                 </p>
@@ -1179,9 +1939,20 @@ export default function TeacherFlagsPage() {
                           <td className="py-3.5 px-4 text-center">
                             {isCompleted ? (
                               <div>
-                                <span className="font-bold text-xs text-[#1a7a35]">{dpp.score}</span>
-                                <span className="text-[10px] text-gray-400"> / {dpp.totalMarks}</span>
-                                <p className="text-[10px] font-semibold text-gray-500">{pct}% Acc.</p>
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-xs border ${
+                                  isLowPerformance
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                    : isMidPerformance
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                }`}>
+                                  {achievedScore} / {totalPossibleMarks}
+                                </span>
+                                <p className={`text-[10px] font-bold mt-0.5 ${
+                                  isLowPerformance ? 'text-rose-600' : isMidPerformance ? 'text-amber-600' : 'text-emerald-600'
+                                }`}>
+                                  {pct}% Accuracy
+                                </p>
                               </div>
                             ) : (
                               <span className="text-xs text-gray-400 font-medium">—</span>
@@ -1191,15 +1962,25 @@ export default function TeacherFlagsPage() {
                           {/* Status */}
                           <td className="py-3.5 px-4">
                             {isCompleted ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <CheckCircle2 size={11} /> Completed
-                              </span>
+                              isLowPerformance ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                  <AlertTriangle size={11} /> Critical (&lt;40%)
+                                </span>
+                              ) : isMidPerformance ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                  <Clock3 size={11} /> Average
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <CheckCircle2 size={11} /> Mastered
+                                </span>
+                              )
                             ) : isStarted ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                 <Clock size={11} /> In Progress
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 border border-gray-200">
                                 <Clock3 size={11} /> Pending
                               </span>
                             )}
@@ -1214,10 +1995,46 @@ export default function TeacherFlagsPage() {
                           <td className="py-3.5 px-5 text-right">
                             <button
                               onClick={() => handleOpenDppResultReview(dpp._id)}
-                              className="px-3.5 py-1.5 rounded-xl font-bold text-xs bg-[#1a7a35] hover:bg-[#146029] text-white shadow-xs flex items-center gap-1.5 ml-auto transition-all"
+                              className={`px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 ml-auto transition-all ${
+                                isCompleted
+                                  ? isLowPerformance
+                                    ? 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white shadow-sm shadow-rose-200 ring-2 ring-rose-400/40'
+                                    : isMidPerformance
+                                    ? 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white shadow-sm shadow-amber-200'
+                                    : 'bg-[#1a7a35] hover:bg-[#146029] active:bg-[#0f4d20] text-white shadow-sm shadow-emerald-200'
+                                  : isStarted
+                                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                              }`}
                             >
-                              <Eye size={13} />
-                              <span>{isCompleted ? 'Check Result' : 'View Question Set'}</span>
+                              {isCompleted ? (
+                                isLowPerformance ? (
+                                  <>
+                                    <AlertTriangle size={13} className="shrink-0" />
+                                    <span>Check Result ({pct}%) • Needs Attention</span>
+                                  </>
+                                ) : isMidPerformance ? (
+                                  <>
+                                    <Clock3 size={13} className="shrink-0" />
+                                    <span>Check Result ({pct}%) • Needs Practice</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 size={13} className="shrink-0" />
+                                    <span>Check Result ({pct}%) • Mastered</span>
+                                  </>
+                                )
+                              ) : isStarted ? (
+                                <>
+                                  <Clock size={13} className="shrink-0" />
+                                  <span>In Progress • Inspect</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Eye size={13} className="shrink-0" />
+                                  <span>View Question Set</span>
+                                </>
+                              )}
                             </button>
                           </td>
                         </tr>
@@ -1233,7 +2050,7 @@ export default function TeacherFlagsPage() {
 
       {/* CREATE / ASSIGN MULTI-TOPIC REMEDIAL DPP MODAL */}
       <AnimatePresence>
-        {isModalOpen && targetStudent && (
+        {isModalOpen && targetStudentIds.length > 0 && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
@@ -1246,17 +2063,17 @@ export default function TeacherFlagsPage() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-rose-500 text-white">
-                      Remedial Generator
+                      Remedial DPP Generator
                     </span>
                     <span className="text-xs text-gray-300">
                       {selectedTopicsForDPP.length} Topic{selectedTopicsForDPP.length === 1 ? '' : 's'} Selected
                     </span>
                   </div>
                   <h3 className="text-lg sm:text-xl font-black text-white">
-                    Assign Remedial DPP to {targetStudentIds.length === 1 ? `${targetStudent.firstName} ${targetStudent.lastName}` : `${targetStudentIds.length} selected students`}
+                    Assign Remedial DPP to {targetStudentIds.length === 1 ? (targetStudentsList[0]?.name || targetStudent?.firstName || 'Student') : `${targetStudentIds.length} Selected Students`}
                   </h3>
                   <p className="text-xs text-gray-300 mt-0.5">
-                    Subject: <strong className="text-white">{targetSubject}</strong> • Choose topics and configure auto/manual question set
+                    Subject: <strong className="text-white">{targetSubject}</strong> • Single click dispatches 1 identical remedial DPP to all recipients
                   </p>
                 </div>
                 <button 
@@ -1293,11 +2110,46 @@ export default function TeacherFlagsPage() {
 
               {/* Modal Body */}
               <div className="p-6 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
+                
+                {/* RECIPIENT STUDENTS LIST */}
+                <div className="space-y-2.5 p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                      <Users size={14} className="text-[#1a7a35]" /> Target Recipients ({targetStudentIds.length} Student{targetStudentIds.length === 1 ? '' : 's'}):
+                    </label>
+                    <span className="text-[11px] font-semibold text-emerald-800">
+                      1 Remedial DPP will be sent simultaneously to all
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                    {targetStudentsList.map(st => (
+                      <span key={st._id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-emerald-200 text-xs font-semibold text-gray-800 shadow-2xs">
+                        <span className="w-5 h-5 rounded-full bg-emerald-100 text-[#1a7a35] text-[10px] font-black flex items-center justify-center shrink-0">
+                          {st.name.charAt(0)}
+                        </span>
+                        <span className="truncate max-w-[140px]">{st.name}</span>
+                        {st.rollNo && <span className="text-[10px] text-gray-400">({st.rollNo})</span>}
+                        {targetStudentIds.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setTargetStudentIds(prev => prev.filter(id => id !== st._id))}
+                            className="text-gray-400 hover:text-rose-600 transition-colors ml-0.5"
+                            title="Remove student from this DPP"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
                 {/* TOPIC SELECTION PILLS */}
                 <div className="space-y-2 p-4 rounded-2xl bg-gray-50 border border-gray-200">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                      <ListFilter size={14} className="text-[#1a7a35]" /> Select Topics to Include in this DPP:
+                      <ListFilter size={14} className="text-[#1a7a35]" /> Topics to Include in this DPP:
                     </label>
                     <span className="text-[11px] font-bold text-[#1a7a35]">
                       {selectedTopicsForDPP.length} of {studentAvailableTopics.length} selected
@@ -1307,12 +2159,10 @@ export default function TeacherFlagsPage() {
                   <div className="flex flex-wrap gap-2 pt-1">
                     {studentAvailableTopics.map(st => {
                       const isSelected = selectedTopicsForDPP.includes(st.topicName);
-                      const isRed = st.flag === 'RED';
-                      const isYellow = st.flag === 'YELLOW';
 
                       return (
                         <button
-                          key={st._id}
+                          key={st.topicName}
                           type="button"
                           onClick={() => handleToggleTopicInModal(st.topicName)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
@@ -1326,9 +2176,9 @@ export default function TeacherFlagsPage() {
                           <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
                             isSelected 
                               ? 'bg-white/20 text-white' 
-                              : isRed ? 'bg-rose-100 text-rose-700' : isYellow ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+                              : st.hasRed ? 'bg-rose-100 text-rose-700' : st.hasYellow ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
                           }`}>
-                            {st.percentage}%
+                            {st.avgScore}% avg
                           </span>
                         </button>
                       );
@@ -1590,21 +2440,21 @@ export default function TeacherFlagsPage() {
                   <button
                     type="button"
                     onClick={handleGenerateAutoDPP}
-                    disabled={generatingAuto || selectedTopicsForDPP.length === 0}
+                    disabled={generatingAuto || selectedTopicsForDPP.length === 0 || targetStudentIds.length === 0}
                     className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1a7a35] hover:bg-[#146029] text-white shadow-md flex items-center gap-2 transition-all disabled:opacity-50"
                   >
                     {generatingAuto ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                    <span>Assign Multi-Topic Auto DPP ({autoNumQuestions} Qs across {selectedTopicsForDPP.length} topics)</span>
+                    <span>Assign Auto DPP to {targetStudentIds.length} Student{targetStudentIds.length === 1 ? '' : 's'} in 1 Click ({autoNumQuestions} Qs)</span>
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={handleSaveManualDPP}
-                    disabled={savingManual || selectedTopicsForDPP.length === 0}
+                    disabled={savingManual || selectedTopicsForDPP.length === 0 || targetStudentIds.length === 0}
                     className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1a7a35] hover:bg-[#146029] text-white shadow-md flex items-center gap-2 transition-all disabled:opacity-50"
                   >
                     {savingManual ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                    <span>Assign Custom DPP ({selectedQuestionIds.length + customQuestions.filter(q => q.questionText.trim()).length} Qs)</span>
+                    <span>Assign Custom DPP to {targetStudentIds.length} Student{targetStudentIds.length === 1 ? '' : 's'} in 1 Click ({selectedQuestionIds.length + customQuestions.filter(q => q.questionText.trim()).length} Qs)</span>
                   </button>
                 )}
               </div>

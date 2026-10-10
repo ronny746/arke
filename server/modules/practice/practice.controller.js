@@ -696,6 +696,14 @@ exports.submitSession = async (req, res) => {
     
     await session.save();
     
+    // Automatically update topic health from DPP performance and improve weak topic flags
+    try {
+      const FlagService = require('../performance-flags/performance-flags.service');
+      await FlagService.updateFlagsFromDpp(session);
+    } catch (flagErr) {
+      console.error('Error updating topic flags after DPP submission:', flagErr);
+    }
+
     res.status(200).json({ success: true, data: session });
   } catch (error) {
     console.error("Error submitting session:", error);

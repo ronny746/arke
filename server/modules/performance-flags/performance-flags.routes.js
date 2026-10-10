@@ -9,5 +9,10 @@ router.use(auth);
 router.get('/me', requireRole([ROLES.STUDENT]), controller.getMine);
 router.get('/children/:childId', requireRole([ROLES.PARENT]), controller.getChild);
 router.get('/batches/:batchId', requireRole([ROLES.TEACHER]), controller.getBatch);
+router.get(
+  '/student/:studentId',
+  requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS, ROLES.TEACHER, ROLES.STUDENT]),
+  controller.getStudentFlags
+);
 
 module.exports = router;

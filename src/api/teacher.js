@@ -9,6 +9,7 @@ export const teacherAPI = {
   // Students
   getStudents: () => axiosInstance.get('/users?role=student'),
   getStudentPerformance: (studentId) => axiosInstance.get(`/analytics-reports/student/${studentId}/performance`),
+  getBatchPerformance: (batchId, params) => axiosInstance.get(`/analytics-reports/batch/${batchId}/performance`, { params }),
   getBatchTopicFlags: (batchId) => axiosInstance.get(`/performance-flags/batches/${batchId}`),
   
   createAssignment: (data) => axiosInstance.post('/assignments', data),

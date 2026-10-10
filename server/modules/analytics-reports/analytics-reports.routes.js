@@ -27,8 +27,14 @@ router.get(
 
 router.get(
   '/student/:studentId/performance',
-  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.TEACHER, ROLES.STUDENT]),
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS, ROLES.TEACHER, ROLES.STUDENT]),
   AnalyticsReportsController.getStudentPerformance
+);
+
+router.get(
+  '/batch/:batchId/performance',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS, ROLES.TEACHER]),
+  AnalyticsReportsController.getBatchPerformance
 );
 
 module.exports = router;

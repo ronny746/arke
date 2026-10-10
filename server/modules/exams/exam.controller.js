@@ -912,22 +912,14 @@ exports.submitExam = async (req, res) => {
       examId,
       topicScores,
       thresholds,
-      getTopicFlag
+      getTopicFlag,
+      sourceType: 'EXAM'
     });
-    const remedialSessions = await createRemedialSessions({
-      instituteId: req.user.instituteId,
-      studentId,
-      examId,
-      topicScores,
-      thresholds
-    });
-    await FlagService.attachRemedialSessions({ studentId, examId, sessions: remedialSessions });
 
     res.status(200).json({
       success: true,
       message: 'Exam submitted successfully',
-      data: submission,
-      remedialSessionsCreated: remedialSessions.length
+      data: submission
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

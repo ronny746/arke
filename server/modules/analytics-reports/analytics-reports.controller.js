@@ -26,6 +26,22 @@ exports.getStudentPerformance = async (req, res, next) => {
   }
 };
 
+exports.getBatchPerformance = async (req, res, next) => {
+  try {
+    const { batchId } = req.params;
+    const { subject } = req.query;
+    const StudentAnalyticsService = require('./student-analytics.service');
+    const data = await StudentAnalyticsService.getBatchPerformance({
+      batchId,
+      instituteId: req.user.instituteId,
+      subject
+    });
+    return successResponse(res, 'Batch performance retrieved successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.queueReportGeneration = async (req, res, next) => {
   try {
     const data = await AnalyticsReportsService.queueReportGeneration(req.user, req.body);

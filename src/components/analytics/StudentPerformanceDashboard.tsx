@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 // Removed recharts
-import { Award, BookOpen, Clock, Target, CheckCircle, XCircle, AlertCircle, FileText, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
+import { Award, BookOpen, Clock, Target, CheckCircle, XCircle, AlertCircle, FileText, ChevronDown, ChevronRight, ChevronUp, Layers, Filter, Sparkles, User } from 'lucide-react';
 import { Card } from '@/components/ui/index.jsx';
 import axiosInstance from '@/api/axiosInstance.js';
 import toast from 'react-hot-toast';
+import { TopicFlagsPanel } from './TopicFlagsPanel';
 
 const ComprehensiveAccordion = ({ data }) => {
   const [expandedSubject, setExpandedSubject] = useState(null);
@@ -129,6 +130,18 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'EXAMS' | 'DPPS'>('EXAMS');
+  const [selectedSubject, setSelectedSubject] = useState<string>('ALL');
+  const [selectedBatch, setSelectedBatch] = useState<string>('ALL');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const sub = sp.get('subject');
+      const b = sp.get('batch');
+      if (sub) setSelectedSubject(sub);
+      if (b) setSelectedBatch(b);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchPerformance = async () => {
@@ -156,6 +169,79 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
     }
   }, [studentId]);
 
+  const availableSubjects = useMemo(() => {
+    const set = new Set<string>();
+    (data?.subjectWise || []).forEach((s: any) => { if (s.subject) set.add(s.subject); });
+    (data?.dppData?.subjectWise || []).forEach((s: any) => { if (s.subject) set.add(s.subject); });
+    return Array.from(set).sort();
+  }, [data]);
+
+  const availableBatches = useMemo(() => {
+    return data?.batches || [];
+  }, [data]);
+
+  const displayedSubjectWise = useMemo(() => {
+    const list = data?.subjectWise || [];
+    if (selectedSubject === 'ALL') return list;
+    return list.filter((s: any) => s.subject?.toLowerCase() === selectedSubject.toLowerCase());
+  }, [data, selectedSubject]);
+
+  const displayedDppSubjectWise = useMemo(() => {
+    const list = data?.dppData?.subjectWise || [];
+    if (selectedSubject === 'ALL') return list;
+    return list.filter((s: any) => s.subject?.toLowerCase() === selectedSubject.toLowerCase());
+  }, [data, selectedSubject]);
+
+  const currentSubjectNode = useMemo(() => {
+    if (selectedSubject === 'ALL') return null;
+    return (data?.subjectWise || []).find((s: any) => s.subject?.toLowerCase() === selectedSubject.toLowerCase()) || null;
+  }, [data, selectedSubject]);
+
+  const currentDppSubjectNode = useMemo(() => {
+    if (selectedSubject === 'ALL') return null;
+    return (data?.dppData?.subjectWise || []).find((s: any) => s.subject?.toLowerCase() === selectedSubject.toLowerCase()) || null;
+  }, [data, selectedSubject]);
+
+  const fallbackExamWeakTopics = useMemo(() => {
+    const list: any[] = [];
+    (data?.subjectWise || []).forEach((subj: any) => {
+      if (selectedSubject !== 'ALL' && subj.subject?.toLowerCase() !== selectedSubject.toLowerCase()) return;
+      (subj.topics || []).forEach((t: any) => {
+        const acc = parseFloat(t.accuracy || 0);
+        if (acc < 60) {
+          list.push({
+            _id: `calc-exam-${subj.subject}-${t.topic}`,
+            subjectName: subj.subject,
+            topicName: t.topic,
+            percentage: Math.round(acc),
+            flag: acc < 40 ? 'RED' : 'YELLOW'
+          });
+        }
+      });
+    });
+    return list;
+  }, [data, selectedSubject]);
+
+  const fallbackDppWeakTopics = useMemo(() => {
+    const list: any[] = [];
+    (data?.dppData?.subjectWise || []).forEach((subj: any) => {
+      if (selectedSubject !== 'ALL' && subj.subject?.toLowerCase() !== selectedSubject.toLowerCase()) return;
+      (subj.topics || []).forEach((t: any) => {
+        const acc = parseFloat(t.accuracy || 0);
+        if (acc < 60) {
+          list.push({
+            _id: `calc-dpp-${subj.subject}-${t.topic}`,
+            subjectName: subj.subject,
+            topicName: t.topic,
+            percentage: Math.round(acc),
+            flag: acc < 40 ? 'RED' : 'YELLOW'
+          });
+        }
+      });
+    });
+    return list;
+  }, [data, selectedSubject]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -181,7 +267,7 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
     );
   }
 
-  const { overall = { totalExamsTaken: 0, averageScore: 0, overallPercentage: 0 }, subjectWise = [], recentExams = [], dppData } = data;
+  const { overall = { totalExamsTaken: 0, averageScore: 0, overallPercentage: 0 }, subjectWise = [], recentExams = [], dppData, student, batches } = data;
   const dppOverall = dppData?.overall || { totalDppsTaken: 0, averageScore: 0, overallPercentage: 0 };
   const recentDpps = dppData?.recentDpps || [];
 
@@ -223,11 +309,51 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
             ))}
           </div>
 
+          {selectedSubject !== 'ALL' && currentSubjectNode && (
+            <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/40 to-white p-4 rounded-2xl border border-blue-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+                  <BookOpen size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                      Subject Deep-Dive
+                    </span>
+                    <h4 className="text-base font-black text-gray-900">{selectedSubject}</h4>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">Performance breakdown for {selectedSubject} across evaluations</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <div className="bg-white px-3.5 py-2 rounded-xl border border-blue-100 text-center shadow-xs">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Accuracy</p>
+                  <p className="text-base font-black text-blue-600">{currentSubjectNode.accuracy}%</p>
+                </div>
+                <div className="bg-white px-3.5 py-2 rounded-xl border border-blue-100 text-center shadow-xs">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Score</p>
+                  <p className="text-base font-black text-gray-800">{currentSubjectNode.marksObtained} / {currentSubjectNode.totalPossibleMarks}</p>
+                </div>
+                <div className="bg-white px-3.5 py-2 rounded-xl border border-blue-100 text-center shadow-xs">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Questions</p>
+                  <p className="text-base font-black text-gray-800">{currentSubjectNode.totalQuestions}</p>
+                </div>
+                <div className="bg-white px-3.5 py-2 rounded-xl border border-blue-100 text-center shadow-xs">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Weak Topics</p>
+                  <p className="text-base font-black text-rose-600">
+                    {(currentSubjectNode.topics || []).filter((t: any) => parseFloat(t.accuracy) < 50).length}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Card className="p-6 overflow-hidden">
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <Target className="text-primary-500" /> Comprehensive Exam Performance Breakdown
+              <Target className="text-primary-500" /> Comprehensive Exam Performance Breakdown {selectedSubject !== 'ALL' ? `(${selectedSubject})` : ''}
             </h3>
-            <ComprehensiveAccordion data={subjectWise} />
+            <ComprehensiveAccordion data={displayedSubjectWise} />
           </Card>
 
           <Card className="p-6 overflow-hidden">
@@ -297,6 +423,18 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
               <p className="text-center text-surface-500 py-6">No past exams found.</p>
             )}
           </Card>
+
+          <div className="space-y-3">
+            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <AlertCircle size={18} className="text-rose-600" /> Exam Weak Topics & Topic Health
+            </h3>
+            <TopicFlagsPanel 
+              sourceType="EXAM" 
+              studentId={studentId !== 'me' ? studentId : undefined} 
+              subject={selectedSubject !== 'ALL' ? selectedSubject : undefined} 
+              fallbackTopics={fallbackExamWeakTopics}
+            />
+          </div>
         </>
       )}
     </>
@@ -354,11 +492,51 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
             </motion.div>
           </div>
 
+          {selectedSubject !== 'ALL' && currentDppSubjectNode && (
+            <div className="bg-gradient-to-r from-emerald-50/80 via-teal-50/40 to-white p-4 rounded-2xl border border-emerald-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#1a7a35] text-white flex items-center justify-center font-bold">
+                  <Target size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      DPP Subject Deep-Dive
+                    </span>
+                    <h4 className="text-base font-black text-gray-900">{selectedSubject}</h4>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">DPP practice accuracy and evaluated topics in {selectedSubject}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <div className="bg-white px-3.5 py-2 rounded-xl border border-emerald-100 text-center shadow-xs">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Accuracy</p>
+                  <p className="text-base font-black text-emerald-600">{currentDppSubjectNode.accuracy}%</p>
+                </div>
+                <div className="bg-white px-3.5 py-2 rounded-xl border border-emerald-100 text-center shadow-xs">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Score</p>
+                  <p className="text-base font-black text-gray-800">{currentDppSubjectNode.marksObtained} / {currentDppSubjectNode.totalPossibleMarks}</p>
+                </div>
+                <div className="bg-white px-3.5 py-2 rounded-xl border border-emerald-100 text-center shadow-xs">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Questions</p>
+                  <p className="text-base font-black text-gray-800">{currentDppSubjectNode.totalQuestions}</p>
+                </div>
+                <div className="bg-white px-3.5 py-2 rounded-xl border border-emerald-100 text-center shadow-xs">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Weak Topics</p>
+                  <p className="text-base font-black text-rose-600">
+                    {(currentDppSubjectNode.topics || []).filter((t: any) => parseFloat(t.accuracy) < 50).length}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Card className="p-6 overflow-hidden">
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <Target className="text-primary-500" /> Comprehensive DPP Performance Breakdown
+              <Target className="text-primary-500" /> Comprehensive DPP Performance Breakdown {selectedSubject !== 'ALL' ? `(${selectedSubject})` : ''}
             </h3>
-            <ComprehensiveAccordion data={dppData?.subjectWise || []} />
+            <ComprehensiveAccordion data={displayedDppSubjectWise} />
           </Card>
 
           <Card className="p-6 overflow-hidden">
@@ -436,6 +614,18 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
               <p className="text-center text-surface-500 py-6">No past DPPs found.</p>
             )}
           </Card>
+
+          <div className="space-y-3">
+            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <Target size={18} className="text-[#1a7a35]" /> DPP Weak Topics & Topic Health
+            </h3>
+            <TopicFlagsPanel 
+              sourceType="DPP" 
+              studentId={studentId !== 'me' ? studentId : undefined} 
+              subject={selectedSubject !== 'ALL' ? selectedSubject : undefined} 
+              fallbackTopics={fallbackDppWeakTopics}
+            />
+          </div>
         </>
       )}
     </>
@@ -443,6 +633,75 @@ export default function StudentPerformanceDashboard({ studentId, onExamClick, on
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Batch & Subject Analysis Filter Bar */}
+      <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#1a7a35] flex items-center justify-center font-bold shrink-0">
+            <Layers size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                Performance Cohort
+              </span>
+              {student && (
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                  {student.firstName} {student.lastName} {student.metadata?.rollNo ? `(Roll: ${student.metadata.rollNo})` : ''}
+                </span>
+              )}
+            </div>
+            <h4 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white mt-0.5">
+              Student Analysis by Batch & Subject
+            </h4>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Batch Selector */}
+          {availableBatches.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="font-semibold text-gray-500">Batch:</span>
+              <select
+                value={selectedBatch}
+                onChange={(e) => setSelectedBatch(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1a7a35]"
+              >
+                <option value="ALL">All Batches ({availableBatches.length})</option>
+                {availableBatches.map((b: any) => (
+                  <option key={b._id} value={b._id}>
+                    {b.name} {b.section ? `(${b.section})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Subject Selector */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="font-semibold text-gray-500">Subject:</span>
+            <select
+              value={selectedSubject}
+              onChange={(e) => setSelectedSubject(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1a7a35]"
+            >
+              <option value="ALL">All Subjects ({availableSubjects.length})</option>
+              {availableSubjects.map((sub: string) => (
+                <option key={sub} value={sub}>{sub}</option>
+              ))}
+            </select>
+          </div>
+
+          {(selectedSubject !== 'ALL' || selectedBatch !== 'ALL') && (
+            <button
+              onClick={() => { setSelectedSubject('ALL'); setSelectedBatch('ALL'); }}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="flex border-b border-surface-200 dark:border-surface-700 overflow-x-auto no-scrollbar">
         <button
           className={`px-6 py-3 font-bold text-sm whitespace-nowrap transition-colors border-b-2 ${activeTab === 'EXAMS' ? 'border-[#1a7a35] text-[#1a7a35]' : 'border-transparent text-surface-500 hover:text-surface-700'}`}

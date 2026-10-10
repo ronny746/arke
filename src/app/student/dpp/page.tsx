@@ -40,7 +40,7 @@ export default function StudentDPPPage() {
       setLoading(true);
       const [historyRes, flagsRes] = await Promise.all([
         studentAPI.getPracticeHistory({ sessionType: 'DPP' }).catch(() => ({ data: { data: [] } })),
-        studentAPI.getTopicFlags().catch(() => ({ data: { data: [] } }))
+        studentAPI.getTopicFlags({ sourceType: 'DPP' }).catch(() => ({ data: { data: [] } }))
       ]);
       const historyList = historyRes.data?.data || [];
       setAllDpps(historyList);

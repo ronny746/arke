@@ -27,7 +27,8 @@ import {
   SlidersHorizontal,
   UserCheck,
   Building2,
-  FolderOpen
+  FolderOpen,
+  BarChart3
 } from 'lucide-react';
 import { useDeveloperStore } from '@/store';
 import { PageHeader } from '@/components/layout/index.jsx';
@@ -40,6 +41,7 @@ import { formatDate, getStatusBadge, cn } from '@/utils/helpers.js';
 import toast from 'react-hot-toast';
 import { adminAPI } from '@/api/index.js';
 import { useAuthStore } from '@/store/index.js';
+import BatchCohortAnalysisView from '@/components/analytics/BatchCohortAnalysisView';
 
 export default function StudentsPage() {
   const { user } = useAuthStore();
@@ -52,8 +54,8 @@ export default function StudentsPage() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
-  // Active View Mode: 'batches' (Batch cards directory) or 'all' (Master students table)
-  const [viewMode, setViewMode] = useState<'batches' | 'all'>('batches');
+  // Active View Mode: 'batches' (Batch cards directory) or 'all' (Master students table) or 'analysis'
+  const [viewMode, setViewMode] = useState<'batches' | 'all' | 'analysis'>('batches');
   // Selected batch for drill-down ('ALL' or batchId or 'UNASSIGNED')
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
@@ -78,6 +80,10 @@ export default function StudentsPage() {
   const [filterClass, setFilterClass] = useState('');
   const [filterSection, setFilterSection] = useState('');
   const [filterCourse, setFilterCourse] = useState('');
+  const [filterSubject, setFilterSubject] = useState('');
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [batchAnalysis, setBatchAnalysis] = useState<any>(null);
+  const [showCohortAnalysis, setShowCohortAnalysis] = useState(true);
   const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'recent' | 'oldest'>('name_asc');
 
   const [form, setForm] = useState({ 
@@ -117,10 +123,30 @@ export default function StudentsPage() {
     }
   };
 
+  const fetchSubjects = async () => {
+    try {
+      const res = await adminAPI.getSubjects();
+      setSubjects(res.data?.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     void fetchStudents();
     void fetchClasses();
+    void fetchSubjects();
   }, []);
+
+  useEffect(() => {
+    if (selectedBatchId && selectedBatchId !== 'UNASSIGNED') {
+      adminAPI.getBatchPerformance(selectedBatchId, filterSubject ? { subject: filterSubject } : undefined)
+        .then(res => setBatchAnalysis(res.data?.data || null))
+        .catch(() => setBatchAnalysis(null));
+    } else {
+      setBatchAnalysis(null);
+    }
+  }, [selectedBatchId, filterSubject]);
 
   // Map student IDs to batches for quick lookups
   const studentBatchMap = useMemo(() => {
@@ -202,9 +228,10 @@ export default function StudentsPage() {
     if (filterClass) count++;
     if (filterSection) count++;
     if (filterCourse) count++;
+    if (filterSubject) count++;
     if (selectedBatchId && selectedBatchId !== 'ALL') count++;
     return count;
-  }, [filterSearch, filterStatus, filterClass, filterSection, filterCourse, selectedBatchId]);
+  }, [filterSearch, filterStatus, filterClass, filterSection, filterCourse, filterSubject, selectedBatchId]);
 
   const resetFilters = () => {
     setFilterSearch('');
@@ -212,6 +239,7 @@ export default function StudentsPage() {
     setFilterClass('');
     setFilterSection('');
     setFilterCourse('');
+    setFilterSubject('');
   };
 
   // Currently selected batch object (if in batch drilldown)
@@ -548,7 +576,17 @@ export default function StudentsPage() {
                 setShowEdit({ ...row, batchIds: studentBatches.map(b => b._id || b.id) });
               }
             },
-            { label: 'Performance Analytics', icon: LineChart, onClick: () => router.push(`/admin/students/${row._id || row.id}/performance`) },
+            { 
+              label: 'Performance Analytics', 
+              icon: LineChart, 
+              onClick: () => {
+                const queryParams = new URLSearchParams();
+                if (selectedBatchId && selectedBatchId !== 'ALL') queryParams.set('batch', selectedBatchId);
+                if (filterSubject) queryParams.set('subject', filterSubject);
+                const qs = queryParams.toString() ? `?${queryParams.toString()}` : '';
+                router.push(`/admin/students/${row._id || row.id}/performance${qs}`);
+              } 
+            },
             { label: 'Promote Class', icon: ArrowRight, onClick: () => setShowPromote([row.id || row._id]) },
             {
               label: row.isActive !== false ? 'Deactivate' : 'Activate',
@@ -652,6 +690,18 @@ export default function StudentsPage() {
             }`}
           >
             <Users size={15} /> Master Student List ({students.length})
+          </button>
+          <button
+            onClick={() => {
+              setViewMode('analysis');
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              viewMode === 'analysis'
+                ? 'bg-[#1a7a35] text-white shadow-sm'
+                : 'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 hover:bg-surface-200'
+            }`}
+          >
+            <BarChart3 size={15} /> Batch & Subject Analysis
           </button>
         </div>
 
@@ -828,7 +878,7 @@ export default function StudentsPage() {
       )}
 
       {/* MODE 2: STUDENT TABLE VIEW (WITH BATCH DRILL-DOWN & FULL MULTI-FILTERS) */}
-      {(viewMode === 'all' || selectedBatchId) && (
+      {(viewMode === 'all' || (selectedBatchId && viewMode !== 'analysis')) && (
         <div className="space-y-4 animate-fade-in">
           {/* Active Batch Header Banner (if a specific batch is drilled into) */}
           {currentBatchObj && (
@@ -862,9 +912,17 @@ export default function StudentsPage() {
                 </div>
               </div>
 
-              {/* Batch Switcher Dropdown */}
-              <div className="flex items-center gap-2 self-start md:self-auto">
-                <span className="text-xs font-bold text-surface-500 shrink-0">Switch Batch:</span>
+              {/* Batch Switcher & Analysis Toggle */}
+              <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewMode('analysis')}
+                  className="border-[#1a7a35] text-[#1a7a35] hover:bg-emerald-50 text-xs font-bold shrink-0"
+                >
+                  <BarChart3 size={14} className="mr-1.5" /> Cohort Analysis
+                </Button>
+                <span className="text-xs font-bold text-surface-500 shrink-0">Switch:</span>
                 <select
                   value={selectedBatchId || 'ALL'}
                   onChange={e => setSelectedBatchId(e.target.value)}
@@ -877,6 +935,76 @@ export default function StudentsPage() {
                   ))}
                 </select>
               </div>
+            </div>
+          )}
+
+          {/* Batch & Subject Cohort Analysis Card */}
+          {currentBatchObj && batchAnalysis && (
+            <div className="bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/30 dark:from-surface-900 dark:to-surface-800 p-4 md:p-5 rounded-2xl border border-emerald-200 dark:border-surface-700 shadow-xs space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#1a7a35] text-white flex items-center justify-center font-bold">
+                    <BarChart3 size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      Batch & Subject Analysis: {currentBatchObj.name}
+                      {filterSubject && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Subject: {filterSubject}</span>}
+                    </h3>
+                    <p className="text-[11px] text-gray-500">Cohort performance breakdown, evaluated subjects and critical weak topics</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-500 font-semibold">Evaluated:</span>
+                  <span className="font-bold text-[#1a7a35]">{batchAnalysis.totalEvaluatedStudents || 0} students</span>
+                  <button
+                    onClick={() => setShowCohortAnalysis(!showCohortAnalysis)}
+                    className="ml-2 text-xs font-bold text-gray-600 hover:text-gray-900 underline"
+                  >
+                    {showCohortAnalysis ? 'Hide' : 'Show'} Breakdown
+                  </button>
+                </div>
+              </div>
+
+              {showCohortAnalysis && batchAnalysis.subjects && batchAnalysis.subjects.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2 border-t border-emerald-100 dark:border-surface-700">
+                  {batchAnalysis.subjects.map((subj: any) => (
+                    <div
+                      key={subj.subject}
+                      onClick={() => setFilterSubject(filterSubject === subj.subject ? '' : subj.subject)}
+                      className={cn(
+                        "p-3 rounded-xl border transition-all bg-white dark:bg-surface-800 cursor-pointer shadow-xs",
+                        filterSubject === subj.subject ? "border-[#1a7a35] ring-2 ring-emerald-100" : "border-surface-200 hover:border-emerald-300"
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold text-xs text-gray-900 dark:text-white flex items-center gap-1.5">
+                          <BookOpen size={13} className="text-[#1a7a35]" /> {subj.subject}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800">
+                          {subj.evaluatedStudentsCount} evaluated
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <span>Weak Topics:</span>
+                        <span className={cn("font-bold text-xs", subj.weakTopicsCount > 0 ? "text-[#881337]" : "text-emerald-600")}>
+                          {subj.weakTopicsCount}
+                        </span>
+                      </div>
+                      {subj.topWeakTopics && subj.topWeakTopics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {subj.topWeakTopics.slice(0, 2).map((wt: any) => (
+                            <span key={wt.topic} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#881337] text-white">
+                              {wt.topic} ({wt.affectedStudentsCount})
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1000,6 +1128,21 @@ export default function StudentsPage() {
                 </select>
               </div>
 
+              {/* Subject Filter */}
+              <div>
+                <label className="text-[11px] font-bold text-surface-500 block mb-1">Subject</label>
+                <select
+                  value={filterSubject}
+                  onChange={e => setFilterSubject(e.target.value)}
+                  className="w-full py-1.5 px-2.5 text-xs font-semibold rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-900 focus:outline-none focus:ring-2 focus:ring-[#1a7a35]"
+                >
+                  <option value="">All Subjects</option>
+                  {subjects.map(s => (
+                    <option key={s._id || s.id} value={s.name}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* 5. Class / Standard Filter */}
               <div>
                 <label className="text-[11px] font-bold text-surface-500 block mb-1">Class / Grade</label>
@@ -1091,6 +1234,17 @@ export default function StudentsPage() {
             />
           </Card>
         </div>
+      )}
+
+      {/* MODE 3: BATCH & SUBJECT COHORT ANALYSIS */}
+      {viewMode === 'analysis' && (
+        <BatchCohortAnalysisView
+          batchId={selectedBatchId || 'all'}
+          batches={classes}
+          onSelectBatch={setSelectedBatchId}
+          initialSubject={filterSubject}
+          portal="admin"
+        />
       )}
 
       {/* Add Modal */}
