@@ -4,7 +4,13 @@ const FeesPaymentsController = require('./fees-payments.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
 const rbacMiddleware = require('../../middlewares/rbac.middleware');
 const validate = require('../../middlewares/validate.middleware');
-const { generateFeeSchema, processPaymentSchema } = require('./fees-payments.validation');
+const {
+  generateFeeSchema,
+  processPaymentSchema,
+  createCustomPlanSchema,
+  recordOfflinePaymentSchema,
+  sendReminderSchema
+} = require('./fees-payments.validation');
 const { ROLES } = require('../../config/constants');
 
 router.use(authMiddleware);
@@ -45,4 +51,44 @@ router.post(
   FeesPaymentsController.processPayment
 );
 
+// ── Custom Fee Plans & Installments ──
+router.post(
+  '/custom-plan',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS]),
+  validate(createCustomPlanSchema),
+  FeesPaymentsController.createOrUpdateCustomPlan
+);
+
+router.post(
+  '/record-offline',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS]),
+  validate(recordOfflinePaymentSchema),
+  FeesPaymentsController.recordOfflinePayment
+);
+
+router.post(
+  '/send-reminder',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS]),
+  validate(sendReminderSchema),
+  FeesPaymentsController.sendPaymentReminder
+);
+
+router.get(
+  '/plan/:courseId',
+  FeesPaymentsController.getCoursePlan
+);
+
+router.get(
+  '/custom-plans',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS]),
+  FeesPaymentsController.getCustomPlans
+);
+
+router.post(
+  '/reminders/check',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS]),
+  FeesPaymentsController.checkAndSendDueReminders
+);
+
 module.exports = router;
+

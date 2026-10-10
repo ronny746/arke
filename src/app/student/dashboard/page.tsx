@@ -116,6 +116,7 @@ export default function StudentDashboard() {
   const [mentorSessions, setMentorSessions] = useState<any[]>([]);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [unenrolledCourses, setUnenrolledCourses] = useState<any[]>([]);
+  const [urgentInstallment, setUrgentInstallment] = useState<any>(null);
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -128,6 +129,7 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     let parsedUser: any = null;
+
     const stored = localStorage.getItem('user');
     if (stored) {
       parsedUser = JSON.parse(stored);
@@ -222,6 +224,21 @@ export default function StudentDashboard() {
           console.warn('Failed to fetch mentor sessions:', err);
           setMentorSessions([]);
         }
+
+        // Fetch pending dues & installments
+        try {
+          const duesRes = await studentAPI.getMyDues();
+          const duesList = duesRes.data?.data || [];
+          const urgent = duesList
+            .flatMap((d: any) => (d.installments || []).map((i: any) => ({
+              ...i,
+              courseName: d.courseId?.name,
+              courseId: d.courseId?._id || d.courseId
+            })))
+            .filter((i: any) => i.status !== 'PAID')
+            .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+          setUrgentInstallment(urgent || null);
+        } catch (_) {}
 
       } finally {
         setLoading(false);
@@ -421,6 +438,43 @@ export default function StudentDashboard() {
           </section>
         );
       })()}
+
+      {/* Urgent Payment Due Alert Banner */}
+      {urgentInstallment && (
+        <section className="rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50/60 to-amber-50/80 p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-md shadow-amber-500/20">
+              <Clock size={22} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                  Fee Payment Reminder
+                </span>
+                <span className="text-xs font-bold text-gray-800">
+                  Installment #{urgentInstallment.installmentNumber} for {urgentInstallment.courseName || 'Course'}
+                </span>
+              </div>
+              <h3 className="text-base font-black text-gray-900 mt-1">
+                Amount Due: ₹{Number(urgentInstallment.amount || 0).toLocaleString()}
+                <span className="text-xs font-medium text-gray-500 ml-2">
+                  (Due by: {new Date(urgentInstallment.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})
+                </span>
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Complete payment to ensure uninterrupted batch classes and study material access.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push(`/checkout/${urgentInstallment.courseId}`)}
+            className="px-5 py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white text-xs font-black shadow-md transition-all flex items-center gap-1.5 shrink-0"
+          >
+            <span>Pay Installment Online</span>
+            <ArrowRight size={14} />
+          </button>
+        </section>
+      )}
 
       {/* Promotional Banners Carousel */}
       <BannerCarousel />

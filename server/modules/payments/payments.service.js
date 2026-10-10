@@ -49,7 +49,26 @@ class PaymentsService {
     if (cleanPhone.length > 10) cleanPhone = cleanPhone.slice(-10);
     if (cleanPhone.length < 10) cleanPhone = '9999999999'; // fallback for valid phone format
 
-    const amount = Number(course.fee) || 0;
+    // Check if user has an active custom installment fee record
+    const customFeeRecord = await FeeRecord.findOne({
+      studentId: user._id,
+      courseId: course._id,
+      isCustomPlan: true,
+      status: { $ne: 'PAID' }
+    });
+
+    let amount = Number(course.fee) || 0;
+    let targetInstallment = null;
+
+    if (customFeeRecord && customFeeRecord.installments?.length) {
+      targetInstallment = customFeeRecord.installments.find(
+        i => i.status === 'PENDING' || i.status === 'OVERDUE' || i.status === 'PARTIAL'
+      );
+      if (targetInstallment) {
+        amount = Number(targetInstallment.amount) - (Number(targetInstallment.paidAmount) || 0);
+      }
+    }
+
     if (amount <= 0) {
       throw new Error('Course fee must be greater than 0 for online payment gateway.');
     }
@@ -67,6 +86,8 @@ class PaymentsService {
     // Create a pending transaction record
     const paymentTxn = new PaymentTransaction({
       instituteId: course.instituteId || reqUser.instituteId,
+      feeRecordId: customFeeRecord?._id || undefined,
+      installmentNumber: targetInstallment?.installmentNumber || undefined,
       studentId: user._id,
       courseId: course._id,
       amountPaid: amount,
@@ -77,7 +98,8 @@ class PaymentsService {
     await paymentTxn.save();
 
     // Clean fields
-    const cleanProductInfo = (course.name || 'Course').replace(/[^a-zA-Z0-9 ]/g, '').trim().slice(0, 50) || 'Course';
+    const instSuffix = targetInstallment ? ` Inst ${targetInstallment.installmentNumber}` : '';
+    const cleanProductInfo = ((course.name || 'Course') + instSuffix).replace(/[^a-zA-Z0-9 ]/g, '').trim().slice(0, 50) || 'Course';
     const cleanFirstName = (user.firstName || 'Student').replace(/[^a-zA-Z0-9]/g, '').trim().slice(0, 50) || 'Student';
     const cleanEmail = (user.email || 'student@arke.com').trim();
 
@@ -94,8 +116,8 @@ class PaymentsService {
       udf1: user._id.toString(),
       udf2: course._id.toString(),
       udf3: (course.instituteId || reqUser.instituteId || '').toString(),
-      udf4: (course.defaultBatchId || '').toString(),
-      udf5: 'COURSE_ENROLLMENT'
+      udf4: (targetInstallment?.installmentNumber || course.defaultBatchId || '').toString(),
+      udf5: targetInstallment ? 'COURSE_INSTALLMENT' : 'COURSE_ENROLLMENT'
     });
 
     return {
@@ -104,6 +126,14 @@ class PaymentsService {
       accessKey: paymentResponse.accessKey,
       paymentUrl: paymentResponse.paymentUrl,
       amount,
+      isInstallment: Boolean(targetInstallment),
+      installment: targetInstallment ? {
+        number: targetInstallment.installmentNumber,
+        title: targetInstallment.title || `Installment #${targetInstallment.installmentNumber}`,
+        dueDate: targetInstallment.dueDate,
+        totalPlanPrice: customFeeRecord.totalCoursePrice,
+        remainingDue: Math.max(0, customFeeRecord.amountDue - amount)
+      } : null,
       course: {
         id: course._id,
         name: course.name,
@@ -113,7 +143,7 @@ class PaymentsService {
   }
 
   /**
-   * Initiate Razorpay Order for course enrollment
+   * Initiate Razorpay Order for course enrollment or installment
    */
   async initiateRazorpayOrder(reqUser, courseId) {
     const course = await CourseModel.findById(courseId);
@@ -131,7 +161,26 @@ class PaymentsService {
       throw new Error('User not found');
     }
 
-    const amount = Number(course.fee) || 0;
+    // Check if user has an active custom installment fee record
+    const customFeeRecord = await FeeRecord.findOne({
+      studentId: user._id,
+      courseId: course._id,
+      isCustomPlan: true,
+      status: { $ne: 'PAID' }
+    });
+
+    let amount = Number(course.fee) || 0;
+    let targetInstallment = null;
+
+    if (customFeeRecord && customFeeRecord.installments?.length) {
+      targetInstallment = customFeeRecord.installments.find(
+        i => i.status === 'PENDING' || i.status === 'OVERDUE' || i.status === 'PARTIAL'
+      );
+      if (targetInstallment) {
+        amount = Number(targetInstallment.amount) - (Number(targetInstallment.paidAmount) || 0);
+      }
+    }
+
     if (amount <= 0) {
       throw new Error('Course fee must be greater than 0 for online payment gateway.');
     }
@@ -144,13 +193,17 @@ class PaymentsService {
       notes: {
         courseId: course._id.toString(),
         studentId: user._id.toString(),
-        courseName: course.name || ''
+        courseName: course.name || '',
+        feeRecordId: customFeeRecord?._id?.toString() || '',
+        installmentNumber: targetInstallment ? String(targetInstallment.installmentNumber) : ''
       }
     });
 
     // Save pending transaction
     const paymentTxn = new PaymentTransaction({
       instituteId: course.instituteId || reqUser.instituteId,
+      feeRecordId: customFeeRecord?._id || undefined,
+      installmentNumber: targetInstallment?.installmentNumber || undefined,
       studentId: user._id,
       courseId: course._id,
       amountPaid: amount,
@@ -166,6 +219,14 @@ class PaymentsService {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      isInstallment: Boolean(targetInstallment),
+      installment: targetInstallment ? {
+        number: targetInstallment.installmentNumber,
+        title: targetInstallment.title || `Installment #${targetInstallment.installmentNumber}`,
+        dueDate: targetInstallment.dueDate,
+        totalPlanPrice: customFeeRecord.totalCoursePrice,
+        remainingDue: Math.max(0, customFeeRecord.amountDue - amount)
+      } : null,
       course: {
         id: course._id,
         name: course.name,
@@ -178,6 +239,7 @@ class PaymentsService {
       }
     };
   }
+
 
   /**
    * Verify Razorpay Payment Signature and fulfill enrollment
@@ -438,6 +500,8 @@ class PaymentsService {
         instituteId: course.instituteId || instituteId
       });
 
+      const amountPaidThisTxn = Number(paymentTxn?.amountPaid || course.fee || 0);
+
       if (!feeRecord) {
         feeRecord = new FeeRecord({
           instituteId: course.instituteId || instituteId || user.instituteId,
@@ -445,15 +509,44 @@ class PaymentsService {
           courseId,
           batchId: assignedBatchId,
           feeType: 'TUITION',
-          amountDue: course.fee || 0,
-          amountPaid: course.fee || 0,
+          amountDue: Math.max(0, (course.fee || 0) - amountPaidThisTxn),
+          amountPaid: amountPaidThisTxn,
           dueDate: new Date(),
-          status: 'PAID'
+          status: amountPaidThisTxn >= (course.fee || 0) ? 'PAID' : 'PARTIAL'
         });
         await feeRecord.save();
+      } else if (feeRecord.isCustomPlan && feeRecord.installments?.length) {
+        // Find matching installment (by paymentTxn.installmentNumber or first pending)
+        let targetInst = null;
+        if (paymentTxn?.installmentNumber) {
+          targetInst = feeRecord.installments.find(i => i.installmentNumber === Number(paymentTxn.installmentNumber));
+        }
+        if (!targetInst) {
+          targetInst = feeRecord.installments.find(i => i.status === 'PENDING' || i.status === 'OVERDUE' || i.status === 'PARTIAL');
+        }
+
+        if (targetInst) {
+          targetInst.status = 'PAID';
+          targetInst.paidAmount = amountPaidThisTxn;
+          targetInst.paidAt = new Date();
+          targetInst.paymentMethod = paymentTxn?.paymentMethod || 'ONLINE';
+          targetInst.transactionId = paymentTxn?.transactionId || '';
+        }
+
+        const totalPaid = feeRecord.installments
+          .filter(i => i.status === 'PAID')
+          .reduce((sum, i) => sum + (Number(i.paidAmount) || 0), 0);
+
+        const totalPrice = feeRecord.totalCoursePrice || (feeRecord.amountPaid + feeRecord.amountDue);
+        feeRecord.amountPaid = totalPaid;
+        feeRecord.amountDue = Math.max(0, totalPrice - totalPaid);
+        feeRecord.status = feeRecord.amountDue <= 0 ? 'PAID' : 'PARTIAL';
+        if (assignedBatchId && !feeRecord.batchId) feeRecord.batchId = assignedBatchId;
+        await feeRecord.save();
       } else {
-        feeRecord.amountPaid = (feeRecord.amountPaid || 0) + (course.fee || 0);
-        feeRecord.status = 'PAID';
+        feeRecord.amountPaid = (feeRecord.amountPaid || 0) + amountPaidThisTxn;
+        const totalDue = feeRecord.amountDue || course.fee || 0;
+        feeRecord.status = feeRecord.amountPaid >= totalDue ? 'PAID' : 'PARTIAL';
         if (assignedBatchId && !feeRecord.batchId) feeRecord.batchId = assignedBatchId;
         await feeRecord.save();
       }
@@ -463,6 +556,7 @@ class PaymentsService {
         paymentTxn.feeRecordId = feeRecord._id;
         await paymentTxn.save();
       }
+
 
       const batch = assignedBatchId ? await BatchModel.findById(assignedBatchId).select('name') : null;
       const welcomeMessage = makeWelcomeMessage({

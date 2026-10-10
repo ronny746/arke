@@ -39,7 +39,23 @@ export default function ParentDashboard() {
     parentAPI.getNotifications()
       .then(response => setAttendanceAlerts((response.data?.data || response.data || []).filter((item: any) => item.metadata?.entityType?.startsWith('attendance_')).slice(0, 3)))
       .catch(() => undefined);
+
+    parentAPI.getFees()
+      .then(res => {
+        const fees = res?.data?.data || [];
+        const urgent = fees.flatMap((d: any) => (d.installments || []).map((i: any) => ({
+          ...i,
+          courseName: d.courseId?.name,
+          courseId: d.courseId?._id || d.courseId,
+          childName: d.studentId?.firstName
+        }))).filter((i: any) => i.status !== 'PAID')
+        .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+        setUrgentPayment(urgent || null);
+      })
+      .catch(() => undefined);
   }, []);
+
+  const [urgentPayment, setUrgentPayment] = useState<any>(null);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -47,6 +63,37 @@ export default function ParentDashboard() {
         title={`Welcome, ${user?.firstName || 'Parent'}!`}
         subtitle="Overview of your children's academic progress"
       />
+
+      {urgentPayment && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0">
+              <BellRing size={20} className="animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                  Fee Due Reminder
+                </span>
+                <span className="text-xs font-bold text-gray-800">
+                  {urgentPayment.childName ? `${urgentPayment.childName}'s ` : ''}Installment #{urgentPayment.installmentNumber} for {urgentPayment.courseName || 'Course'}
+                </span>
+              </div>
+              <p className="text-sm font-black text-gray-900 mt-0.5">
+                ₹{Number(urgentPayment.amount || 0).toLocaleString()} due by {new Date(urgentPayment.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/checkout/${urgentPayment.courseId}`}
+            className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 shrink-0"
+          >
+            <span>Pay Installment</span>
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Performance Card */}

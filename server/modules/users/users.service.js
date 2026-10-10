@@ -95,11 +95,17 @@ exports.getDistinctSections = async (reqUser, className) => {
 };
 
 exports.getAllUsers = async (reqUser, query = {}) => {
+  const filter = { ...query };
+  const limit = filter.limit ? parseInt(filter.limit, 10) : null;
+  delete filter.limit;
+  delete filter.page;
+  delete filter.skip;
+
   // Admin, teacher, student and parent accounts are tenant-isolated.
-  if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
+  if (reqUser.instituteId) filter.instituteId = reqUser.instituteId;
   
   // If a teacher is requesting the list of students, only return students from their assigned batches
-  if (reqUser.role === 'teacher' && (query.role === 'student' || !query.role)) {
+  if (reqUser.role === 'teacher' && (filter.role === 'student' || !filter.role)) {
     const BatchModel = require('../batches/batches.model');
     const CourseModel = require('../courses/courses.model');
     const teacherCourseIds = (await CourseModel.find({
@@ -121,11 +127,11 @@ exports.getAllUsers = async (reqUser, query = {}) => {
     });
     
     // Only return students that are in the teacher's batches
-    query._id = { $in: Array.from(studentIds) };
+    filter._id = { $in: Array.from(studentIds) };
   }
 
   // If a student is requesting the list of teachers, only return teachers from their enrolled batches
-  if (reqUser.role === 'student' && query.role === 'teacher') {
+  if (reqUser.role === 'student' && filter.role === 'teacher') {
     const BatchModel = require('../batches/batches.model');
     const studentBatches = await BatchModel.find({
       instituteId: reqUser.instituteId,
@@ -141,19 +147,23 @@ exports.getAllUsers = async (reqUser, query = {}) => {
     });
     
     // Only return teachers that are in the student's batches
-    query._id = { $in: Array.from(teacherIds) };
+    filter._id = { $in: Array.from(teacherIds) };
   }
 
   // Teachers may identify learners in their own batches, but must never receive
   // student or parent contact details (ARKE portal permission matrix).
   const teacherSafeProjection = 'firstName lastName role metadata profilePictureUrl instituteId isActive';
-  let queryBuilder = UserModel.find(query).select(
+  let queryBuilder = UserModel.find(filter).select(
     reqUser.role === ROLES.TEACHER || reqUser.role === 'teacher'
       ? teacherSafeProjection
       : '-password'
   );
   
-  if (query.role === ROLES.PARENT || query.role === 'parent') {
+  if (limit && !isNaN(limit) && limit > 0) {
+    queryBuilder = queryBuilder.limit(limit);
+  }
+
+  if (filter.role === ROLES.PARENT || filter.role === 'parent') {
     queryBuilder = queryBuilder.populate('childrenIds', 'firstName lastName metadata profilePictureUrl');
   }
 

@@ -69,3 +69,60 @@ exports.getTransactions = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.createOrUpdateCustomPlan = async (req, res, next) => {
+  try {
+    const data = await FeesPaymentsService.createOrUpdateCustomPlan(req.user, req.body);
+    return successResponse(res, 'Custom fee installment plan saved successfully', data, null, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.recordOfflinePayment = async (req, res, next) => {
+  try {
+    const data = await FeesPaymentsService.recordOfflinePayment(req.user, req.body);
+    return successResponse(res, data.message || 'Offline payment recorded successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.sendPaymentReminder = async (req, res, next) => {
+  try {
+    const data = await FeesPaymentsService.sendPaymentReminder(req.user, req.body);
+    return successResponse(res, data.message || 'Payment reminder sent successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getCoursePlan = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    const { studentId } = req.query;
+    const data = await FeesPaymentsService.getCoursePlan(req.user, courseId, studentId);
+    return successResponse(res, 'Course fee plan retrieved successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getCustomPlans = async (req, res, next) => {
+  try {
+    const data = await FeesPaymentsService.getCustomPlans(req.user, req.query);
+    return successResponse(res, 'Installment plans retrieved successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.checkAndSendDueReminders = async (req, res, next) => {
+  try {
+    const data = await FeesPaymentsService.checkAndSendDueReminders(req.user.instituteId);
+    return successResponse(res, 'Due reminders checked and sent', data);
+  } catch (error) {
+    next(error);
+  }
+};
+

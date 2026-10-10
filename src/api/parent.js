@@ -14,6 +14,7 @@ export const parentAPI = {
   getPtmBookings: (params) => axiosInstance.get('/ptm-booking/bookings', { params }),
   getFees: (params) => axiosInstance.get('/fees-payments/my-children', { params }),
   getTransactions: (params) => axiosInstance.get('/fees-payments/transactions', { params }),
+  getChildCoursePlan: (courseId, childId) => axiosInstance.get(`/fees-payments/plan/${courseId}`, { params: { studentId: childId } }),
   payFees: (data) => axiosInstance.post('/fees-payments/pay', data),
   getChatRooms: () => axiosInstance.get('/chat/rooms'),
   createChatRoom: (data) => axiosInstance.post('/chat/rooms', data),

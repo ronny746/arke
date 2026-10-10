@@ -210,4 +210,11 @@ export const adminAPI = {
   // Fees & Transactions
   getTransactions: (params) => axiosInstance.get('/fees-payments/transactions', { params }),
   getFeeRecords: (params) => axiosInstance.get('/fees-payments/records', { params }),
+  getCustomFeePlans: (params) => axiosInstance.get('/fees-payments/custom-plans', { params }),
+  createOrUpdateCustomFeePlan: (data) => axiosInstance.post('/fees-payments/custom-plan', data),
+  recordOfflinePayment: (data) => axiosInstance.post('/fees-payments/record-offline', data),
+  sendPaymentReminder: (data) => axiosInstance.post('/fees-payments/send-reminder', data),
+  checkDuePaymentReminders: () => axiosInstance.post('/fees-payments/reminders/check'),
+  getCoursePlan: (courseId, params) => axiosInstance.get(`/fees-payments/plan/${courseId}`, { params }),
 };
+

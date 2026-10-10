@@ -64,6 +64,7 @@ export default function CheckoutClient() {
   const initialCourseId = params.courseId as string;
 
   const [course, setCourse] = useState<any>(null);
+  const [feePlan, setFeePlan] = useState<any>(null);
   const [allCourses, setAllCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -88,6 +89,7 @@ export default function CheckoutClient() {
   const fetchCourseData = async (cId: string) => {
     setLoading(true);
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch(`/api/v1/public/courses/${cId}`);
       const data = await res.json();
       if (res.ok && data.success) {
@@ -95,12 +97,26 @@ export default function CheckoutClient() {
       } else {
         toast.error(data.message || 'Failed to load course details');
       }
+
+      // Check if logged in student has a custom fee plan
+      if (token) {
+        try {
+          const planRes = await fetch(`/api/v1/fees-payments/plan/${cId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const planData = await planRes.json();
+          if (planRes.ok && planData.success && planData.data) {
+            setFeePlan(planData.data);
+          }
+        } catch (_) {}
+      }
     } catch (err) {
       toast.error('Could not fetch course information');
     } finally {
       setLoading(false);
     }
   };
+
 
   const fetchAllCourses = async () => {
     try {
@@ -215,12 +231,24 @@ export default function CheckoutClient() {
     }
   };
 
-  const originalFee = course?.actualFee || (course?.fee ? Math.round(course.fee * 1.25) : 0);
-  const discountPercent = originalFee > (course?.fee || 0)
+  const isInstallmentPlan = Boolean(feePlan?.isCustomPlan && feePlan?.installments?.length);
+  const nextPendingInstallment = isInstallmentPlan
+    ? (feePlan.installments || []).find((i: any) => i.status !== 'PAID')
+    : null;
+  const payableAmount = isInstallmentPlan && nextPendingInstallment
+    ? (Number(nextPendingInstallment.amount) - (Number(nextPendingInstallment.paidAmount) || 0))
+    : (Number(course?.fee) || 0);
+
+  const originalFee = isInstallmentPlan
+    ? (feePlan.totalCoursePrice || course?.fee)
+    : (course?.actualFee || (course?.fee ? Math.round(course.fee * 1.25) : 0));
+
+  const discountPercent = !isInstallmentPlan && originalFee > (course?.fee || 0)
     ? Math.round(((originalFee - course.fee) / originalFee) * 100)
     : 0;
 
   if (loading) {
+
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -428,14 +456,50 @@ export default function CheckoutClient() {
 
               {/* Price Calculation */}
               <div className="space-y-3 text-xs">
-                {originalFee > (course.fee || 0) && (
+                {isInstallmentPlan && (
+                  <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50/60 rounded-2xl border border-blue-100 text-xs space-y-2 mb-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-blue-900 flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-[#C99A2E]" />
+                        Custom Installment Plan Approved
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
+                        {feePlan.installments?.filter((i: any) => i.status === 'PAID').length} of {feePlan.installments?.length} Paid
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-gray-600 flex justify-between">
+                      <span>Agreed Course Fee:</span>
+                      <strong className="text-gray-900">₹{(feePlan.totalCoursePrice || course.fee).toLocaleString()}</strong>
+                    </div>
+
+                    <div className="text-[11px] text-gray-600 flex justify-between">
+                      <span>Paid So Far:</span>
+                      <strong className="text-emerald-600">₹{(feePlan.amountPaid || 0).toLocaleString()}</strong>
+                    </div>
+
+                    <div className="text-[11px] text-gray-600 flex justify-between">
+                      <span>Remaining Balance Due:</span>
+                      <strong className="text-amber-600">₹{(feePlan.amountDue || 0).toLocaleString()}</strong>
+                    </div>
+
+                    {nextPendingInstallment && (
+                      <div className="mt-1 pt-1.5 border-t border-blue-200/60 flex items-center justify-between font-bold text-blue-950">
+                        <span className="text-[11px]">Active: Installment #{nextPendingInstallment.installmentNumber} (Due: {new Date(nextPendingInstallment.dueDate).toLocaleDateString()}):</span>
+                        <span className="text-sm font-black text-blue-900">₹{payableAmount.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!isInstallmentPlan && originalFee > (course.fee || 0) && (
                   <div className="flex justify-between items-center text-gray-500">
                     <span>Base Course Fee</span>
                     <span className="line-through text-gray-400 font-semibold">₹{originalFee.toLocaleString()}</span>
                   </div>
                 )}
 
-                {discountPercent > 0 && (
+                {!isInstallmentPlan && discountPercent > 0 && (
                   <div className="flex justify-between items-center text-emerald-700 font-bold">
                     <span>Limited Time Discount ({discountPercent}% OFF)</span>
                     <span>- ₹{(originalFee - course.fee).toLocaleString()}</span>
@@ -449,11 +513,15 @@ export default function CheckoutClient() {
 
                 <div className="pt-3 border-t border-gray-200 border-dashed flex justify-between items-baseline">
                   <div>
-                    <span className="text-sm font-bold text-gray-900 block">Net Payable Amount</span>
-                    <span className="text-[10px] text-gray-400">All taxes & study portal access included</span>
+                    <span className="text-sm font-bold text-gray-900 block">
+                      {isInstallmentPlan ? `Payable Now (Inst #${nextPendingInstallment?.installmentNumber || 1})` : 'Net Payable Amount'}
+                    </span>
+                    <span className="text-[10px] text-gray-400">
+                      {isInstallmentPlan ? 'Instantly unlocks full batch & course materials' : 'All taxes & study portal access included'}
+                    </span>
                   </div>
                   <span className="text-3xl font-black text-[#0B132B]">
-                    ₹{course.fee?.toLocaleString() || 0}
+                    ₹{payableAmount.toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -480,8 +548,8 @@ export default function CheckoutClient() {
               {/* Checkout Action Button */}
               <button
                 onClick={handlePayNow}
-                disabled={paying}
-                className="w-full py-4 rounded-2xl text-white font-black text-base transition-all shadow-xl shadow-amber-500/20 hover:shadow-amber-500/30 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 group"
+                disabled={paying || payableAmount <= 0}
+                className="w-full py-4 rounded-2xl text-white font-black text-base transition-all shadow-xl shadow-amber-500/20 hover:shadow-amber-500/30 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 group disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg, #0B132B, #1C2541)' }}
               >
                 {paying ? (
@@ -489,13 +557,20 @@ export default function CheckoutClient() {
                     <Loader2 size={18} className="animate-spin text-[#C99A2E]" />
                     <span>Opening Razorpay Gateway...</span>
                   </>
+                ) : payableAmount <= 0 ? (
+                  <span>Fee Fully Paid</span>
                 ) : (
                   <>
-                    <span>Proceed to Pay ₹{course.fee?.toLocaleString() || 0}</span>
+                    <span>
+                      {isInstallmentPlan
+                        ? `Pay Installment #${nextPendingInstallment?.installmentNumber || 1} (₹${payableAmount.toLocaleString()})`
+                        : `Proceed to Pay ₹${payableAmount.toLocaleString()}`}
+                    </span>
                     <ArrowRight size={18} className="text-[#C99A2E] group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
               </button>
+
 
               {/* Trust Badges */}
               <div className="pt-2 text-center space-y-2">

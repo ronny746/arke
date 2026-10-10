@@ -72,53 +72,51 @@ export function TopicFlagsPanel({
               isRed 
                 ? 'bg-[#881337] border-[#70102d] text-white shadow-xs' 
                 : isYellow 
-                ? 'bg-amber-50/70 border-amber-200 text-amber-950' 
-                : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                ? 'bg-[#b45309] border-[#92400e] text-white shadow-xs' 
+                : 'bg-[#15803d] border-[#166534] text-white shadow-xs'
             }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className={`text-[10px] font-bold uppercase tracking-wider truncate ${
-                  isRed ? 'text-rose-200' : 'text-gray-500'
+                  isRed ? 'text-rose-200' : isYellow ? 'text-amber-200' : 'text-emerald-200'
                 }`}>
                   {flag.subjectName}
                 </p>
-                <h4 className={`text-xs font-bold truncate mt-0.5 ${
-                  isRed ? 'text-white' : 'text-gray-900'
-                }`}>
+                <h4 className="text-xs font-bold truncate mt-0.5 text-white">
                   {flag.topicName}
                 </h4>
               </div>
               <span 
-                className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                  isRed ? 'bg-white shadow-xs' : isYellow ? 'bg-amber-500' : 'bg-emerald-500'
-                }`} 
+                className="h-2.5 w-2.5 rounded-full shrink-0 bg-white/80 shadow-xs" 
                 aria-label={flag.flag} 
               />
             </div>
 
             <div className="mt-2.5 flex items-end justify-between">
               <div>
-                <p className={`text-lg font-black leading-none ${
-                  isRed ? 'text-white' : isYellow ? 'text-amber-700' : 'text-emerald-700'
-                }`}>
+                <p className="text-lg font-black leading-none text-white">
                   {flag.percentage}%
                 </p>
                 <p className={`text-[10px] font-medium mt-0.5 ${
-                  isRed ? 'text-rose-100' : 'text-gray-500'
+                  isRed ? 'text-rose-100' : isYellow ? 'text-amber-100' : 'text-emerald-100'
                 }`}>
                   {isRed ? 'Needs Attention' : isYellow ? 'Needs Practice' : 'On Track'}
                 </p>
               </div>
 
               {isRed ? (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/20 text-white border border-white/20">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/20 text-white border border-white/20 inline-flex items-center gap-1">
                   Weak Topic
                 </span>
               ) : isYellow ? (
-                <Clock3 className="text-amber-600" size={17} />
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/20 text-white border border-white/20 inline-flex items-center gap-1">
+                  <Clock3 size={11} className="text-white" /> Practice
+                </span>
               ) : (
-                <CheckCircle2 className="text-emerald-600" size={17} />
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/20 text-white border border-white/20 inline-flex items-center gap-1">
+                  <CheckCircle2 size={11} className="text-white" /> Mastered
+                </span>
               )}
             </div>
           </article>
