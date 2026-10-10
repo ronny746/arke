@@ -89,7 +89,8 @@ module.exports = function setupSocketIO(server) {
           rtpCapabilities: router.rtpCapabilities, 
           peers: currentPeers,
           roomType: room?.roomType || 'meeting',
-          commentsEnabled: room?.commentsEnabled !== false
+          commentsEnabled: room?.commentsEnabled !== false,
+          isRecording: recordingService.activeRecordings.has(roomCode)
         });
       } catch (error) {
         console.error('Join room error:', error);
@@ -439,16 +440,25 @@ module.exports = function setupSocketIO(server) {
     });
 
     // Handle peer disconnect
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       console.log(`Socket disconnected: ${socket.id}`);
       const info = peerInfo.get(socket.id);
       if (info) {
-        const { roomCode, username } = info;
+        const { roomCode, username, role } = info;
         // Alert room
         io.to(roomCode).emit('peer-left', { peerId: socket.id, username });
         // Close in mediasoup
         mediaService.closePeer(roomCode, socket.id);
         peerInfo.delete(socket.id);
+
+        if ((role === 'teacher' || role === 'admin') && recordingService.activeRecordings.has(roomCode)) {
+          try {
+            const downloadUrl = await recordingService.stopRecording(roomCode);
+            io.to(roomCode).emit('recording-stopped', { downloadUrl });
+          } catch (err) {
+            console.error('Auto-stop recording error on disconnect:', err);
+          }
+        }
       }
 
       const appSession = appShareService.getBySocket(socket.id);

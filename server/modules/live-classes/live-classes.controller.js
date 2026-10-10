@@ -1,4 +1,5 @@
 const LiveClassesService = require('./live-classes.service');
+const LiveClass = require('./live-classes.model');
 const { successResponse } = require('../../common/responses');
 
 const notifyLiveClassChanged = (req, action, liveClass) => {
@@ -72,6 +73,19 @@ exports.zoomWebhook = async (req, res, next) => {
     if (event === 'endpoint.url_validation') {
       const plainToken = req.body?.payload?.plainToken || '';
       return res.json({ plainToken, encryptedToken: crypto.createHmac('sha256', secret).update(plainToken).digest('hex') });
+    }
+    if (event === 'recording.completed') {
+      const meetingId = req.body?.payload?.object?.id;
+      const cloudUrl = req.body?.payload?.object?.share_url || req.body?.payload?.object?.recording_files?.find((f) => f.file_type === 'MP4')?.download_url;
+      if (meetingId && cloudUrl) {
+        const liveClass = await LiveClass.findOne({ meetingId: String(meetingId) });
+        if (liveClass) {
+          liveClass.recordingUrl = cloudUrl;
+          await liveClass.save();
+          await LiveClassesService.syncZoomData(liveClass._id);
+        }
+      }
+      return res.sendStatus(200);
     }
     if (event !== 'meeting.ended') return res.sendStatus(200);
     const liveClass = await LiveClassesService.endLiveClassFromZoom(req.body?.payload?.object?.id);

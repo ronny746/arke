@@ -158,6 +158,7 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
         peersRef.current = response.peers || [];
         setPeers(response.peers || []);
         setCommentsEnabled(response.commentsEnabled !== false);
+        if (response.isRecording) setIsRecording(true);
         startTimeRef.current = new Date();
         elapsedTimerRef.current = setInterval(() => {
           if (startTimeRef.current) {
@@ -654,11 +655,22 @@ export default function ClassRoom({ user, token, roomCode: propRoomCode, roomTyp
 
   const toggleRecording = () => {
     if (isRecording) {
-      socketRef.current?.emit('stop-recording', { roomCode }, (res: any) => { if (res.error) alert(res.error); });
+      socketRef.current?.emit('stop-recording', { roomCode }, (res: any) => { if (res?.error) alert(res.error); });
     } else {
-      socketRef.current?.emit('start-recording', { roomCode }, (res: any) => { if (res.error) alert(res.error); });
+      socketRef.current?.emit('start-recording', { roomCode }, (res: any) => { if (res?.error) alert(res.error); });
     }
   };
+
+  // Auto start recording when teacher/host turns on camera & mic
+  useEffect(() => {
+    if (isHost && connected && (micEnabled || videoEnabled) && !isRecording) {
+      socketRef.current?.emit('start-recording', { roomCode }, (res: any) => {
+        if (!res?.error) {
+          setIsRecording(true);
+        }
+      });
+    }
+  }, [isHost, connected, micEnabled, videoEnabled, isRecording, roomCode]);
 
   const exportWhiteboardPDF = async (shouldUpload = true) => {
     if (!whiteboardStrokes.length) return;

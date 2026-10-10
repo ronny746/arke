@@ -143,6 +143,16 @@ router.get('/rooms/:roomCode/notes', auth, async (req, res) => {
   }
 });
 
+// List all recent class recordings
+router.get('/recordings', auth, async (req, res) => {
+  try {
+    const recordings = await Recording.find().sort({ createdAt: -1 }).limit(50);
+    res.json(recordings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // List recordings for a room
 router.get('/recordings/:roomCode', auth, async (req, res) => {
   try {

@@ -26,6 +26,8 @@ export const studentAPI = {
   getUsers: (params) => axiosInstance.get('/users', { params }),
   updateMe: (data) => axiosInstance.put('/users/me', data),
   getResources: (params) => axiosInstance.get('/resources', { params }),
+  getRecordings: () => axiosInstance.get('/meetonline/recordings'),
+  getRoomRecordings: (roomCode) => axiosInstance.get(`/meetonline/recordings/${roomCode}`),
   
   // Exams
   getExams: () => axiosInstance.get('/exams/student/my-exams'),
