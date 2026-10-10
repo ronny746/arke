@@ -39,15 +39,14 @@ exports.createUser = async (reqUser, payload) => {
   // Auto Roll No & Class/Section handling for Students
   const isStudent = payload.role === ROLES.STUDENT || payload.role === 'student';
   if (isStudent) {
-    const existingRollNo = payload.rollNo || payload.metadata.rollNo;
+    const existingRollNo = payload.rollNo || payload.metadata?.rollNo;
     if (!existingRollNo || existingRollNo.trim() === '' || existingRollNo.toLowerCase() === 'auto') {
-      const studentCount = await UserModel.countDocuments({ 
-        role: ROLES.STUDENT, 
-        instituteId 
-      });
-      const nextRollNo = `ARKE${String(studentCount + 1).padStart(4, '0')}`;
+      const { generateUniqueRandomRollNo } = require('../../utils/rollNoGenerator');
+      const nextRollNo = await generateUniqueRandomRollNo(instituteId, 'RK');
+      payload.metadata = payload.metadata || {};
       payload.metadata.rollNo = nextRollNo;
     } else {
+      payload.metadata = payload.metadata || {};
       payload.metadata.rollNo = existingRollNo;
     }
 

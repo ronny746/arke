@@ -351,18 +351,75 @@ export default function StudentDashboard() {
         </div>
       </header>
 
+      {/* ─── LIVE CLASS JOIN BANNER ───────────────────────────────────────────── */}
       {activeClasses.length > 0 && (() => {
         const liveClass: any = activeClasses[0];
         const schedule = liveClass.classScheduleId || {};
-        const subject = schedule.subjectId?.name || 'Live class';
-        const batch = [schedule.batchId?.name, schedule.batchId?.section ? `Section ${schedule.batchId.section}` : ''].filter(Boolean).join(' · ');
-        const joinUrl = liveClass.meetingLink || liveClass.startUrl;
-        return <section className="animate-pulse rounded-3xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 p-1 shadow-xl shadow-emerald-700/20 motion-reduce:animate-none">
-          <div className="flex flex-col gap-4 rounded-[1.35rem] bg-[#063d35]/92 px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-300 text-[#063d35]"><Video size={20} /></span><div><p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-200">Live now · your batch</p><h2 className="mt-0.5 text-lg font-black">{subject}</h2><p className="mt-0.5 text-sm text-emerald-50/80">{batch || 'Your scheduled class'}{liveClass.teacherId ? ` · ${liveClass.teacherId.firstName || ''} ${liveClass.teacherId.lastName || ''}`.trim() : ''}</p></div></div>
-            <button type="button" onClick={() => joinUrl ? window.open(joinUrl, '_blank', 'noopener,noreferrer') : toast.error('Meeting link is not available yet.')} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 py-3 text-sm font-black text-[#0B132B] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]">Join now <ArrowRight size={17} /></button>
-          </div>
-        </section>;
+        const subject = schedule.subjectId?.name || 'Live Class';
+        const batchName = [schedule.batchId?.name, schedule.batchId?.section ? `Section ${schedule.batchId.section}` : ''].filter(Boolean).join(' • ');
+        const teacherName = liveClass.teacherId ? `${liveClass.teacherId.firstName || ''} ${liveClass.teacherId.lastName || ''}`.trim() : '';
+        const link = liveClass.meetingLink || liveClass.startUrl;
+
+        const handleJoin = () => {
+          if (!link) {
+            toast.error('Meeting link is not available yet.');
+            return;
+          }
+          if (link.includes('/class/')) {
+            const roomCode = link.split('/class/')[1]?.split(/[?#]/)[0];
+            router.push(`/class/${roomCode}`);
+          } else {
+            window.open(link, '_blank', 'noopener,noreferrer');
+          }
+        };
+
+        return (
+          <section className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-6 shadow-2xl shadow-emerald-950/40">
+            {/* Glowing Accent Orbs */}
+            <div className="absolute -top-10 -right-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 shrink-0 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
+                  <Video size={28} />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-black uppercase tracking-wider border border-emerald-500/30">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                      </span>
+                      LIVE CLASS NOW
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium">Your assigned batch lecture</span>
+                  </div>
+
+                  <h2 className="text-xl md:text-2xl font-black text-white font-display">
+                    {subject}
+                  </h2>
+
+                  <p className="text-xs sm:text-sm text-slate-300 flex items-center gap-2 flex-wrap">
+                    {batchName && <span>{batchName}</span>}
+                    {batchName && teacherName && <span>•</span>}
+                    {teacherName && <span className="font-semibold text-emerald-200">Instructor: {teacherName}</span>}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleJoin}
+                className="shrink-0 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm transition-all duration-200 shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <span>Join Live Class</span>
+                <ArrowRight size={18} />
+              </button>
+            </div>
+          </section>
+        );
       })()}
 
       {/* Promotional Banners Carousel */}

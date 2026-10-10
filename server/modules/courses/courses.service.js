@@ -187,9 +187,9 @@ exports.enrollCourse = async (id, reqUser, payload) => {
   }
   
   if (user && (!user.metadata || !user.metadata.rollNo)) {
-    const arkeCount = await UserModel.countDocuments({ "metadata.rollNo": { $regex: /^ARKE/i } });
-    const nextArkeRoll = `ARKE${arkeCount + 1}`;
-    user.metadata = { ...user.metadata, rollNo: nextArkeRoll };
+    const { generateUniqueRandomRollNo } = require('../../utils/rollNoGenerator');
+    const nextRoll = await generateUniqueRandomRollNo(user.instituteId, 'RK');
+    user.metadata = { ...user.metadata, rollNo: nextRoll };
     await user.save();
   }
   

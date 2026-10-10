@@ -58,7 +58,7 @@ class ZoomService {
           use_pmi: false,
           approval_type: 0, // Automatically approve
           audio: 'both',
-          auto_recording: 'cloud' // Can be local, cloud, or none
+          auto_recording: process.env.ZOOM_AUTO_RECORDING || 'cloud' // Can be 'cloud', 'local', or 'none'
         }
       };
 

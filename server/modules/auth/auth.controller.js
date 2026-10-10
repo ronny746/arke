@@ -105,10 +105,8 @@ exports.verifyOtp = async (req, res, next) => {
 
             if (enableRollNumberLogin) {
                 const rollNoStr = String(user.metadata.rollNo).trim();
-                if (!/ARKE/i.test(rollNoStr)) {
-                    if (String(otp).trim() === rollNoStr) {
-                        isRollNoBypass = true;
-                    }
+                if (String(otp).trim().toLowerCase() === rollNoStr.toLowerCase()) {
+                    isRollNoBypass = true;
                 }
             }
         }
