@@ -69,12 +69,14 @@ export const teacherAPI = {
   scheduleDoubtSession: (id, data) => axiosInstance.put(`/doubt-sessions/${id}/schedule`, data),
   resolveDoubtSession: (id, data) => axiosInstance.put(`/doubt-sessions/${id}/resolve`, data),
 
-  // Chat & Communication
+  // Chat & Communication & Announcements
   getChatRooms: () => axiosInstance.get('/chat/rooms'),
   createChatRoom: (data) => axiosInstance.post('/chat/rooms', data),
   getChatMessages: (roomId) => axiosInstance.get(`/chat/rooms/${roomId}/messages`),
   sendMessage: (roomId, data) => axiosInstance.post(`/chat/rooms/${roomId}/messages`, data),
   sendNotification: (data) => axiosInstance.post('/notifications/send', data),
+  broadcastNotification: (data) => axiosInstance.post('/notifications/broadcast', data),
+  getNotifications: (params) => axiosInstance.get('/notifications', { params }),
   getPtmSlots: (params) => axiosInstance.get('/ptm-booking/slots', { params }),
   createPtmSlot: (data) => axiosInstance.post('/ptm-booking/slots', data),
   getPtmBookings: (params) => axiosInstance.get('/ptm-booking/bookings', { params }),
@@ -89,6 +91,10 @@ export const teacherAPI = {
   createLiveClass: (data) => axiosInstance.post('/live-classes', data),
   getLiveClasses: (params) => axiosInstance.get('/live-classes', { params }),
   endLiveClass: (id, data) => axiosInstance.put(`/live-classes/${id}/end`, data),
+
+  // Announcements & Notifications
+  broadcastNotification: (data) => axiosInstance.post('/notifications/broadcast', data),
+  getNotifications: (params) => axiosInstance.get('/notifications', { params }),
 
   // DPP & Remedial Generation
   getPracticeFilters: () => axiosInstance.get('/practice/filters'),

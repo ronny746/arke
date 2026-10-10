@@ -31,7 +31,7 @@ export default function AdminLayout({ children }) {
       label: 'Academics',
       items: [
         { icon: BookOpen, label: 'Study Materials', to: '/admin/study-materials' },
-        { icon: Video, label: 'Live Classes', to: '/admin/live-classes' },
+        { icon: Video, label: 'Live Classes & Timetable', to: '/admin/live-classes' },
         { icon: CalendarCheck, label: 'Attendance', to: '/admin/attendance' },
       ]
     },

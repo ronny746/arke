@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Calendar, Video, PlayCircle, Grid, ArrowLeft, Users } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Calendar, Video, PlayCircle, Grid, ArrowLeft, Users, Clock, Radio, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card } from '@/components/ui/index.jsx';
 import { Button } from '@/components/ui/Button.jsx';
@@ -29,6 +29,20 @@ export default function StudentLiveClassesPage() {
     subjectName: '',
     teacherName: ''
   });
+
+  const todayIndex = new Date().getDay();
+  const todayFormatted = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  const todayClasses = useMemo(() => {
+    return (gridSchedules || [])
+      .filter((s: any) => Number(s.dayOfWeek) === todayIndex)
+      .sort((a: any, b: any) => (a.startTime || '').localeCompare(b.startTime || ''));
+  }, [gridSchedules, todayIndex]);
 
   const fetchData = async () => {
     try {
@@ -114,17 +128,99 @@ export default function StudentLiveClassesPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-10">
       <PageHeader
         title="Live Classes & Timetable"
-        subtitle="View your weekly schedule and join active classes"
+        subtitle="View your daily timetable and join live lectures"
         breadcrumbs={['Home', 'Academics', 'Live Classes']}
       />
 
+      {/* TODAY'S TIMETABLE AT TOP */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-[#1a7a35]">
+              <Clock size={18} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                Today's Timetable
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-[#1a7a35]">
+                  {DAYS[todayIndex]}
+                </span>
+              </h2>
+              <p className="text-xs text-surface-500">{todayFormatted}</p>
+            </div>
+          </div>
+        </div>
+
+        {todayClasses.length === 0 ? (
+          <div className="p-4 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 flex items-center gap-3 text-xs text-surface-500">
+            <Sparkles size={16} className="text-[#1a7a35]" />
+            <span>No live classes scheduled for today ({DAYS[todayIndex]}). Browse batches below to see your weekly timetable.</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {todayClasses.map((item: any) => {
+              const activeClass = activeClasses.find((c: any) => {
+                const cId = c.classScheduleId?._id || c.classScheduleId;
+                return cId === item._id && c.status === 'ONGOING';
+              });
+              const isOngoing = Boolean(activeClass);
+              const teacherName = item.teacherId ? `${item.teacherId.firstName} ${item.teacherId.lastName || ''}`.trim() : 'Assigned Faculty';
+              const subjectTitle = item.subjectId?.name || 'Class Subject';
+              const batchName = item.batchId?.name || 'Assigned Batch';
+
+              return (
+                <div
+                  key={item._id}
+                  className={`p-4 rounded-2xl border flex flex-col justify-between transition-all ${
+                    isOngoing
+                      ? 'bg-gradient-to-br from-emerald-50 via-white to-emerald-50/40 dark:from-emerald-950/40 dark:to-surface-900 border-emerald-400 ring-2 ring-emerald-400/20 shadow-sm'
+                      : 'bg-white dark:bg-surface-900 border-surface-200 dark:border-surface-800'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-surface-100 dark:bg-surface-800 text-surface-800 dark:text-surface-200 flex items-center gap-1">
+                        <Clock size={12} className="text-[#1a7a35]" /> {item.startTime} - {item.endTime}
+                      </span>
+                      {isOngoing && (
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-lg bg-emerald-500 text-white flex items-center gap-1 animate-pulse">
+                          <Radio size={10} /> LIVE NOW
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="font-bold text-sm text-surface-900 dark:text-white truncate">{subjectTitle}</h3>
+                    <p className="text-xs text-surface-500 mt-0.5 truncate">{batchName} • {teacherName}</p>
+                  </div>
+                  <div className="mt-3">
+                    {isOngoing ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        className="w-full font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => handleJoinClass(activeClass)}
+                      >
+                        <PlayCircle size={14} className="mr-1.5" /> Join Live Now
+                      </Button>
+                    ) : (
+                      <div className="text-[11px] text-surface-400 text-center font-medium py-1">
+                        Scheduled
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {!selectedBatchId ? (
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Users className="text-primary-500" /> Select Your Batch
+        <div className="space-y-4 pt-2">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <Users className="text-primary-500" /> Select Batch for Weekly Timetable
           </h2>
           {batches.length === 0 ? (
             <div className="p-8 text-center text-surface-500">No batches assigned to you yet.</div>

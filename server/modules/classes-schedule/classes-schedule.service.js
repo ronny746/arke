@@ -11,6 +11,38 @@ exports.createSchedule = async (reqUser, payload) => {
   return await schedule.save();
 };
 
+exports.bulkSaveSchedules = async (reqUser, payload) => {
+  const { batchId, schedules } = payload;
+  if (!batchId || !Array.isArray(schedules)) {
+    throw new Error('batchId and schedules array are required');
+  }
+
+  // Delete existing recurring schedules for this batch in this institute
+  await ClassSchedule.deleteMany({
+    instituteId: reqUser.instituteId,
+    batchId: batchId
+  });
+
+  if (schedules.length === 0) {
+    return [];
+  }
+
+  const docs = schedules.map(s => ({
+    instituteId: reqUser.instituteId,
+    branchId: reqUser.branchId,
+    batchId: batchId,
+    subjectId: s.subjectId || null,
+    teacherId: s.teacherId,
+    dayOfWeek: s.dayOfWeek,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    isRecurring: s.isRecurring !== undefined ? s.isRecurring : true,
+    isActive: true
+  }));
+
+  return await ClassSchedule.insertMany(docs);
+};
+
 exports.createOverride = async (reqUser, payload) => {
   const override = new ScheduleOverride({
     ...payload,
@@ -40,7 +72,11 @@ exports.getSchedule = async (reqUser, filters) => {
   } else if (filters.batchId) {
     query.batchId = filters.batchId;
   }
-  if (filters.teacherId) query.teacherId = filters.teacherId;
+  if (reqUser.role === 'teacher') {
+    query.teacherId = reqUser.userId;
+  } else if (filters.teacherId) {
+    query.teacherId = filters.teacherId;
+  }
   
   if (filters.date) {
     query.dayOfWeek = new Date(filters.date).getDay();

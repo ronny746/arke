@@ -31,10 +31,16 @@ exports.broadcastNotification = async (req, res, next) => {
     const { audience, batchId, userId, title, message, type } = req.body;
     const instituteId = req.user.instituteId;
     const isTeacher = String(req.user.role).toLowerCase() === 'teacher';
-    // Teachers can only send a one-way announcement to students in one of
-    // their own batches. They can never enumerate or message an institute.
-    if (isTeacher && audience !== 'batch_students') {
-      return res.status(403).json({ success: false, message: 'Teachers may broadcast only to students in one of their assigned batches.' });
+
+    const CourseModel = require('../courses/courses.model');
+    const teacherCourseIds = isTeacher ? (await CourseModel.find({
+      instituteId,
+      $or: [{ faculties: req.user.userId }, { 'subjects.teacherId': req.user.userId }]
+    }).select('_id')).map(course => course._id) : [];
+
+    // Teachers can send announcements to their assigned batches, batch families, or assigned students
+    if (isTeacher && !['batch_students', 'batch_families', 'student'].includes(audience)) {
+      return res.status(403).json({ success: false, message: 'Teachers may broadcast only to students or families in their assigned batches.' });
     }
     let userIds = [];
     if (audience === 'all_students' || audience === 'all_parents') {
@@ -44,15 +50,37 @@ exports.broadcastNotification = async (req, res, next) => {
       const role = audience;
       const recipient = await User.findOne({ _id: userId, instituteId, role, isActive: true }).select('_id');
       if (!recipient) return res.status(404).json({ success: false, message: 'Active recipient not found.' });
+
+      if (isTeacher) {
+        const teacherBatches = await Batch.find({
+          instituteId,
+          isActive: true,
+          $or: [
+            { batchTeacherId: req.user.userId },
+            { teachers: req.user.userId },
+            { courseId: { $in: teacherCourseIds } }
+          ]
+        }).select('students');
+        const allowedStudentIds = new Set();
+        teacherBatches.forEach(b => (b.students || []).forEach(s => allowedStudentIds.add(String(s))));
+        if (!allowedStudentIds.has(String(userId))) {
+          return res.status(403).json({ success: false, message: 'You can only message students in your assigned batches.' });
+        }
+      }
+
       userIds = [recipient._id];
     } else {
       const batchQuery = { _id: batchId, instituteId, isActive: true };
       if (isTeacher) {
-        batchQuery.$or = [{ batchTeacherId: req.user.userId }, { teachers: req.user.userId }];
+        batchQuery.$or = [
+          { batchTeacherId: req.user.userId },
+          { teachers: req.user.userId },
+          { courseId: { $in: teacherCourseIds } }
+        ];
       }
       const batch = await Batch.findOne(batchQuery).select('students');
-      if (!batch) return res.status(404).json({ success: false, message: 'Active batch not found.' });
-      userIds = batch.students;
+      if (!batch) return res.status(404).json({ success: false, message: 'Active assigned batch not found.' });
+      userIds = batch.students || [];
       if (audience === 'batch_families' && userIds.length) {
         const students = await User.find({ _id: { $in: userIds }, instituteId }).select('parentId');
         userIds = [...userIds, ...students.map(student => student.parentId).filter(Boolean)];

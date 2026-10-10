@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, FileCheck, Video, Users, BookOpen, PenTool, LayoutList, MessageSquare, LineChart, Sparkles, Calendar } from 'lucide-react';
+import { Home, FileCheck, Video, Users, BookOpen, PenTool, LayoutList, MessageSquare, LineChart, Sparkles, Calendar, BellRing } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PortalAccessGuard } from '@/components/common/PortalAccessGuard';
 
@@ -20,7 +20,6 @@ export default function TeacherLayout({ children }) {
         { icon: Home, label: 'Dashboard', to: '/teacher/dashboard' },
         { icon: Users, label: 'My Students', to: '/teacher/students' },
         { icon: LineChart, label: 'Topic Analysis', to: '/teacher/flags' },
-        { icon: Calendar, label: 'Timetable', to: '/teacher/timetable' },
         { icon: Calendar, label: 'Attendance', to: '/teacher/attendance' },
         { icon: FileCheck, label: 'Leave requests', to: '/teacher/leave' },
       ]
@@ -30,6 +29,8 @@ export default function TeacherLayout({ children }) {
       items: [
         { icon: BookOpen, label: 'Study Materials', to: '/teacher/study-materials' },
         { icon: Video, label: 'Live Classes', to: '/teacher/live-classes' },
+        { icon: Calendar, label: 'Timetable', to: '/teacher/timetable' },
+        { icon: BellRing, label: 'Announcements', to: '/teacher/announcements' },
         { icon: MessageSquare, label: 'Student Doubts', to: '/teacher/doubts' },
       ]
     },

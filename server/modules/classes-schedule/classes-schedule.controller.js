@@ -10,6 +10,15 @@ exports.createSchedule = async (req, res, next) => {
   }
 };
 
+exports.bulkSaveSchedules = async (req, res, next) => {
+  try {
+    const data = await ClassesScheduleService.bulkSaveSchedules(req.user, req.body);
+    return successResponse(res, 'Class timetable saved successfully', data, null, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getSchedule = async (req, res, next) => {
   try {
     const data = await ClassesScheduleService.getSchedule(req.user, req.query);

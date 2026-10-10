@@ -17,6 +17,12 @@ router.post(
   ClassesScheduleController.createSchedule
 );
 
+router.post(
+  '/bulk-save',
+  rbacMiddleware.requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_OPERATIONS, ROLES.ADMIN_ACADOPS]),
+  ClassesScheduleController.bulkSaveSchedules
+);
+
 router.get(
   '/',
   validate(getScheduleSchema, 'query'),

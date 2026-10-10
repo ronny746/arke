@@ -33,6 +33,7 @@ export const adminAPI = {
 
   // Timetable / Schedule
   createClassSchedule: (data) => axiosInstance.post('/classes-schedule', data),
+  bulkSaveClassSchedule: (data) => axiosInstance.post('/classes-schedule/bulk-save', data),
   getClassSchedule: (params) => axiosInstance.get('/classes-schedule', { params }),
   getCalculatedSchedule: (params) => axiosInstance.get('/classes-schedule/calculated', { params }),
   createScheduleOverride: (data) => axiosInstance.post('/classes-schedule/override', data),
@@ -46,6 +47,7 @@ export const adminAPI = {
 
   // Attendance
   getAttendance: (params) => axiosInstance.get('/attendance/my-attendance', { params }),
+  markAttendance: (data) => axiosInstance.post('/attendance', data),
 
   // Live Classes
   createLiveClass: (data) => axiosInstance.post('/live-classes', data),
@@ -154,6 +156,10 @@ export const adminAPI = {
   getNotifications: (params) => axiosInstance.get('/notifications', { params }),
   sendNotification: (data) => axiosInstance.post('/notifications/send', data),
   markNotificationRead: (id) => axiosInstance.put(`/notifications/${id}/read`),
+
+  // Leave Applications (Teacher Leaves)
+  getLeaveRequests: (params) => axiosInstance.get('/operations/leave', { params }),
+  reviewLeaveRequest: (id, data) => axiosInstance.put(`/operations/leave/${id}`, data),
 
   // Mentor sessions
   getMentors: () => axiosInstance.get('/operations/mentors'),
