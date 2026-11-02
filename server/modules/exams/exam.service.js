@@ -64,7 +64,47 @@ class ExamService {
     let html = result.value; // The generated HTML
 
     try {
-      const mathData = wordMath.read(fileBuffer).maths || [];
+      const rawMathData = wordMath.read(fileBuffer).maths || [];
+      // Modern browsers (Chrome, Edge, Safari) use MathML Core which deprecated and removed <mfenced>.
+      // Convert <mfenced open="[" close="]"> to <mrow><mo stretchy="true">[</mo>...<mo stretchy="true">]</mo></mrow>
+      const mathData = rawMathData.map(m => {
+        if (!m || !m.includes('<mfenced')) return m;
+        try {
+          const $m = cheerio.load(m, { xmlMode: true, decodeEntities: false });
+          let safety = 20;
+          while ($m('mfenced').length > 0 && safety > 0) {
+            safety--;
+            $m('mfenced').each((_, el) => {
+              if ($m(el).find('mfenced').length > 0) return;
+              const open = el.attribs.open !== undefined ? el.attribs.open : '(';
+              const close = el.attribs.close !== undefined ? el.attribs.close : ')';
+              const separators = el.attribs.separators !== undefined ? el.attribs.separators.split('') : [','];
+
+              let inner = '';
+              $m(el).contents().each((cIdx, child) => {
+                if (cIdx > 0 && separators.length > 0) {
+                  const sep = separators[Math.min(cIdx - 1, separators.length - 1)].trim();
+                  if (sep) inner += `<mo>${sep}</mo>`;
+                }
+                inner += $m.html(child);
+              });
+
+              let replacement = '<mrow>';
+              if (open && open.trim()) replacement += `<mo stretchy="true">${open}</mo>`;
+              replacement += inner;
+              if (close && close.trim()) replacement += `<mo stretchy="true">${close}</mo>`;
+              replacement += '</mrow>';
+
+              $m(el).replaceWith(replacement);
+            });
+          }
+          return $m.xml();
+        } catch (mErr) {
+          console.error('Error converting mfenced in math element:', mErr);
+          return m;
+        }
+      });
+
       // Use global regex and a function to avoid $ substitution bugs, and handle missing math elements gracefully
       html = html.replace(/&lt;\/thisismath&gt;/g, () => {
         const mathElement = mathData.shift();
@@ -98,18 +138,26 @@ class ExamService {
       // Look for tags like [SUBJECT: name], CHAPTER: name, TOPIC: name, [Q], [A], [B], [C], [D], [Ans]
       if (text.match(/^\[?SUBJECT\s*:\s*([^\]]+)/i)) {
         currentSubject = text.match(/^\[?SUBJECT\s*:\s*([^\]]+)/i)[1].trim();
-        if (currentQuestion) currentQuestion.subjectName = currentSubject;
+        if (currentQuestion && currentQuestion.options.length === 0 && !currentQuestion.explanation) {
+          currentQuestion.subjectName = currentSubject;
+        }
       } else if (text.match(/^\[?CHAPTER\s*:\s*([^\]]+)/i)) {
         currentChapter = text.match(/^\[?CHAPTER\s*:\s*([^\]]+)/i)[1].trim();
-        if (currentQuestion) currentQuestion.chapterName = currentChapter;
+        if (currentQuestion && currentQuestion.options.length === 0 && !currentQuestion.explanation) {
+          currentQuestion.chapterName = currentChapter;
+        }
       } else if (text.match(/^\[?TOPIC\s*:\s*([^\]]+)/i)) {
         currentTopic = text.match(/^\[?TOPIC\s*:\s*([^\]]+)/i)[1].trim();
-        if (currentQuestion) currentQuestion.topicName = currentTopic;
+        if (currentQuestion && currentQuestion.options.length === 0 && !currentQuestion.explanation) {
+          currentQuestion.topicName = currentTopic;
+        }
       } else if (text.match(/^\[?DIFFICULTY\s*:\s*(Easy|Medium|Hard)\]?/i)) {
         // e.g. [DIFFICULTY: Easy] or DIFFICULTY: Hard
         const matched = text.match(/^\[?DIFFICULTY\s*:\s*(Easy|Medium|Hard)\]?/i)[1];
         currentDifficulty = matched.charAt(0).toUpperCase() + matched.slice(1).toLowerCase();
-        if (currentQuestion) currentQuestion.difficulty = currentDifficulty;
+        if (currentQuestion && currentQuestion.options.length === 0 && !currentQuestion.explanation) {
+          currentQuestion.difficulty = currentDifficulty;
+        }
       } else if (text.startsWith('[Q]') || text.startsWith('Q ') || text.match(/^Q\d+/i)) {
         if (currentQuestion) questions.push(currentQuestion);
 
@@ -119,7 +167,7 @@ class ExamService {
           chapterName: currentChapter,
           topicName: currentTopic,
           difficulty: currentDifficulty,
-          questionText: htmlContent.replace(/^(?:\[Q\]|Q\s*|Q\d+\.?\s*)/i, ''),
+          questionText: htmlContent.replace(/^(?:\s*<[^>]+>)*\s*(?:\[Q\]|Q\s*|Q\d+[.:\s]*)\s*(?:<\/[^>]+>\s*)*\s*/i, ''),
           options: [],
           correctAnswerText: '',
           explanation: '',
@@ -132,7 +180,7 @@ class ExamService {
         const optionLabel = text.match(/^\[([A-D])\]/i)[1].toUpperCase();
         currentQuestion.options.push({
           label: optionLabel,
-          text: htmlContent.replace(/^\[[A-D]\]\s*/i, ''),
+          text: htmlContent.replace(/^(?:\s*<[^>]+>)*\s*\[[A-D]\]\s*(?:<\/[^>]+>\s*)*\s*/i, ''),
           isCorrect: false
         });
         currentAppendTarget = 'OPTION';
@@ -144,7 +192,7 @@ class ExamService {
         }
         currentAppendTarget = 'QUESTION'; // reset back to question after Ans
       } else if (currentQuestion && text.match(/^\[Sol\.?\]/i)) {
-        currentQuestion.explanation = htmlContent.replace(/^\[Sol\.?\]\s*/i, '');
+        currentQuestion.explanation = htmlContent.replace(/^(?:\s*<[^>]+>)*\s*\[Sol[.\s]*\]\s*(?:<\/[^>]+>\s*)*\s*/i, '');
         currentAppendTarget = 'EXPLANATION';
       } else if (currentQuestion && htmlContent) {
         // If it doesn't match any tag, append it to the current target
