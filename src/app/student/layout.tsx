@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, FileCheck, Video, LineChart, BookOpen, LayoutList, MessageSquare, ShieldAlert, CreditCard, Sparkles, Calendar } from 'lucide-react';
+import { Home, FileCheck, Video, LineChart, BookOpen, LayoutList, MessageSquare, ShieldAlert, CreditCard, Sparkles, Calendar, Swords } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ProfileCompletionModal } from '@/components/ProfileCompletionModal';
@@ -107,8 +107,8 @@ export default function StudentLayout({ children }) {
     );
   }
 
-  if (pathname?.includes('/play')) {
-    return <div className="min-h-screen bg-[#f5f6fa]">{children}</div>;
+  if (pathname?.includes('/play') || (pathname?.startsWith('/student/battle/') && pathname !== '/student/battle')) {
+    return <div className="min-h-screen bg-[#090d16] text-slate-100">{children}</div>;
   }
 
   const navGroups = [
@@ -136,6 +136,7 @@ export default function StudentLayout({ children }) {
       items: [
         { icon: Sparkles, label: 'Daily Practice (DPP)', to: '/student/dpp' },
         { icon: FileCheck, label: 'Online Tests', to: '/student/exams' },
+        { icon: Swords, label: 'Quiz Battle ⚔️', to: '/student/battle' },
       ]
     }
   ];

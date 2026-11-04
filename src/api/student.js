@@ -49,4 +49,18 @@ export const studentAPI = {
   getPracticeSession: (id) => axiosInstance.get(`/student/practice/${id}`),
   savePracticeProgress: (id, data) => axiosInstance.put(`/student/practice/${id}/progress`, data),
   submitPracticeSession: (id, data) => axiosInstance.post(`/student/practice/${id}/submit`, data),
+
+  // Quiz Battles
+  getBattleFilters: () => axiosInstance.get('/battles/filters'),
+  createBattle: (data) => axiosInstance.post('/battles/create', data),
+  joinBattle: (data) => axiosInstance.post('/battles/join', data),
+  getActiveBattles: () => axiosInstance.get('/battles/active'),
+  getMyBattleHistory: () => axiosInstance.get('/battles/my-history'),
+  getBattleRoom: (roomCode) => axiosInstance.get(`/battles/room/${roomCode}`),
+  toggleBattleReady: (roomCode) => axiosInstance.post(`/battles/room/${roomCode}/ready`),
+  startBattle: (roomCode) => axiosInstance.post(`/battles/room/${roomCode}/start`),
+  submitBattleAnswer: (roomCode, data) => axiosInstance.post(`/battles/room/${roomCode}/answer`, data),
+  nextBattleQuestion: (roomCode) => axiosInstance.post(`/battles/room/${roomCode}/next`),
+  leaveBattleRoom: (roomCode) => axiosInstance.post(`/battles/room/${roomCode}/leave`),
 };
+

@@ -47,8 +47,10 @@ const publicBannersRouter = require('../../modules/banners/public.banners.routes
 const recycleBinRouter = require('../../modules/recycle-bin/recycle-bin.routes');
 const performanceFlagsRouter = require('../../modules/performance-flags/performance-flags.routes');
 const operationsRouter = require('../../modules/operations/operations.routes');
+const battlesRouter = require('../../modules/battle/battle.routes');
 
 // Mount routes
+router.use('/battles', battlesRouter);
 router.use('/recycle-bin', recycleBinRouter);
 router.use('/banners', bannersRouter);
 router.use('/public/banners', publicBannersRouter);

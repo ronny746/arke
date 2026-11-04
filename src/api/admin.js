@@ -221,5 +221,13 @@ export const adminAPI = {
   sendPaymentReminder: (data) => axiosInstance.post('/fees-payments/send-reminder', data),
   checkDuePaymentReminders: () => axiosInstance.post('/fees-payments/reminders/check'),
   getCoursePlan: (courseId, params) => axiosInstance.get(`/fees-payments/plan/${courseId}`, { params }),
+
+  // Quiz Battles Management
+  getBattleFilters: () => axiosInstance.get('/battles/filters'),
+  createOfficialBattle: (data) => axiosInstance.post('/battles/create', data),
+  getAdminBattles: (params) => axiosInstance.get('/battles/admin/all', { params }),
+  deleteBattle: (id) => axiosInstance.delete(`/battles/admin/${id}`),
+  getBattleRoom: (roomCode) => axiosInstance.get(`/battles/room/${roomCode}`),
 };
+
 

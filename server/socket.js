@@ -5,6 +5,7 @@ const mediaService = require('./services/mediaService');
 const recordingService = require('./services/recordingService');
 const { AppShareService } = require('./services/appShareService');
 const { Note, Message } = require('./models/Schemas');
+const registerBattleSockets = require('./modules/battle/battle.socket');
 
 module.exports = function setupSocketIO(server) {
   const io = socketIo(server, {
@@ -19,6 +20,9 @@ module.exports = function setupSocketIO(server) {
 
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);
+
+    // Register Battle / Quiz Clash real-time handlers
+    registerBattleSockets(io, socket);
 
     // The REST JWT decides the room name, so a client cannot read another
     // account's in-app notifications.
