@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Clock, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button.jsx';
+import ImageZoomModal from '@/components/ui/ImageZoomModal';
 import { studentAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
 
@@ -22,6 +23,19 @@ export default function DPPPlayer() {
   const [currentQIdx, setCurrentQIdx] = useState(0);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [activeSubject, setActiveSubject] = useState(null);
+  const [zoomedImage, setZoomedImage] = useState(null);
+
+  const handleContentClick = (e) => {
+    const target = e.target;
+    if (target && target.tagName === 'IMG') {
+      e.preventDefault();
+      e.stopPropagation();
+      const src = target.src;
+      if (src) {
+        setZoomedImage(src);
+      }
+    }
+  };
 
   // Load Session
   useEffect(() => {
@@ -231,7 +245,10 @@ export default function DPPPlayer() {
         {/* Question Area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
            {currentQuestion ? (
-             <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border p-6 md:p-8 relative z-10">
+             <div 
+               onClickCapture={handleContentClick}
+               className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border p-6 md:p-8 relative z-10"
+             >
                 <div className="flex justify-between items-center border-b pb-4 mb-6">
                   <h2 className="text-xl font-bold text-gray-800">Question {currentQIdx + 1}</h2>
                   <div className="flex gap-4 text-sm font-semibold">
@@ -241,45 +258,57 @@ export default function DPPPlayer() {
                 </div>
 
                 {/* Question Text */}
-                <div className="prose max-w-none text-gray-900 text-lg mb-8" dangerouslySetInnerHTML={{ __html: currentQuestion.questionText }} />
+                <div className="prose max-w-none text-gray-900 text-lg mb-8 question-content" dangerouslySetInnerHTML={{ __html: currentQuestion.questionText }} />
 
                 {/* Options */}
                 <div className="space-y-4">
                   {currentQuestion.options?.map((opt, idx) => {
+                    const optionLabel = opt.label || String.fromCharCode(65 + idx);
                     const isSelected = currentAnswer?.selectedOptionId === opt._id;
                     
                     let optionClass = "border-gray-200 hover:border-primary-200 hover:bg-gray-50";
-                    let circleClass = "border-gray-300";
-                    let innerCircle = null;
+                    let circleClass = "border-gray-300 bg-gray-100 text-gray-700";
+                    let badge = null;
 
                     if (submitted) {
                       if (opt.isCorrect) {
                         optionClass = "border-success-500 bg-success-50";
                         circleClass = "border-success-500 bg-success-500 text-white";
-                        innerCircle = <div className="w-2 h-2 bg-white rounded-full"/>;
+                        badge = (
+                          <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300 shrink-0 ml-2">
+                            <CheckCircle className="w-3.5 h-3.5 text-success-600" /> {isSelected ? 'Your Choice (Correct)' : 'Correct Answer'}
+                          </span>
+                        );
                       } else if (isSelected && !opt.isCorrect) {
                         optionClass = "border-danger-500 bg-danger-50";
                         circleClass = "border-danger-500 bg-danger-500 text-white";
-                        innerCircle = <div className="w-2 h-2 bg-white rounded-full"/>;
+                        badge = (
+                          <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-danger-300 shrink-0 ml-2">
+                            <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Choice (Incorrect)
+                          </span>
+                        );
                       } else {
                         optionClass = "border-gray-200 opacity-60";
+                        circleClass = "border-gray-200 bg-gray-100 text-gray-400";
                       }
                     } else if (isSelected) {
-                      optionClass = "border-primary-500 bg-primary-50";
+                      optionClass = "border-primary-500 bg-primary-50 ring-1 ring-primary-500";
                       circleClass = "border-primary-500 bg-primary-500 text-white";
-                      innerCircle = <div className="w-2 h-2 bg-white rounded-full"/>;
                     }
 
                     return (
                       <div 
                         key={opt._id}
                         onClick={() => !submitted && handleOptionSelect(currentQuestion.questionId, opt._id)}
-                        className={`flex items-start p-4 rounded-xl border-2 transition-all ${submitted ? 'cursor-default' : 'cursor-pointer'} ${optionClass}`}
+                        className={`flex items-start justify-between gap-3 p-4 rounded-xl border-2 transition-all ${submitted ? 'cursor-default' : 'cursor-pointer'} ${optionClass}`}
                       >
-                        <div className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full border-2 mr-4 mt-0.5 ${circleClass}`}>
-                          {innerCircle}
+                        <div className="flex items-start gap-4 flex-1 min-w-0">
+                          <div className={`w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full border-2 text-xs font-bold transition-colors select-none mt-0.5 ${circleClass}`}>
+                            {optionLabel}
+                          </div>
+                          <div className="flex-1 text-gray-800 prose min-w-0 option-content" dangerouslySetInnerHTML={{ __html: opt.text }} />
                         </div>
-                        <div className="flex-1 text-gray-800 prose" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                        {badge && <div className="shrink-0">{badge}</div>}
                       </div>
                     );
                   })}
@@ -292,7 +321,7 @@ export default function DPPPlayer() {
                       <h3 className="font-bold text-blue-900 mb-2 flex items-center">
                         <CheckCircle className="w-5 h-5 mr-2" /> Solution & Explanation
                       </h3>
-                      <div className="prose max-w-none text-blue-800" dangerouslySetInnerHTML={{ __html: currentAnswer?.explanation || currentQuestion?.explanation || '<p>No explanation provided.</p>' }} />
+                      <div className="prose max-w-none text-blue-800 question-content" dangerouslySetInnerHTML={{ __html: currentAnswer?.explanation || currentQuestion?.explanation || '<p>No explanation provided.</p>' }} />
                     </div>
                     
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between">
@@ -428,6 +457,12 @@ export default function DPPPlayer() {
           </div>
         </div>
       )}
+
+      {/* Full Image Zoom Lightbox */}
+      <ImageZoomModal 
+        imageUrl={zoomedImage} 
+        onClose={() => setZoomedImage(null)} 
+      />
     </div>
   );
 }

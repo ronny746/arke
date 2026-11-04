@@ -191,3 +191,154 @@ exports.getCalculatedSchedule = async (reqUser, dateString, filters = {}) => {
 exports.deleteSchedule = async (id, reqUser) => {
   return await ClassSchedule.findOneAndDelete({ _id: id, instituteId: reqUser.instituteId });
 };
+
+exports.moveSchedule = async (reqUser, payload) => {
+  const { sourceId, targetDayOfWeek, targetStartTime, targetEndTime, targetId } = payload;
+  if (!sourceId || targetDayOfWeek === undefined || !targetStartTime || !targetEndTime) {
+    throw new Error('sourceId, targetDayOfWeek, targetStartTime, and targetEndTime are required');
+  }
+
+  const sourceSchedule = await ClassSchedule.findOne({
+    _id: sourceId,
+    instituteId: reqUser.instituteId
+  });
+
+  if (!sourceSchedule) {
+    throw new Error('Source class schedule not found');
+  }
+
+  // Check if moving to exact same position
+  if (
+    sourceSchedule.dayOfWeek === targetDayOfWeek &&
+    sourceSchedule.startTime === targetStartTime &&
+    sourceSchedule.endTime === targetEndTime
+  ) {
+    return { type: 'UNCHANGED', source: sourceSchedule };
+  }
+
+  // Find if there is already a schedule at the target cell in this batch
+  let targetSchedule = null;
+  if (targetId) {
+    targetSchedule = await ClassSchedule.findOne({
+      _id: targetId,
+      instituteId: reqUser.instituteId
+    });
+  } else {
+    targetSchedule = await ClassSchedule.findOne({
+      instituteId: reqUser.instituteId,
+      batchId: sourceSchedule.batchId,
+      dayOfWeek: targetDayOfWeek,
+      startTime: targetStartTime,
+      endTime: targetEndTime
+    });
+  }
+
+  if (targetSchedule && targetSchedule._id.toString() !== sourceSchedule._id.toString()) {
+    // Check if swapping causes teacher conflict with another batch
+    // Source teacher at target slot:
+    const sourceTeacherConflict = await ClassSchedule.findOne({
+      _id: { $nin: [sourceSchedule._id, targetSchedule._id] },
+      instituteId: reqUser.instituteId,
+      teacherId: sourceSchedule.teacherId,
+      dayOfWeek: targetDayOfWeek,
+      startTime: targetStartTime
+    }).populate('batchId', 'name');
+
+    if (sourceTeacherConflict) {
+      const batchName = sourceTeacherConflict.batchId?.name || 'another batch';
+      const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][targetDayOfWeek];
+      throw new Error(`Teacher is already scheduled on ${dayName} at ${targetStartTime} in ${batchName}.`);
+    }
+
+    // Target teacher at source slot:
+    const targetTeacherConflict = await ClassSchedule.findOne({
+      _id: { $nin: [sourceSchedule._id, targetSchedule._id] },
+      instituteId: reqUser.instituteId,
+      teacherId: targetSchedule.teacherId,
+      dayOfWeek: sourceSchedule.dayOfWeek,
+      startTime: sourceSchedule.startTime
+    }).populate('batchId', 'name');
+
+    if (targetTeacherConflict) {
+      const batchName = targetTeacherConflict.batchId?.name || 'another batch';
+      const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][sourceSchedule.dayOfWeek];
+      throw new Error(`Teacher is already scheduled on ${dayName} at ${sourceSchedule.startTime} in ${batchName}.`);
+    }
+
+    const oldDayOfWeek = sourceSchedule.dayOfWeek;
+    const oldStartTime = sourceSchedule.startTime;
+    const oldEndTime = sourceSchedule.endTime;
+
+    // Use a temporary dayOfWeek (-1) via MongoDB driver to bypass unique index during swap
+    await ClassSchedule.collection.updateOne(
+      { _id: sourceSchedule._id },
+      { $set: { dayOfWeek: -1 } }
+    );
+
+    await ClassSchedule.collection.updateOne(
+      { _id: targetSchedule._id },
+      { $set: { dayOfWeek: oldDayOfWeek, startTime: oldStartTime, endTime: oldEndTime } }
+    );
+
+    await ClassSchedule.collection.updateOne(
+      { _id: sourceSchedule._id },
+      { $set: { dayOfWeek: targetDayOfWeek, startTime: targetStartTime, endTime: targetEndTime } }
+    );
+
+    const [updatedSource, updatedTarget] = await Promise.all([
+      ClassSchedule.findById(sourceSchedule._id)
+        .populate('teacherId', 'firstName lastName email')
+        .populate('batchId', 'name section')
+        .populate('subjectId', 'name'),
+      ClassSchedule.findById(targetSchedule._id)
+        .populate('teacherId', 'firstName lastName email')
+        .populate('batchId', 'name section')
+        .populate('subjectId', 'name')
+    ]);
+
+    return { type: 'SWAP', source: updatedSource, target: updatedTarget };
+  } else {
+    // Check if moving to empty slot causes teacher conflict in another batch
+    const conflict = await ClassSchedule.findOne({
+      _id: { $ne: sourceSchedule._id },
+      instituteId: reqUser.instituteId,
+      teacherId: sourceSchedule.teacherId,
+      dayOfWeek: targetDayOfWeek,
+      startTime: targetStartTime
+    }).populate('batchId', 'name');
+
+    if (conflict) {
+      const batchName = conflict.batchId?.name || 'another batch';
+      const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][targetDayOfWeek];
+      throw new Error(`Teacher is already scheduled on ${dayName} at ${targetStartTime} in ${batchName}.`);
+    }
+
+    await ClassSchedule.collection.updateOne(
+      { _id: sourceSchedule._id },
+      { $set: { dayOfWeek: targetDayOfWeek, startTime: targetStartTime, endTime: targetEndTime } }
+    );
+
+    const updated = await ClassSchedule.findById(sourceSchedule._id)
+      .populate('teacherId', 'firstName lastName email')
+      .populate('batchId', 'name section')
+      .populate('subjectId', 'name');
+
+    return { type: 'MOVE', source: updated };
+  }
+};
+
+exports.updateSchedule = async (id, reqUser, payload) => {
+  const schedule = await ClassSchedule.findOneAndUpdate(
+    { _id: id, instituteId: reqUser.instituteId },
+    { $set: payload },
+    { new: true, runValidators: true }
+  )
+    .populate('teacherId', 'firstName lastName email')
+    .populate('batchId', 'name section')
+    .populate('subjectId', 'name');
+
+  if (!schedule) {
+    throw new Error('Class schedule not found');
+  }
+  return schedule;
+};

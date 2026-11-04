@@ -19,6 +19,7 @@ export default function QuestionBankBuilder() {
   const { id } = useParams();
   const searchParams = useSearchParams();
   const subjectId = searchParams.get('subjectId');
+  const classId = searchParams.get('classId');
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   
@@ -52,6 +53,8 @@ export default function QuestionBankBuilder() {
     const tabParam = searchParams.get('tab');
     if (tabParam === 'FULL_PAPERS') {
       setBankType('FULL_PAPER');
+    } else if (tabParam === 'PART_PAPERS') {
+      setBankType('PART_PAPER');
     }
   }, [id, searchParams]);
 
@@ -96,6 +99,9 @@ export default function QuestionBankBuilder() {
     formData.append('bankType', bankType);
     if (subjectId && bankType === 'SUBJECT_WISE') {
       formData.append('subjectId', subjectId);
+    }
+    if (classId && bankType === 'SUBJECT_WISE') {
+      formData.append('classId', classId);
     }
 
     try {
@@ -182,6 +188,8 @@ export default function QuestionBankBuilder() {
       const payload = {
         title: bankData.title,
         description: bankData.description,
+        bankType: bankType,
+        classId: (classId && classId !== 'general') ? classId : undefined,
         questions: questions
       };
 

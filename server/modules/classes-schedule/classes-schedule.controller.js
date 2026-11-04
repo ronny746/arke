@@ -71,3 +71,21 @@ exports.getCalculatedSchedule = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.moveSchedule = async (req, res, next) => {
+  try {
+    const data = await ClassesScheduleService.moveSchedule(req.user, req.body);
+    return successResponse(res, 'Class schedule position updated successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateSchedule = async (req, res, next) => {
+  try {
+    const data = await ClassesScheduleService.updateSchedule(req.params.id, req.user, req.body);
+    return successResponse(res, 'Class schedule updated successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};

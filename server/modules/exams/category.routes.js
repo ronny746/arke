@@ -10,6 +10,11 @@ router.use(auth);
 
 const allowedRoles = [ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.TEACHER];
 
+router.get('/classes', requireRole(allowedRoles), categoryController.getClasses);
+router.post('/classes', requireRole(allowedRoles), categoryController.createClass);
+router.put('/classes/:id', requireRole(allowedRoles), categoryController.renameClass);
+router.delete('/classes/:id', requireDeveloperToken, requireRole(allowedRoles), categoryController.deleteClass);
+
 router.get('/', requireRole(allowedRoles), categoryController.getCategories);
 router.post('/', requireRole(allowedRoles), categoryController.createCategory);
 router.put('/:id', requireRole(allowedRoles), categoryController.renameCategory);

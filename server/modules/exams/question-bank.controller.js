@@ -1,6 +1,6 @@
 const QuestionBank = require('./question-bank.model');
 const ExamService = require('./exam.service');
-const { QuestionCategory, QuestionChapter, QuestionTopic } = require('./category.model');
+const { QuestionClass, QuestionCategory, QuestionChapter, QuestionTopic } = require('./category.model');
 const { s3Client, bucketName } = require('../../config/s3');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
@@ -11,7 +11,7 @@ exports.uploadDocx = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const { subjectId, bankType } = req.body;
+    const { subjectId, classId, bankType } = req.body;
     
     // We only need standard subject fallback if subjectId is not provided
     const fallbackSubjectName = 'General';
@@ -29,20 +29,52 @@ exports.uploadDocx = async (req, res) => {
       let subject = null;
       let chapter = null;
       let topic = null;
+      let questionClass = null;
       
+      const clsName = q.className;
       const sName = q.subjectName || fallbackSubjectName;
       const cName = q.chapterName || 'General';
       const tName = q.topicName || 'General';
 
-      if (bankType !== 'FULL_PAPER') {
+      if (bankType !== 'FULL_PAPER' && bankType !== 'PART_PAPER') {
+        // Find or Create Class if provided or in question
+        if (classId) {
+          questionClass = await QuestionClass.findOne({ _id: classId, institute: instituteId });
+        } else if (clsName) {
+          questionClass = await QuestionClass.findOne({ name: clsName, institute: instituteId });
+          if (!questionClass) {
+            questionClass = await QuestionClass.create({ name: clsName, institute: instituteId, createdBy: userId });
+          }
+        }
+
         // Find or Create Subject
         if (subjectId) {
           subject = await QuestionCategory.findOne({ _id: subjectId, institute: instituteId });
           if (!subject) throw new Error("Provided Subject not found");
+          if (!subject.class && questionClass) {
+            subject.class = questionClass._id;
+            subject.className = questionClass.name;
+            await subject.save();
+          }
+          if (subject.class && !questionClass) {
+            questionClass = await QuestionClass.findById(subject.class);
+          }
         } else {
-          subject = await QuestionCategory.findOne({ name: sName, institute: instituteId });
+          const subjectFilter = { name: sName, institute: instituteId };
+          if (questionClass) {
+            subjectFilter.class = questionClass._id;
+          }
+          subject = await QuestionCategory.findOne(subjectFilter);
           if (!subject) {
-            subject = await QuestionCategory.create({ name: sName, institute: instituteId, createdBy: userId });
+            subject = await QuestionCategory.create({ 
+              name: sName, 
+              class: questionClass ? questionClass._id : undefined,
+              className: questionClass ? questionClass.name : undefined,
+              institute: instituteId, 
+              createdBy: userId 
+            });
+          } else if (subject.class && !questionClass) {
+            questionClass = await QuestionClass.findById(subject.class);
           }
         }
 
@@ -66,6 +98,8 @@ exports.uploadDocx = async (req, res) => {
         correctAnswerText: q.correctAnswerText,
         marks: q.marks,
         negativeMarks: q.negativeMarks,
+        class: questionClass ? questionClass._id : (subject && subject.class ? subject.class : null),
+        className: questionClass ? questionClass.name : (subject && subject.className ? subject.className : (q.className || '')),
         subject: subject ? subject._id : null,
         chapter: chapter ? chapter._id : null,
         topic: topic ? topic._id : null,
@@ -106,7 +140,7 @@ exports.uploadDocx = async (req, res) => {
 
 exports.getHierarchy = async (req, res) => {
   try {
-    const matchStage = { bankType: { $ne: 'FULL_PAPER' } };
+    const matchStage = { bankType: { $nin: ['FULL_PAPER', 'PART_PAPER'] } };
     if (req.user.instituteId) {
       matchStage.institute = new (require('mongoose').Types.ObjectId)(req.user.instituteId);
     }
@@ -125,6 +159,9 @@ exports.getHierarchy = async (req, res) => {
       }},
       {
         $lookup: { from: "questioncategories", localField: "_id.subject", foreignField: "_id", as: "subjectDoc" }
+      },
+      {
+        $lookup: { from: "questionclasses", localField: "subjectDoc.class", foreignField: "_id", as: "subjectClassDoc" }
       },
       {
         $lookup: { from: "questionchapters", localField: "_id.chapter", foreignField: "_id", as: "chapterDoc" }
@@ -151,8 +188,21 @@ exports.getHierarchy = async (req, res) => {
       const tId = topic._id.toString();
       const difficulty = item._id.difficulty || 'Medium';
 
+      const cls = item.subjectClassDoc && item.subjectClassDoc[0];
+      const classId = cls ? cls._id.toString() : (subject.class ? subject.class.toString() : null);
+      const className = cls ? cls.name : (subject.className || '');
+
       if (!tree[sId]) {
-        tree[sId] = { _id: sId, name: subject.name, count: 0, isUnpublished: subject.isUnpublished || false, difficulties: { Easy: 0, Medium: 0, Hard: 0 }, chapters: {} };
+        tree[sId] = { 
+          _id: sId, 
+          name: subject.name, 
+          class: classId,
+          className: className,
+          count: 0, 
+          isUnpublished: subject.isUnpublished || false, 
+          difficulties: { Easy: 0, Medium: 0, Hard: 0 }, 
+          chapters: {} 
+        };
       }
       tree[sId].count += item.count;
       if (tree[sId].difficulties[difficulty] !== undefined) tree[sId].difficulties[difficulty] += item.count;
@@ -311,13 +361,21 @@ exports.getQuestionsByHierarchy = async (req, res) => {
 
 exports.getQuestionBanks = async (req, res) => {
   try {
-    const { type } = req.query;
+    const { type, classId } = req.query;
     const filter = { institute: req.user.instituteId };
     if (type) {
       filter.bankType = type;
     }
+    if (classId) {
+      if (classId === 'general') {
+        filter.$or = [{ class: { $exists: false } }, { class: null }];
+      } else {
+        filter.class = classId;
+      }
+    }
     
     const questionBanks = await QuestionBank.find(filter)
+      .populate('class', 'name')
       .sort('-createdAt')
       .select('-questions'); // Exclude questions for list view to save bandwidth
     
@@ -346,16 +404,24 @@ exports.getQuestionBankById = async (req, res) => {
 
 exports.createQuestionBank = async (req, res) => {
   try {
-    const { title, description, questions, bankType } = req.body;
+    const { title, description, questions, bankType, classId, className } = req.body;
     
     // Calculate total questions and marks
     const totalQuestions = questions ? questions.length : 0;
     const totalMarks = questions ? questions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0) : 0;
+
+    let resolvedClassName = className;
+    if (classId && !resolvedClassName && classId !== 'general') {
+      const cls = await QuestionClass.findById(classId);
+      if (cls) resolvedClassName = cls.name;
+    }
     
     const qb = new QuestionBank({
       title,
       description,
       bankType,
+      class: (classId && classId !== 'general') ? classId : undefined,
+      className: (classId && classId !== 'general') ? resolvedClassName : undefined,
       institute: req.user.instituteId,
       createdBy: req.user.userId,
       questions: questions || [],
@@ -391,7 +457,7 @@ exports.renameQuestionBank = async (req, res) => {
 
 exports.updateQuestionBank = async (req, res) => {
   try {
-    const { title, description, questions, bankType } = req.body;
+    const { title, description, questions, bankType, classId, className } = req.body;
     
     const qb = await QuestionBank.findOne({ _id: req.params.id, institute: req.user.instituteId });
     if (!qb) return res.status(404).json({ success: false, message: 'Question Bank not found' });
@@ -399,6 +465,10 @@ exports.updateQuestionBank = async (req, res) => {
     if (title) qb.title = title;
     if (description !== undefined) qb.description = description;
     if (bankType !== undefined) qb.bankType = bankType;
+    if (classId !== undefined) {
+      qb.class = (classId && classId !== 'general') ? classId : undefined;
+      qb.className = (classId && classId !== 'general') ? className : undefined;
+    }
     
     if (questions) {
       qb.questions = questions;

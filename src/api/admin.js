@@ -36,6 +36,7 @@ export const adminAPI = {
   // Timetable / Schedule
   createClassSchedule: (data) => axiosInstance.post('/classes-schedule', data),
   bulkSaveClassSchedule: (data) => axiosInstance.post('/classes-schedule/bulk-save', data),
+  moveClassSchedule: (data) => axiosInstance.post('/classes-schedule/move', data),
   getClassSchedule: (params) => axiosInstance.get('/classes-schedule', { params }),
   getCalculatedSchedule: (params) => axiosInstance.get('/classes-schedule/calculated', { params }),
   createScheduleOverride: (data) => axiosInstance.post('/classes-schedule/override', data),
@@ -70,7 +71,11 @@ export const adminAPI = {
   getLoggedInWithoutCourseLeads: () => axiosInstance.get('/leads/logged-in-without-course'),
 
   // Question Banks
-  getQuestionCategories: () => axiosInstance.get('/question-categories'),
+  getQuestionClasses: () => axiosInstance.get('/question-categories/classes'),
+  createQuestionClass: (data) => axiosInstance.post('/question-categories/classes', data),
+  renameQuestionClass: (id, data) => axiosInstance.put(`/question-categories/classes/${id}`, data),
+  deleteQuestionClass: (id) => axiosInstance.delete(`/question-categories/classes/${id}`),
+  getQuestionCategories: (params) => axiosInstance.get('/question-categories', { params }),
   createQuestionCategory: (data) => axiosInstance.post('/question-categories', data),
   renameQuestionCategory: (id, data) => axiosInstance.put(`/question-categories/${id}`, data),
   renameQuestionChapter: (id, data) => axiosInstance.put(`/question-categories/chapter/${id}`, data),

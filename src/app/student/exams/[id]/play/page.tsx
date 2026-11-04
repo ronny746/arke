@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Clock, AlertTriangle, ShieldAlert, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button.jsx';
+import ImageZoomModal from '@/components/ui/ImageZoomModal';
 import { studentAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
 
@@ -28,6 +29,19 @@ export default function ExamPlayer() {
   const [isMobile, setIsMobile] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState(null);
+
+  const handleContentClick = (e) => {
+    const target = e.target;
+    if (target && target.tagName === 'IMG') {
+      e.preventDefault();
+      e.stopPropagation();
+      const src = target.src;
+      if (src) {
+        setZoomedImage(src);
+      }
+    }
+  };
 
   const handleRefreshQuestion = () => {
     setIsRefreshing(true);
@@ -508,7 +522,11 @@ export default function ExamPlayer() {
               ))}
            </div>
 
-           <div key={refreshKey} className={`p-6 relative z-10 flex flex-col h-full transition-opacity duration-300 ${isRefreshing ? 'opacity-20' : 'opacity-100'}`}>
+           <div 
+             key={refreshKey} 
+             onClickCapture={handleContentClick}
+             className={`p-6 relative z-10 flex flex-col h-full transition-opacity duration-300 ${isRefreshing ? 'opacity-20' : 'opacity-100'}`}
+           >
               <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-5">
                 <div className="flex items-center gap-3">
                   <h2 className="text-lg font-bold text-gray-800">Q.{currentQIdx + 1}</h2>
@@ -530,7 +548,7 @@ export default function ExamPlayer() {
 
               {/* Question Text */}
               <div 
-                className="prose max-w-none text-gray-900 text-base mb-8 font-medium leading-relaxed" 
+                className="prose max-w-none text-gray-900 text-base mb-8 font-medium leading-relaxed question-content" 
                 dangerouslySetInnerHTML={{ 
                   __html: currentQuestion.questionText.replace(/src="([^"]+)"/g, (match, url) => `src="${url}${url.includes('?') ? '&' : '?'}retry=${refreshKey}"`) 
                 }} 
@@ -539,21 +557,33 @@ export default function ExamPlayer() {
               {/* Options */}
               <div className="space-y-3 flex-1 ml-4">
                 {currentQuestion.options?.map((opt, idx) => {
+                  const optionLabel = opt.label || String.fromCharCode(65 + idx);
                   const isSelected = currentAnswer?.selectedOptionId === opt._id;
                   return (
                     <label 
                       key={opt._id}
-                      className="flex items-start gap-4 p-2 rounded hover:bg-gray-50 cursor-pointer group"
+                      className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer group ${
+                        isSelected 
+                          ? 'bg-blue-50/70 border-[#1c75b8]' 
+                          : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                      }`}
                     >
                       <input 
                         type="radio" 
                         name="question_option" 
-                        className="w-4 h-4 mt-1 text-[#1c75b8] border-gray-400 focus:ring-[#1c75b8] cursor-pointer"
+                        className="w-4 h-4 mt-1.5 text-[#1c75b8] border-gray-400 focus:ring-[#1c75b8] cursor-pointer shrink-0"
                         checked={isSelected}
                         onChange={() => handleOptionSelect(currentQuestion._id, opt._id)}
                       />
+                      <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border select-none transition-colors ${
+                        isSelected 
+                          ? 'bg-[#1c75b8] text-white border-[#1c75b8]' 
+                          : 'bg-gray-100 text-gray-700 border-gray-300 group-hover:bg-gray-200'
+                      }`}>
+                        {optionLabel}
+                      </span>
                       <div 
-                        className="text-gray-800 text-sm leading-relaxed" 
+                        className="text-gray-800 text-sm leading-relaxed flex-1 min-w-0 option-content" 
                         dangerouslySetInnerHTML={{ 
                           __html: opt.text.replace(/src="([^"]+)"/g, (match, url) => `src="${url}${url.includes('?') ? '&' : '?'}retry=${refreshKey}"`) 
                         }} 
@@ -742,7 +772,12 @@ export default function ExamPlayer() {
            </div>
         </div>
       )}
-    
+
+      {/* Full Image Zoom Lightbox */}
+      <ImageZoomModal 
+        imageUrl={zoomedImage} 
+        onClose={() => setZoomedImage(null)} 
+      />
     </div>
   );
 }

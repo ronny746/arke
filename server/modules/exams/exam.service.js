@@ -122,6 +122,7 @@ class ExamService {
 
     const questions = [];
     let currentQuestion = null;
+    let currentClass = '';
     let currentSubject = 'General';
     let currentChapter = 'General';
     let currentTopic = 'General';
@@ -135,8 +136,13 @@ class ExamService {
       const preserveTags = ['table', 'ul', 'ol', 'img', 'pre', 'blockquote'];
       const htmlContent = preserveTags.includes(el.name) ? $.html(el) : ($(el).html() || '').trim();
 
-      // Look for tags like [SUBJECT: name], CHAPTER: name, TOPIC: name, [Q], [A], [B], [C], [D], [Ans]
-      if (text.match(/^\[?SUBJECT\s*:\s*([^\]]+)/i)) {
+      // Look for tags like [CLASS: name], [SUBJECT: name], CHAPTER: name, TOPIC: name, [Q], [A], [B], [C], [D], [Ans]
+      if (text.match(/^\[?CLASS\s*:\s*([^\]]+)/i)) {
+        currentClass = text.match(/^\[?CLASS\s*:\s*([^\]]+)/i)[1].trim();
+        if (currentQuestion && currentQuestion.options.length === 0 && !currentQuestion.explanation) {
+          currentQuestion.className = currentClass;
+        }
+      } else if (text.match(/^\[?SUBJECT\s*:\s*([^\]]+)/i)) {
         currentSubject = text.match(/^\[?SUBJECT\s*:\s*([^\]]+)/i)[1].trim();
         if (currentQuestion && currentQuestion.options.length === 0 && !currentQuestion.explanation) {
           currentQuestion.subjectName = currentSubject;
@@ -163,6 +169,7 @@ class ExamService {
 
         currentQuestion = {
           type: 'MCQ',
+          className: currentClass,
           subjectName: currentSubject,
           chapterName: currentChapter,
           topicName: currentTopic,

@@ -51,7 +51,7 @@ export function Modal({ isOpen, onClose, children, size = 'md' }) {
 }
 
 // ─── ModalHeader ─────────────────────────────────────────────────────────────
-export function ModalHeader({ title, subtitle, onClose }) {
+export function ModalHeader({ title, subtitle = '', onClose }) {
   return (
     <div className="flex items-start justify-between px-5 py-4 border-b border-surface-100 dark:border-surface-700 flex-shrink-0">
       <div className="min-w-0">
@@ -72,7 +72,7 @@ export function ModalHeader({ title, subtitle, onClose }) {
 }
 
 // ─── ModalBody ────────────────────────────────────────────────────────────────
-export function ModalBody({ children, className }) {
+export function ModalBody({ children, className = '' }) {
   return (
     <div className={cn('px-5 py-4 overflow-y-auto flex-1', className)}>
       {children}
@@ -81,7 +81,7 @@ export function ModalBody({ children, className }) {
 }
 
 // ─── ModalFooter ─────────────────────────────────────────────────────────────
-export function ModalFooter({ children, className }) {
+export function ModalFooter({ children, className = '' }) {
   return (
     <div className={cn('flex items-center justify-end gap-2 px-5 py-3 border-t border-surface-100 dark:border-surface-700 bg-surface-50/50 dark:bg-surface-800/50 flex-shrink-0', className)}>
       {children}

@@ -574,7 +574,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                         {/* Email Address Input (Gmail) */}
                         <div>
                           <label className="block text-[11px] font-bold text-[#0B132B] uppercase tracking-wider mb-1">
-                            Email (Gmail) <span className="text-red-500">*</span>
+                            Email <span className="text-red-500">*</span>
                           </label>
                           <div className="relative">
                             <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />

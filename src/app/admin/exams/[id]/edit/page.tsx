@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
-import { Save, ArrowLeft, Upload, Search, Settings, FileText, CheckCircle, Folder, FolderOpen, ChevronRight, PlusCircle, Check } from 'lucide-react';
+import { Save, ArrowLeft, Upload, Search, Settings, FileText, CheckCircle, Folder, FolderOpen, ChevronRight, PlusCircle, Check, FileUp, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card } from '@/components/ui/index.jsx';
 import { Button } from '@/components/ui/Button.jsx';
@@ -47,9 +47,16 @@ export default function ExamBuilder() {
   
   // Selection states
   const [availableClasses, setAvailableClasses] = useState<any[]>([]);
+  const [questionClasses, setQuestionClasses] = useState<any[]>([]);
+  const [allCategories, setAllCategories] = useState<any[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
+  
+  // Upload Word (.docx) states
+  const [uploadingWord, setUploadingWord] = useState(false);
+  const [parsingProgress, setParsingProgress] = useState(0);
   
   const [randomCount, setRandomCount] = useState('');
   const [isPickingRandom, setIsPickingRandom] = useState(false);
@@ -91,15 +98,68 @@ export default function ExamBuilder() {
   const [fullPapers, setFullPapers] = useState<any[]>([]);
   const [loadingFullPaper, setLoadingFullPaper] = useState<string | null>(null);
   const [selectedFullPaperId, setSelectedFullPaperId] = useState('');
+  const [partPapers, setPartPapers] = useState<any[]>([]);
+  const [loadingPartPaper, setLoadingPartPaper] = useState<string | null>(null);
+  const [selectedPartPaperId, setSelectedPartPaperId] = useState('');
 
   useEffect(() => {
     fetchHierarchy();
     fetchAvailableBatches();
+    fetchQuestionClasses();
     fetchFullPapers();
+    fetchPartPapers();
     if (id) {
       fetchExam();
     }
   }, [id]);
+
+  const fetchQuestionClasses = async () => {
+    try {
+      const [classesRes, catRes] = await Promise.all([
+        adminAPI.getQuestionClasses().catch(() => ({ data: { data: [] } })),
+        adminAPI.getQuestionCategories().catch(() => ({ data: { data: [] } }))
+      ]);
+      setQuestionClasses(classesRes.data?.data || []);
+      setAllCategories(catRes.data?.data || []);
+    } catch (error) {
+      console.error("Failed to load question classes", error);
+    }
+  };
+
+  const fetchPartPapers = async () => {
+    try {
+      const res = await adminAPI.getQuestionBanks({ type: 'PART_PAPER' });
+      setPartPapers(res.data?.data || []);
+    } catch (error) {
+      console.error("Failed to load part papers", error);
+    }
+  };
+
+  const handleAddPartPaper = async (paperId: string) => {
+    try {
+      setLoadingPartPaper(paperId);
+      const res = await adminAPI.getQuestionBankById(paperId);
+      const paperQuestions = res.data?.data?.questions || [];
+      if (paperQuestions.length === 0) {
+        return toast.error("This paper has no questions.");
+      }
+      
+      // Filter out questions that are already in the exam
+      const existingIds = new Set(questions.map(q => q._id || q.questionText));
+      const newQuestions = paperQuestions.filter(q => !existingIds.has(q._id || q.questionText) && !q.isUnpublished);
+      
+      if (newQuestions.length === 0) {
+        return toast.error("All questions from this paper are already added.");
+      }
+
+      setQuestions([...questions, ...newQuestions]);
+      toast.success(`Added ${newQuestions.length} questions from the part paper!`);
+    } catch (error) {
+      toast.error("Failed to fetch part paper questions");
+    } finally {
+      setLoadingPartPaper(null);
+    }
+  };
 
   const fetchFullPapers = async () => {
     try {
@@ -357,10 +417,28 @@ export default function ExamBuilder() {
   };
 
   const renderChapters = () => {
-    if (!selectedSubject) return <div className="text-center py-8 text-gray-500">Please select a subject first</div>;
+    if (!selectedClassId) {
+      return (
+        <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed text-gray-500">
+          <Folder className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <p className="font-semibold text-gray-700">Please select a Class above</p>
+          <p className="text-xs text-gray-500 mt-1">Select a class first, then choose a subject to view available chapters and questions.</p>
+        </div>
+      );
+    }
+
+    if (!selectedSubject) {
+      return (
+        <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed text-gray-500">
+          <FolderOpen className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <p className="font-semibold text-gray-700">Please select a Subject</p>
+          <p className="text-xs text-gray-500 mt-1">Choose a subject to load chapters and questions.</p>
+        </div>
+      );
+    }
     
     const subjectNode = hierarchy.find(s => s._id === selectedSubject);
-    if (!subjectNode) return null;
+    if (!subjectNode) return <div className="text-center py-8 text-gray-500">Subject details not found in hierarchy.</div>;
     
     const chapters = Object.values(subjectNode.chapters || {}).filter(c => !c.isUnpublished);
     if (chapters.length === 0) return <div className="text-center py-8 text-gray-500">No chapters found for this subject</div>;
@@ -420,6 +498,113 @@ export default function ExamBuilder() {
       setLoading(false);
     }
   };
+
+  const handleFileUpload = async (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!selectedClassId) {
+      e.target.value = '';
+      return toast.error("Please select a Class first");
+    }
+    if (!selectedSubject) {
+      e.target.value = '';
+      return toast.error("Please select a Subject first");
+    }
+
+    if (!file.name.endsWith('.docx') && !file.name.endsWith('.pdf')) {
+      e.target.value = '';
+      return toast.error("Only .docx or .pdf files are supported");
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bankType', 'SUBJECT_WISE');
+    formData.append('classId', selectedClassId);
+    formData.append('subjectId', selectedSubject);
+
+    const selectedClassObj = questionClasses.find(c => c._id === selectedClassId);
+    const selectedSubjectObj = filteredSubjects.find(s => s._id === selectedSubject) || allCategories.find(c => c._id === selectedSubject);
+
+    try {
+      setUploadingWord(true);
+      setParsingProgress(10);
+      toast.loading("Parsing document and extracting questions...", { id: 'examWordUpload' });
+
+      const progressInterval = setInterval(() => {
+        setParsingProgress(prev => (prev >= 85 ? 85 : prev + 5));
+      }, 1200);
+
+      try {
+        const res = await adminAPI.uploadDocxToBank(formData);
+        const parsedQs = res.data?.data || [];
+        
+        if (parsedQs.length === 0) {
+          toast.error("No questions were detected in the document.", { id: 'examWordUpload' });
+          return;
+        }
+
+        const enriched = parsedQs.map(q => ({
+          ...q,
+          subject: selectedSubject,
+          subjectName: selectedSubjectObj?.name || 'General',
+          class: selectedClassId,
+          className: selectedClassObj?.name || ''
+        }));
+
+        setQuestions(prev => [...prev, ...enriched]);
+        toast.success(`Successfully parsed and added ${parsedQs.length} questions to exam!`, { id: 'examWordUpload' });
+      } finally {
+        clearInterval(progressInterval);
+        setParsingProgress(100);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to parse document", { id: 'examWordUpload' });
+    } finally {
+      setUploadingWord(false);
+      setParsingProgress(0);
+      e.target.value = '';
+    }
+  };
+
+  const selectedClassObj = questionClasses.find(c => c._id === selectedClassId);
+  const selectedClassName = selectedClassObj?.name || '';
+
+  const filteredSubjects = hierarchy.filter(sub => {
+    if (!selectedClassId) return true;
+    const subClassId = typeof sub.class === 'object' ? sub.class?._id : sub.class;
+    if (subClassId && subClassId === selectedClassId) return true;
+    if (sub.className && sub.className.toLowerCase() === selectedClassName.toLowerCase()) return true;
+    const catMatch = allCategories.find(c => c._id === sub._id);
+    if (catMatch) {
+      const catClassId = typeof catMatch.class === 'object' ? catMatch.class?._id : catMatch.class;
+      if (catClassId === selectedClassId) return true;
+      if (catMatch.className && catMatch.className.toLowerCase() === selectedClassName.toLowerCase()) return true;
+    }
+    return false;
+  });
+
+  const uploadSubjects = allCategories.filter(cat => {
+    if (!selectedClassId) return false;
+    const catClassId = typeof cat.class === 'object' ? cat.class?._id : cat.class;
+    if (catClassId === selectedClassId) return true;
+    if (cat.className && cat.className.toLowerCase() === selectedClassName.toLowerCase()) return true;
+    return false;
+  });
+
+  const availableSubjectsForUpload = uploadSubjects.length > 0 ? uploadSubjects : filteredSubjects;
+
+  const filteredFullPapers = fullPapers.filter(paper => {
+    if (!selectedClassId) return true;
+    const paperClassId = typeof paper.class === 'object' ? paper.class?._id : paper.class;
+    return paperClassId === selectedClassId || (paper.className && paper.className.toLowerCase() === selectedClassName.toLowerCase());
+  });
+
+  const filteredPartPapers = partPapers.filter(paper => {
+    if (!selectedClassId) return true;
+    const paperClassId = typeof paper.class === 'object' ? paper.class?._id : paper.class;
+    return paperClassId === selectedClassId || (paper.className && paper.className.toLowerCase() === selectedClassName.toLowerCase());
+  });
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
@@ -601,9 +786,9 @@ export default function ExamBuilder() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
           <div className="lg:col-span-3 space-y-6">
             <Card className="p-5">
-              <div className="flex bg-gray-100 p-1 rounded-lg w-fit mb-6">
+              <div className="flex flex-wrap bg-gray-100 p-1 rounded-lg w-fit gap-1 mb-6">
                 <button
-                  className={`px-6 py-2 rounded-md font-medium text-sm transition-all ${
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${
                     questionSourceTab === 'SUBJECT_WISE'
                       ? 'bg-white shadow text-primary-600'
                       : 'text-gray-500 hover:text-gray-700'
@@ -613,7 +798,7 @@ export default function ExamBuilder() {
                   From Question Banks
                 </button>
                 <button
-                  className={`px-6 py-2 rounded-md font-medium text-sm transition-all ${
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${
                     questionSourceTab === 'FULL_PAPERS'
                       ? 'bg-white shadow text-primary-600'
                       : 'text-gray-500 hover:text-gray-700'
@@ -622,68 +807,255 @@ export default function ExamBuilder() {
                 >
                   From Full Papers
                 </button>
+                <button
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${
+                    questionSourceTab === 'PART_PAPERS'
+                      ? 'bg-white shadow text-primary-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  onClick={() => setQuestionSourceTab('PART_PAPERS')}
+                >
+                  From Part Papers
+                </button>
+                <button
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition-all flex items-center gap-1.5 ${
+                    questionSourceTab === 'UPLOAD_DOCX'
+                      ? 'bg-white shadow text-primary-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  onClick={() => setQuestionSourceTab('UPLOAD_DOCX')}
+                >
+                  <FileUp className="w-4 h-4" />
+                  Upload Word (.docx)
+                </button>
               </div>
 
               {questionSourceTab === 'SUBJECT_WISE' ? (
                 <div className="flex flex-col space-y-4">
-                  <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Subject</label>
-                  <select 
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2 border text-sm"
-                  value={selectedSubject}
-                  onChange={(e) => {
-                    setSelectedSubject(e.target.value);
-                    setExpandedChapter(null);
-                  }}
-                >
-                  <option value="">-- Choose a Subject --</option>
-                  {hierarchy.map(sub => (
-                    <option key={sub._id} value={sub._id}>{sub.name} ({sub.count} Questions)</option>
-                  ))}
-                </select>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-1.5">1. Select Class</label>
+                      <select 
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white"
+                        value={selectedClassId}
+                        onChange={(e) => {
+                          setSelectedClassId(e.target.value);
+                          setSelectedSubject('');
+                          setExpandedChapter(null);
+                        }}
+                      >
+                        <option value="">-- Choose a Class --</option>
+                        {questionClasses.map(cls => (
+                          <option key={cls._id} value={cls._id}>{cls.name}</option>
+                        ))}
+                      </select>
+                    </div>
 
-              {/* Accordion List View */}
-              <div className="mt-4">
-                {renderChapters()}
-              </div>
-              </div>
-              ) : (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-1.5">2. Select Subject</label>
+                      <select 
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                        value={selectedSubject}
+                        disabled={!selectedClassId}
+                        onChange={(e) => {
+                          setSelectedSubject(e.target.value);
+                          setExpandedChapter(null);
+                        }}
+                      >
+                        <option value="">
+                          {!selectedClassId 
+                            ? '-- Select a Class first --' 
+                            : (filteredSubjects.length === 0 ? '-- No subjects found in this class --' : '-- Choose a Subject --')}
+                        </option>
+                        {filteredSubjects.map(sub => (
+                          <option key={sub._id} value={sub._id}>{sub.name} ({sub.count} Questions)</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Accordion List View */}
+                  <div className="mt-4">
+                    {renderChapters()}
+                  </div>
+                </div>
+              ) : questionSourceTab === 'FULL_PAPERS' ? (
                 <div className="space-y-4">
-                  {fullPapers.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-dashed">
-                      <p>No full papers found.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-1.5">1. Filter by Class</label>
+                      <select 
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white"
+                        value={selectedClassId}
+                        onChange={(e) => {
+                          setSelectedClassId(e.target.value);
+                          setSelectedFullPaperId('');
+                        }}
+                      >
+                        <option value="">-- All Classes --</option>
+                        {questionClasses.map(cls => (
+                          <option key={cls._id} value={cls._id}>{cls.name}</option>
+                        ))}
+                      </select>
                     </div>
-                  ) : (
-                    <div className="flex flex-col sm:flex-row gap-4 items-center bg-gray-50 p-4 rounded-lg border border-gray-200">
-                      <div className="w-full sm:w-2/3">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Select Full Paper</label>
-                        <select 
-                          className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2 border text-sm bg-white"
-                          value={selectedFullPaperId}
-                          onChange={(e) => setSelectedFullPaperId(e.target.value)}
-                        >
-                          <option value="">-- Choose a Full Paper --</option>
-                          {fullPapers.map(paper => (
-                            <option key={paper._id} value={paper._id}>
-                              {paper.title} ({paper.totalQuestions} Questions | {paper.totalMarks} Marks)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="w-full sm:w-1/3 flex items-end">
-                        <Button 
-                          variant="secondary" 
-                          size="md"
-                          className="w-full mt-5 sm:mt-0"
-                          onClick={() => handleAddFullPaper(selectedFullPaperId)}
-                          disabled={!selectedFullPaperId || loadingFullPaper === selectedFullPaperId}
-                        >
-                          {loadingFullPaper === selectedFullPaperId ? 'Adding...' : 'Add All Questions'}
-                        </Button>
-                      </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-1.5">2. Select Full Paper</label>
+                      <select 
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white"
+                        value={selectedFullPaperId}
+                        onChange={(e) => setSelectedFullPaperId(e.target.value)}
+                      >
+                        <option value="">-- Choose a Full Paper --</option>
+                        {filteredFullPapers.map(paper => (
+                          <option key={paper._id} value={paper._id}>
+                            {paper.title} {paper.className ? `(${paper.className})` : ''} ({paper.totalQuestions} Questions | {paper.totalMarks} Marks)
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button 
+                      variant="secondary" 
+                      size="md"
+                      onClick={() => handleAddFullPaper(selectedFullPaperId)}
+                      disabled={!selectedFullPaperId || loadingFullPaper === selectedFullPaperId}
+                    >
+                      {loadingFullPaper === selectedFullPaperId ? 'Adding...' : 'Add All Questions from Full Paper'}
+                    </Button>
+                  </div>
+                </div>
+              ) : questionSourceTab === 'PART_PAPERS' ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-1.5">1. Filter by Class</label>
+                      <select 
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white"
+                        value={selectedClassId}
+                        onChange={(e) => {
+                          setSelectedClassId(e.target.value);
+                          setSelectedPartPaperId('');
+                        }}
+                      >
+                        <option value="">-- All Classes --</option>
+                        {questionClasses.map(cls => (
+                          <option key={cls._id} value={cls._id}>{cls.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-1.5">2. Select Part Paper</label>
+                      <select 
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white"
+                        value={selectedPartPaperId}
+                        onChange={(e) => setSelectedPartPaperId(e.target.value)}
+                      >
+                        <option value="">-- Choose a Part Paper --</option>
+                        {filteredPartPapers.map(paper => (
+                          <option key={paper._id} value={paper._id}>
+                            {paper.title} {paper.className ? `(${paper.className})` : ''} ({paper.totalQuestions} Questions | {paper.totalMarks} Marks)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button 
+                      variant="secondary" 
+                      size="md"
+                      onClick={() => handleAddPartPaper(selectedPartPaperId)}
+                      disabled={!selectedPartPaperId || loadingPartPaper === selectedPartPaperId}
+                    >
+                      {loadingPartPaper === selectedPartPaperId ? 'Adding...' : 'Add All Questions from Part Paper'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-1.5">1. Select Class <span className="text-red-500">*</span></label>
+                      <select 
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white"
+                        value={selectedClassId}
+                        onChange={(e) => {
+                          setSelectedClassId(e.target.value);
+                          setSelectedSubject('');
+                        }}
+                      >
+                        <option value="">-- Choose a Class --</option>
+                        {questionClasses.map(cls => (
+                          <option key={cls._id} value={cls._id}>{cls.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-800 mb-1.5">2. Select Subject <span className="text-red-500">*</span></label>
+                      <select 
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                        value={selectedSubject}
+                        disabled={!selectedClassId}
+                        onChange={(e) => setSelectedSubject(e.target.value)}
+                      >
+                        <option value="">
+                          {!selectedClassId 
+                            ? '-- Select a Class first --' 
+                            : (availableSubjectsForUpload.length === 0 ? '-- No subjects in this class --' : '-- Choose a Subject --')}
+                        </option>
+                        {availableSubjectsForUpload.map(sub => (
+                          <option key={sub._id} value={sub._id}>{sub.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Dropzone Box */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:border-primary-400 transition-colors bg-white">
+                    <div className="w-14 h-14 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 mb-3 shadow-inner">
+                      {uploadingWord ? <Loader2 className="w-7 h-7 animate-spin" /> : <FileUp className="w-7 h-7" />}
+                    </div>
+                    <h4 className="text-base font-bold text-gray-800 mb-1">
+                      {uploadingWord ? 'Parsing Word Document...' : 'Upload Word Document (.docx)'}
+                    </h4>
+                    <p className="text-xs text-gray-500 max-w-sm mb-4">
+                      Upload your standard question document. Questions, options, correct answers, and diagrams will be automatically extracted and added to this exam.
+                    </p>
+
+                    {uploadingWord && (
+                      <div className="w-full max-w-md space-y-2 mb-4">
+                        <div className="flex items-center justify-between text-xs text-gray-600 font-semibold">
+                          <span>Parsing questions...</span>
+                          <span>{parsingProgress}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-primary-600 transition-all duration-300 rounded-full" style={{ width: `${parsingProgress}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="relative">
+                      <input 
+                        type="file" 
+                        accept=".docx,.pdf" 
+                        onChange={handleFileUpload}
+                        disabled={uploadingWord || !selectedClassId || !selectedSubject}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                      />
+                      <Button 
+                        variant="primary" 
+                        disabled={uploadingWord || !selectedClassId || !selectedSubject}
+                        className="shadow-md"
+                      >
+                        {uploadingWord ? 'Parsing...' : (!selectedClassId || !selectedSubject ? 'Select Class & Subject to Upload' : 'Browse .docx File')}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </Card>

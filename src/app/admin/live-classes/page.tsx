@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Video, Calendar, Plus, Play, StopCircle, Trash, Clock, Save, 
   Edit3, Grid, PlayCircle, ArrowLeft, BookOpen, Sparkles, Shuffle, 
-  CheckCircle2, RefreshCw, Filter, Layers, UserCheck, AlertCircle, ArrowUpRight
+  CheckCircle2, RefreshCw, Filter, Layers, UserCheck, AlertCircle, ArrowUpRight,
+  GripVertical, Move
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card } from '@/components/ui/index.jsx';
@@ -122,6 +123,38 @@ export default function AdminLiveClassesAndTimetablePage() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [editingDraftSlot, setEditingDraftSlot] = useState<any>(null);
   const [showDraftEditModal, setShowDraftEditModal] = useState(false);
+
+  // Drag and drop state for Weekly Timetable Master
+  const [draggedSchedule, setDraggedSchedule] = useState<{
+    schedule: any;
+    sourceDayOfWeek: number;
+    sourceStartTime: string;
+    sourceEndTime: string;
+  } | null>(null);
+
+  const [dragOverCell, setDragOverCell] = useState<{
+    dayIndex: number;
+    startTime: string;
+    endTime: string;
+  } | null>(null);
+
+  const isDraggingRef = useRef(false);
+
+  // Drag and drop state for Draft Timetable (Auto-Generator)
+  const [draggedDraftSlot, setDraggedDraftSlot] = useState<{
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    slotItem: any;
+  } | null>(null);
+
+  const [dragOverDraftSlot, setDragOverDraftSlot] = useState<{
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+  } | null>(null);
+
+  const isDraggingDraftRef = useRef(false);
 
   // Initial Fetch
   const fetchInitialData = async () => {
@@ -561,6 +594,221 @@ export default function AdminLiveClassesAndTimetablePage() {
     }
   };
 
+  // Drag and drop handlers for Weekly Timetable Master
+  const handleScheduleDragStart = (e: React.DragEvent, schedule: any, dayIndex: number, col: { startTime: string; endTime: string }) => {
+    isDraggingRef.current = true;
+    setDraggedSchedule({
+      schedule,
+      sourceDayOfWeek: dayIndex,
+      sourceStartTime: col.startTime,
+      sourceEndTime: col.endTime
+    });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', schedule._id);
+  };
+
+  const handleScheduleDragEnd = () => {
+    setDraggedSchedule(null);
+    setDragOverCell(null);
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 200);
+  };
+
+  const handleCellDragOver = (e: React.DragEvent, dayIndex: number, col: { startTime: string; endTime: string }) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragOverCell || dragOverCell.dayIndex !== dayIndex || dragOverCell.startTime !== col.startTime || dragOverCell.endTime !== col.endTime) {
+      setDragOverCell({ dayIndex, startTime: col.startTime, endTime: col.endTime });
+    }
+  };
+
+  const handleCellDragLeave = (e: React.DragEvent, dayIndex: number, col: { startTime: string; endTime: string }) => {
+    e.preventDefault();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDragOverCell(prev => {
+      if (prev?.dayIndex === dayIndex && prev?.startTime === col.startTime && prev?.endTime === col.endTime) {
+        return null;
+      }
+      return prev;
+    });
+  };
+
+  const handleCellDrop = async (e: React.DragEvent, targetDayIndex: number, targetCol: { startTime: string; endTime: string }) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!draggedSchedule) {
+      handleScheduleDragEnd();
+      return;
+    }
+
+    const { schedule: source, sourceDayOfWeek, sourceStartTime, sourceEndTime } = draggedSchedule;
+
+    // Dropped on the same slot
+    if (sourceDayOfWeek === targetDayIndex && sourceStartTime === targetCol.startTime && sourceEndTime === targetCol.endTime) {
+      handleScheduleDragEnd();
+      return;
+    }
+
+    const targetSchedule = gridSchedules.find(s =>
+      s.dayOfWeek === targetDayIndex &&
+      s.startTime === targetCol.startTime &&
+      s.endTime === targetCol.endTime
+    );
+
+    const prevSchedules = [...gridSchedules];
+    const sourceSubjectName = source.subjectId?.name || 'Class';
+    const targetDayName = DAYS[targetDayIndex];
+
+    // Optimistic UI update
+    let newSchedules = [...gridSchedules];
+    if (targetSchedule) {
+      // SWAP
+      newSchedules = newSchedules.map(s => {
+        if (s._id === source._id) {
+          return { ...s, dayOfWeek: targetDayIndex, startTime: targetCol.startTime, endTime: targetCol.endTime };
+        }
+        if (s._id === targetSchedule._id) {
+          return { ...s, dayOfWeek: sourceDayOfWeek, startTime: sourceStartTime, endTime: sourceEndTime };
+        }
+        return s;
+      });
+    } else {
+      // MOVE
+      newSchedules = newSchedules.map(s => {
+        if (s._id === source._id) {
+          return { ...s, dayOfWeek: targetDayIndex, startTime: targetCol.startTime, endTime: targetCol.endTime };
+        }
+        return s;
+      });
+    }
+
+    setGridSchedules(newSchedules);
+    handleScheduleDragEnd();
+
+    try {
+      await adminAPI.moveClassSchedule({
+        sourceId: source._id,
+        targetDayOfWeek: targetDayIndex,
+        targetStartTime: targetCol.startTime,
+        targetEndTime: targetCol.endTime,
+        targetId: targetSchedule ? targetSchedule._id : undefined
+      });
+
+      if (targetSchedule) {
+        const targetSubjectName = targetSchedule.subjectId?.name || 'Class';
+        toast.success(`Swapped ${sourceSubjectName} with ${targetSubjectName} on ${targetDayName}!`);
+      } else {
+        toast.success(`Moved ${sourceSubjectName} to ${targetDayName} (${targetCol.startTime} – ${targetCol.endTime})`);
+      }
+
+      fetchGridData();
+    } catch (err: any) {
+      // Revert optimistic update
+      setGridSchedules(prevSchedules);
+      const msg = err.response?.data?.message || err.message || 'Failed to move class schedule';
+      toast.error(msg);
+    }
+  };
+
+  // Drag and drop handlers for Auto-Generator Draft Timetable
+  const handleDraftSlotDragStart = (e: React.DragEvent, dayIdx: number, col: { startTime: string; endTime: string }, slotItem: any) => {
+    isDraggingDraftRef.current = true;
+    setDraggedDraftSlot({
+      dayOfWeek: dayIdx,
+      startTime: col.startTime,
+      endTime: col.endTime,
+      slotItem
+    });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDraftSlotDragEnd = () => {
+    setDraggedDraftSlot(null);
+    setDragOverDraftSlot(null);
+    setTimeout(() => {
+      isDraggingDraftRef.current = false;
+    }, 200);
+  };
+
+  const handleDraftSlotDragOver = (e: React.DragEvent, dayIdx: number, col: { startTime: string; endTime: string }) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragOverDraftSlot || dragOverDraftSlot.dayOfWeek !== dayIdx || dragOverDraftSlot.startTime !== col.startTime || dragOverDraftSlot.endTime !== col.endTime) {
+      setDragOverDraftSlot({ dayOfWeek: dayIdx, startTime: col.startTime, endTime: col.endTime });
+    }
+  };
+
+  const handleDraftSlotDragLeave = (e: React.DragEvent, dayIdx: number, col: { startTime: string; endTime: string }) => {
+    e.preventDefault();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDragOverDraftSlot(prev => {
+      if (prev?.dayOfWeek === dayIdx && prev?.startTime === col.startTime && prev?.endTime === col.endTime) {
+        return null;
+      }
+      return prev;
+    });
+  };
+
+  const handleDraftSlotDrop = (e: React.DragEvent, targetDayIdx: number, targetCol: { startTime: string; endTime: string }) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!draggedDraftSlot) {
+      handleDraftSlotDragEnd();
+      return;
+    }
+
+    const { dayOfWeek: sourceDay, startTime: sourceStart, endTime: sourceEnd, slotItem: sourceItem } = draggedDraftSlot;
+
+    if (sourceDay === targetDayIdx && sourceStart === targetCol.startTime && sourceEnd === targetCol.endTime) {
+      handleDraftSlotDragEnd();
+      return;
+    }
+
+    const targetItem = draftTimetable.find(d =>
+      d.dayOfWeek === targetDayIdx &&
+      d.startTime === targetCol.startTime &&
+      d.endTime === targetCol.endTime
+    );
+
+    const subObj = subjects.find(s => s._id === sourceItem.subjectId);
+    const subName = subObj?.name || 'Class';
+    const targetDayName = DAYS[targetDayIdx];
+
+    setDraftTimetable(prev => {
+      if (targetItem) {
+        // SWAP in draft
+        return prev.map(item => {
+          if (item.tempId === sourceItem.tempId || (item.dayOfWeek === sourceDay && item.startTime === sourceStart && item.endTime === sourceEnd)) {
+            return { ...item, dayOfWeek: targetDayIdx, startTime: targetCol.startTime, endTime: targetCol.endTime };
+          }
+          if (item.tempId === targetItem.tempId || (item.dayOfWeek === targetDayIdx && item.startTime === targetCol.startTime && item.endTime === targetCol.endTime)) {
+            return { ...item, dayOfWeek: sourceDay, startTime: sourceStart, endTime: sourceEnd };
+          }
+          return item;
+        });
+      } else {
+        // MOVE in draft
+        return prev.map(item => {
+          if (item.tempId === sourceItem.tempId || (item.dayOfWeek === sourceDay && item.startTime === sourceStart && item.endTime === sourceEnd)) {
+            return { ...item, dayOfWeek: targetDayIdx, startTime: targetCol.startTime, endTime: targetCol.endTime };
+          }
+          return item;
+        });
+      }
+    });
+
+    handleDraftSlotDragEnd();
+    if (targetItem) {
+      const targetSub = subjects.find(s => s._id === targetItem.subjectId);
+      toast.success(`Swapped ${subName} with ${targetSub?.name || 'Class'} in draft!`);
+    } else {
+      toast.success(`Moved ${subName} to ${targetDayName} (${targetCol.startTime} – ${targetCol.endTime}) in draft!`);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in max-w-7xl mx-auto pb-10">
       <PageHeader
@@ -980,26 +1228,68 @@ export default function AdminLiveClassesAndTimetablePage() {
                           );
                           const subObj = subjects.find(s => s._id === slotItem?.subjectId);
                           const teachObj = teachers.find(t => t._id === slotItem?.teacherId);
+                          const isThisDraftSlotHovered = dragOverDraftSlot && dragOverDraftSlot.dayOfWeek === dayIdx && dragOverDraftSlot.startTime === col.startTime && dragOverDraftSlot.endTime === col.endTime;
+                          const isCurrentDraftBeingDragged = draggedDraftSlot?.slotItem?.tempId === slotItem?.tempId;
 
                           return (
                             <td
                               key={colIdx}
-                              onClick={() => handleOpenEditDraftSlot(dayIdx, col)}
-                              className="p-2 border border-surface-200 dark:border-surface-700 text-center hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 cursor-pointer transition-colors relative group align-top min-h-[85px]"
+                              onDragOver={(e) => handleDraftSlotDragOver(e, dayIdx, col)}
+                              onDragEnter={(e) => handleDraftSlotDragOver(e, dayIdx, col)}
+                              onDragLeave={(e) => handleDraftSlotDragLeave(e, dayIdx, col)}
+                              onDrop={(e) => handleDraftSlotDrop(e, dayIdx, col)}
+                              onClick={() => {
+                                if (isDraggingDraftRef.current) return;
+                                handleOpenEditDraftSlot(dayIdx, col);
+                              }}
+                              className={`p-2 border border-surface-200 dark:border-surface-700 text-center transition-all relative group align-top min-h-[85px] ${
+                                isThisDraftSlotHovered
+                                  ? slotItem
+                                    ? 'ring-2 ring-amber-500 ring-inset bg-amber-50/80 dark:bg-amber-950/50'
+                                    : 'ring-2 ring-emerald-500 ring-inset bg-emerald-100/70 dark:bg-emerald-950/60'
+                                  : 'hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 cursor-pointer'
+                              }`}
                             >
+                              {/* Drag-over indicator badge */}
+                              {isThisDraftSlotHovered && draggedDraftSlot && !isCurrentDraftBeingDragged && (
+                                <div className="absolute inset-1.5 z-20 flex items-center justify-center pointer-events-none rounded-xl">
+                                  {slotItem ? (
+                                    <div className="bg-amber-600 text-white font-bold text-[10px] px-2 py-0.5 rounded shadow flex items-center gap-1 animate-pulse">
+                                      <Shuffle size={11} /> Swap with {subObj?.name || 'Class'}
+                                    </div>
+                                  ) : (
+                                    <div className="bg-[#1a7a35] text-white font-bold text-[10px] px-2 py-0.5 rounded shadow flex items-center gap-1 animate-pulse">
+                                      <ArrowUpRight size={11} /> Move here
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                               {slotItem && subObj ? (
-                                <div className="bg-[#ecfdf5] dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 p-2.5 rounded-xl text-sm h-full flex flex-col justify-between shadow-xs relative">
+                                <div 
+                                  draggable={true}
+                                  onDragStart={(e) => handleDraftSlotDragStart(e, dayIdx, col, slotItem)}
+                                  onDragEnd={handleDraftSlotDragEnd}
+                                  className={`bg-[#ecfdf5] dark:bg-emerald-950/40 border text-emerald-900 dark:text-emerald-100 p-2.5 rounded-xl text-sm h-full flex flex-col justify-between shadow-xs relative transition-all cursor-grab active:cursor-grabbing select-none ${
+                                    isCurrentDraftBeingDragged
+                                      ? 'opacity-30 border-dashed border-2 border-emerald-500 scale-[0.98]'
+                                      : 'border-emerald-200 dark:border-emerald-800 hover:shadow-md hover:border-emerald-400'
+                                  }`}
+                                >
                                   <div className="flex items-start justify-between gap-1">
-                                    <span className="font-bold text-xs md:text-sm text-left truncate text-emerald-900 dark:text-emerald-200">
-                                      {subObj.name}
-                                    </span>
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <GripVertical size={12} className="text-emerald-600 shrink-0 cursor-grab active:cursor-grabbing" />
+                                      <span className="font-bold text-xs md:text-sm text-left truncate text-emerald-900 dark:text-emerald-200">
+                                        {subObj.name}
+                                      </span>
+                                    </div>
                                     <button
                                       type="button"
+                                      draggable={false}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteDraftSlot(dayIdx, col);
                                       }}
-                                      className="opacity-0 group-hover:opacity-100 p-1 text-emerald-600 hover:text-red-500 rounded transition"
+                                      className="opacity-0 group-hover:opacity-100 p-1 text-emerald-600 hover:text-red-500 rounded transition shrink-0"
                                       title="Clear period"
                                     >
                                       <Trash size={12} />
@@ -1166,12 +1456,18 @@ export default function AdminLiveClassesAndTimetablePage() {
                   <Button variant="ghost" size="sm" onClick={() => setSelectedBatchId("")} className="hover:bg-surface-100">
                     <ArrowLeft size={18} className="mr-2" /> Back to Batches
                   </Button>
-                  <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Grid className="text-[#1a7a35]" /> 
-                    {classes.find(c => c._id === selectedBatchId)?.name} 
-                    {classes.find(c => c._id === selectedBatchId)?.section ? ` · Sec ${classes.find(c => c._id === selectedBatchId)?.section}` : ''}
-                    <span className="text-sm font-normal text-surface-500 ml-2">Active Timetable</span>
-                  </h2>
+                  <div>
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                      <Grid className="text-[#1a7a35]" /> 
+                      {classes.find(c => c._id === selectedBatchId)?.name} 
+                      {classes.find(c => c._id === selectedBatchId)?.section ? ` · Sec ${classes.find(c => c._id === selectedBatchId)?.section}` : ''}
+                      <span className="text-sm font-normal text-surface-500 ml-2">Active Timetable</span>
+                    </h2>
+                    <p className="text-xs text-surface-500 flex items-center gap-1.5 mt-0.5">
+                      <GripVertical size={13} className="text-[#1a7a35]" />
+                      <span>Drag and drop any class card to move to another slot or swap positions</span>
+                    </p>
+                  </div>
                 </div>
                 
                 <div className="flex items-center gap-2.5">
@@ -1271,10 +1567,18 @@ export default function AdminLiveClassesAndTimetablePage() {
                             return lcId === cellSchedule._id && lc.status === 'ONGOING';
                           });
 
+                          const isThisCellHovered = dragOverCell && dragOverCell.dayIndex === dayIndex && dragOverCell.startTime === col.startTime && dragOverCell.endTime === col.endTime;
+                          const isCurrentScheduleBeingDragged = draggedSchedule?.schedule?._id === cellSchedule?._id;
+
                           return (
                             <td 
                               key={colIndex} 
+                              onDragOver={(e) => handleCellDragOver(e, dayIndex, col)}
+                              onDragEnter={(e) => handleCellDragOver(e, dayIndex, col)}
+                              onDragLeave={(e) => handleCellDragLeave(e, dayIndex, col)}
+                              onDrop={(e) => handleCellDrop(e, dayIndex, col)}
                               onClick={() => {
+                                if (isDraggingRef.current) return;
                                 setCellData({
                                   scheduleId: cellSchedule ? cellSchedule._id : null,
                                   dayOfWeek: dayIndex,
@@ -1285,24 +1589,58 @@ export default function AdminLiveClassesAndTimetablePage() {
                                 });
                                 setShowCellModal(true);
                               }}
-                              className="p-2 border border-surface-200 dark:border-surface-700 text-center hover:bg-emerald-50/70 cursor-pointer transition-colors relative group align-top min-h-[90px]"
+                              className={`p-2 border border-surface-200 dark:border-surface-700 text-center transition-all relative group align-top min-h-[95px] ${
+                                isThisCellHovered
+                                  ? cellSchedule
+                                    ? 'ring-2 ring-amber-500 ring-inset bg-amber-50/80 dark:bg-amber-950/50'
+                                    : 'ring-2 ring-emerald-500 ring-inset bg-emerald-100/70 dark:bg-emerald-950/60'
+                                  : 'hover:bg-emerald-50/70 cursor-pointer'
+                              }`}
                             >
+                              {/* Drag hover target indicator badge */}
+                              {isThisCellHovered && draggedSchedule && !isCurrentScheduleBeingDragged && (
+                                <div className="absolute inset-1.5 z-20 flex items-center justify-center pointer-events-none rounded-xl">
+                                  {cellSchedule ? (
+                                    <div className="bg-amber-600 text-white font-bold text-[11px] px-2.5 py-1 rounded-lg shadow-lg flex items-center gap-1.5 animate-pulse">
+                                      <Shuffle size={12} /> Swap with {cellSchedule.subjectId?.name || 'Class'}
+                                    </div>
+                                  ) : (
+                                    <div className="bg-[#1a7a35] text-white font-bold text-[11px] px-2.5 py-1 rounded-lg shadow-lg flex items-center gap-1.5 animate-pulse">
+                                      <ArrowUpRight size={12} /> Move here
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
                               {cellSchedule ? (
-                                <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100 p-2.5 rounded-xl text-sm h-full flex flex-col justify-between group/card relative shadow-xs">
+                                <div 
+                                  draggable={true}
+                                  onDragStart={(e) => handleScheduleDragStart(e, cellSchedule, dayIndex, col)}
+                                  onDragEnd={handleScheduleDragEnd}
+                                  className={`bg-emerald-50 dark:bg-emerald-950/40 border text-emerald-950 dark:text-emerald-100 p-2.5 rounded-xl text-sm h-full flex flex-col justify-between group/card relative shadow-xs transition-all cursor-grab active:cursor-grabbing select-none ${
+                                    isCurrentScheduleBeingDragged
+                                      ? 'opacity-30 border-dashed border-2 border-emerald-500 scale-[0.98]'
+                                      : 'border-emerald-200 dark:border-emerald-800 hover:shadow-md hover:border-emerald-400 dark:hover:border-emerald-600'
+                                  }`}
+                                >
                                   <div className="flex items-start justify-between gap-1">
-                                    <div className="font-bold text-xs md:text-sm text-left truncate text-emerald-900 dark:text-emerald-200">
-                                      {cellSchedule.subjectId?.name || 'Class'}
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <GripVertical size={13} className="text-surface-400 dark:text-surface-500 group-hover/card:text-emerald-700 shrink-0 cursor-grab active:cursor-grabbing" />
+                                      <div className="font-bold text-xs md:text-sm text-left truncate text-emerald-900 dark:text-emerald-200">
+                                        {cellSchedule.subjectId?.name || 'Class'}
+                                      </div>
                                     </div>
                                     <button
                                       type="button"
+                                      draggable={false}
                                       onClick={(e) => handleDirectDeleteSchedule(cellSchedule._id, e)}
-                                      className="opacity-0 group-hover/card:opacity-100 p-1 text-surface-400 hover:text-red-500 rounded transition"
+                                      className="opacity-0 group-hover/card:opacity-100 p-1 text-surface-400 hover:text-red-500 rounded transition shrink-0"
                                       title="Remove class"
                                     >
                                       <Trash size={12} />
                                     </button>
                                   </div>
-                                  <div className="text-xs text-surface-600 dark:text-surface-300 truncate text-left my-1 font-medium">
+                                  <div className="text-xs text-surface-600 dark:text-surface-300 truncate text-left my-1 font-medium pl-4">
                                     {cellSchedule.teacherId?.firstName} {cellSchedule.teacherId?.lastName || ''}
                                   </div>
                                   {dayIndex === new Date().getDay() && (
@@ -1311,6 +1649,7 @@ export default function AdminLiveClassesAndTimetablePage() {
                                         size="sm" 
                                         variant="success" 
                                         className="w-full text-xs font-bold mt-1" 
+                                        draggable={false}
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleJoinClass(active);
@@ -1323,6 +1662,7 @@ export default function AdminLiveClassesAndTimetablePage() {
                                         size="sm" 
                                         variant="primary" 
                                         className="w-full mt-1 text-xs font-bold" 
+                                        draggable={false}
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleStartClass(cellSchedule._id);

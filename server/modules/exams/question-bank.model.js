@@ -12,8 +12,16 @@ const questionBankSchema = new mongoose.Schema({
   },
   bankType: {
     type: String,
-    enum: ['SUBJECT_WISE', 'FULL_PAPER'],
+    enum: ['SUBJECT_WISE', 'FULL_PAPER', 'PART_PAPER'],
     default: 'SUBJECT_WISE'
+  },
+  class: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'QuestionClass'
+  },
+  className: {
+    type: String,
+    trim: true
   },
   institute: {
     type: mongoose.Schema.Types.ObjectId,
@@ -27,9 +35,11 @@ const questionBankSchema = new mongoose.Schema({
   },
   questions: [{
     questionText: String, // Can store HTML with mathml/images
+    className: String,
     subjectName: String,
     chapterName: String,
     topicName: String,
+    class: { type: mongoose.Schema.Types.ObjectId, ref: 'QuestionClass' },
     subject: { type: mongoose.Schema.Types.ObjectId, ref: 'QuestionCategory' },
     chapter: { type: mongoose.Schema.Types.ObjectId, ref: 'QuestionChapter' },
     topic: { type: mongoose.Schema.Types.ObjectId, ref: 'QuestionTopic' },

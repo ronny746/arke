@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, ShieldAlert, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import ImageZoomModal from '@/components/ui/ImageZoomModal';
 import { publicAPI } from '@/api/publicAPI';
 import toast from 'react-hot-toast';
 
@@ -15,6 +16,19 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState(null);
+
+  const handleContentClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target && target.tagName === 'IMG') {
+      e.preventDefault();
+      e.stopPropagation();
+      const src = (target as HTMLImageElement).src;
+      if (src) {
+        setZoomedImage(src);
+      }
+    }
+  };
   
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -403,7 +417,10 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
               ))}
            </div>
 
-           <div className="p-6 relative z-10 flex flex-col h-full">
+           <div 
+             onClickCapture={handleContentClick}
+             className="p-6 relative z-10 flex flex-col h-full"
+           >
               <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-5">
                 <h2 className="text-lg font-bold text-gray-800">Q.{currentQIdx + 1}</h2>
                 <div className="flex gap-4 text-sm font-bold bg-gray-100 px-3 py-1 rounded">
@@ -412,24 +429,36 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
                 </div>
               </div>
 
-              <div className="prose max-w-none text-gray-900 text-base mb-8 font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: currentQuestion.questionText }} />
+              <div className="prose max-w-none text-gray-900 text-base mb-8 font-medium leading-relaxed question-content" dangerouslySetInnerHTML={{ __html: currentQuestion.questionText }} />
 
               <div className="space-y-3 flex-1 ml-4">
                 {currentQuestion.options?.map((opt, idx) => {
+                  const optionLabel = opt.label || String.fromCharCode(65 + idx);
                   const isSelected = currentAnswer?.selectedOptionId === opt._id;
                   return (
                     <label 
                       key={opt._id}
-                      className="flex items-start gap-4 p-2 rounded hover:bg-gray-50 cursor-pointer group"
+                      className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer group ${
+                        isSelected 
+                          ? 'bg-blue-50/70 border-[#1c75b8]' 
+                          : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                      }`}
                     >
                       <input 
                         type="radio" 
                         name="question_option" 
-                        className="w-4 h-4 mt-1 text-[#1c75b8] border-gray-400 focus:ring-[#1c75b8] cursor-pointer"
+                        className="w-4 h-4 mt-1.5 text-[#1c75b8] border-gray-400 focus:ring-[#1c75b8] cursor-pointer shrink-0"
                         checked={isSelected}
                         onChange={() => handleOptionSelect(currentQuestion._id, opt._id)}
                       />
-                      <div className="text-gray-800 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                      <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border select-none transition-colors ${
+                        isSelected 
+                          ? 'bg-[#1c75b8] text-white border-[#1c75b8]' 
+                          : 'bg-gray-100 text-gray-700 border-gray-300 group-hover:bg-gray-200'
+                      }`}>
+                        {optionLabel}
+                      </span>
+                      <div className="text-gray-800 text-sm leading-relaxed flex-1 min-w-0 option-content" dangerouslySetInnerHTML={{ __html: opt.text }} />
                     </label>
                   );
                 })}
@@ -603,7 +632,12 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
            </div>
         </div>
       )}
-    
+
+      {/* Full Image Zoom Lightbox */}
+      <ImageZoomModal 
+        imageUrl={zoomedImage} 
+        onClose={() => setZoomedImage(null)} 
+      />
     </div>
   );
 }

@@ -39,3 +39,24 @@ exports.getCalculatedScheduleSchema = Joi.object({
   teacherId: Joi.string().optional(),
   instituteId: Joi.string().optional()
 });
+
+exports.moveScheduleSchema = Joi.object({
+  sourceId: Joi.string().required(),
+  targetDayOfWeek: Joi.number().min(0).max(6).required(),
+  targetStartTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
+  targetEndTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
+  targetId: Joi.string().optional().allow(null, '')
+});
+
+exports.updateScheduleSchema = Joi.object({
+  batchId: Joi.string().optional(),
+  subjectId: Joi.string().optional().allow(null, ''),
+  teacherId: Joi.string().optional(),
+  roomId: Joi.string().optional().allow(null, ''),
+  dayOfWeek: Joi.number().min(0).max(6).optional(),
+  startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+  endTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+  isRecurring: Joi.boolean().optional(),
+  startDate: Joi.date().iso().optional().allow(null, ''),
+  endDate: Joi.date().iso().optional().allow(null, '')
+});

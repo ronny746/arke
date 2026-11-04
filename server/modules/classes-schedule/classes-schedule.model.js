@@ -7,7 +7,7 @@ const classScheduleSchema = new mongoose.Schema({
   subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   roomId: { type: String }, // e.g. "Room 101"
-  dayOfWeek: { type: Number, required: true, min: 0, max: 6 }, // 0=Sunday, 6=Saturday
+  dayOfWeek: { type: Number, required: true, min: -1, max: 6 }, // 0=Sunday, 6=Saturday, -1=temporary swap state
   startTime: { type: String, required: true }, // e.g. "09:00"
   endTime: { type: String, required: true }, // e.g. "10:00"
   isRecurring: { type: Boolean, default: true },

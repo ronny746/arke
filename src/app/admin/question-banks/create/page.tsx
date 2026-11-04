@@ -20,6 +20,7 @@ function QuestionBankBuilderContent() {
   const { id } = useParams();
   const searchParams = useSearchParams();
   const subjectId = searchParams.get('subjectId');
+  const classId = searchParams.get('classId');
   
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -56,6 +57,8 @@ function QuestionBankBuilderContent() {
     const tabParam = searchParams.get('tab');
     if (tabParam === 'FULL_PAPERS') {
       setBankType('FULL_PAPER');
+    } else if (tabParam === 'PART_PAPERS') {
+      setBankType('PART_PAPER');
     }
   }, [id, subjectId, searchParams]);
 
@@ -112,6 +115,9 @@ function QuestionBankBuilderContent() {
     formData.append('bankType', bankType);
     if (subjectId && bankType === 'SUBJECT_WISE') {
       formData.append('subjectId', subjectId);
+    }
+    if (classId && bankType === 'SUBJECT_WISE') {
+      formData.append('classId', classId);
     }
 
     try {
@@ -190,7 +196,11 @@ function QuestionBankBuilderContent() {
 
   const handleSaveBank = async () => {
     // Default title if empty since it's now optional in UI but required in schema
-    const title = bankData.title || (bankType === 'FULL_PAPER' ? `Full Paper ${new Date().toLocaleDateString()}` : `Question Bank ${new Date().toLocaleDateString()}`);
+    const title = bankData.title || (
+      bankType === 'FULL_PAPER' ? `Full Paper ${new Date().toLocaleDateString()}` :
+      bankType === 'PART_PAPER' ? `Part Paper ${new Date().toLocaleDateString()}` :
+      `Question Bank ${new Date().toLocaleDateString()}`
+    );
     
     const newQuestions = questions.filter(q => !q._id);
     
@@ -206,6 +216,7 @@ function QuestionBankBuilderContent() {
         title: title,
         description: bankData.description,
         bankType: bankType,
+        classId: (classId && classId !== 'general') ? classId : undefined,
         questions: id ? questions : newQuestions
       };
 
@@ -371,7 +382,7 @@ function QuestionBankBuilderContent() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {bankType === 'FULL_PAPER' ? 'Import Full Paper (.docx or .pdf)' : 'Import Subject Questions (.docx or .pdf)'}
+                  {bankType === 'FULL_PAPER' ? 'Import Full Paper (.docx or .pdf)' : bankType === 'PART_PAPER' ? 'Import Part Paper (.docx or .pdf)' : 'Import Subject Questions (.docx or .pdf)'}
                 </h3>
                 <p className="text-sm text-gray-500 mt-1 max-w-lg">
                   Use DOCX for auto-parsing. Use PDF to crop and manually insert images.
