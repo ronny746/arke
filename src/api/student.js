@@ -64,3 +64,5 @@ export const studentAPI = {
   leaveBattleRoom: (roomCode) => axiosInstance.post(`/battles/room/${roomCode}/leave`),
 };
 
+export const studentApi = studentAPI;
+export default studentAPI;

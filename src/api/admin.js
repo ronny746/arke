@@ -230,4 +230,6 @@ export const adminAPI = {
   getBattleRoom: (roomCode) => axiosInstance.get(`/battles/room/${roomCode}`),
 };
 
+export const adminApi = adminAPI;
+export default adminAPI;
 

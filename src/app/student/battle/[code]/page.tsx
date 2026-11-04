@@ -8,7 +8,7 @@ import {
   RotateCcw, Sparkles, MessageSquare, ChevronDown, ChevronUp, AlertCircle
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
-import { studentApi } from '@/api/student';
+import { studentAPI } from '@/api/student';
 import toast from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
 
@@ -73,7 +73,7 @@ export default function StudentLiveBattlePage() {
   // Fetch initial battle state via REST
   const fetchBattleData = async () => {
     try {
-      const res = await studentApi.getBattleRoom(roomCode);
+      const res = await studentAPI.getBattleRoom(roomCode);
       if (res.data?.success) {
         const b = res.data.data;
         setBattle(b);
@@ -233,7 +233,7 @@ export default function StudentLiveBattlePage() {
     );
 
     try {
-      const res = await studentApi.submitBattleAnswer(roomCode, {
+      const res = await studentAPI.submitBattleAnswer(roomCode, {
         questionIndex: battle.currentQuestionIndex || 0,
         selectedOption: optionIndex,
         timeTaken
@@ -280,7 +280,7 @@ export default function StudentLiveBattlePage() {
   // Advance to next question (for Host or auto-advance)
   const handleNextQuestion = async () => {
     try {
-      const res = await studentApi.nextBattleQuestion(roomCode);
+      const res = await studentAPI.nextBattleQuestion(roomCode);
       if (res.data?.success) {
         const updated = res.data.data;
         setBattle(updated);
@@ -298,7 +298,7 @@ export default function StudentLiveBattlePage() {
   // Toggle Ready
   const handleToggleReady = async () => {
     try {
-      const res = await studentApi.toggleBattleReady(roomCode);
+      const res = await studentAPI.toggleBattleReady(roomCode);
       if (res.data?.success) {
         const nextReady = !isReady;
         setIsReady(nextReady);
@@ -315,7 +315,7 @@ export default function StudentLiveBattlePage() {
   // Host Start Game
   const handleStartGame = async () => {
     try {
-      const res = await studentApi.startBattle(roomCode);
+      const res = await studentAPI.startBattle(roomCode);
       if (res.data?.success) {
         const updated = res.data.data;
         socketRef.current?.emit('battle:start_game', {
@@ -332,7 +332,7 @@ export default function StudentLiveBattlePage() {
   const handleLeave = async () => {
     if (confirm('Are you sure you want to exit the battle arena?')) {
       try {
-        await studentApi.leaveBattleRoom(roomCode);
+        await studentAPI.leaveBattleRoom(roomCode);
       } catch (e) {
         // ignore
       }

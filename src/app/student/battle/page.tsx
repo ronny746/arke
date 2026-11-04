@@ -7,7 +7,7 @@ import {
   RotateCcw, Sparkles, CheckCircle, Clock, Award, Shield, 
   Search, BookOpen, Layers, Target, ChevronRight, X
 } from 'lucide-react';
-import { studentApi } from '@/api/student';
+import { studentAPI } from '@/api/student';
 import toast from 'react-hot-toast';
 
 export default function StudentBattleArenaPage() {
@@ -53,9 +53,9 @@ export default function StudentBattleArenaPage() {
     setLoading(true);
     try {
       const [battlesRes, histRes, filterRes] = await Promise.allSettled([
-        studentApi.getActiveBattles(),
-        studentApi.getMyBattleHistory(),
-        studentApi.getBattleFilters()
+        studentAPI.getActiveBattles(),
+        studentAPI.getMyBattleHistory(),
+        studentAPI.getBattleFilters()
       ]);
 
       if (battlesRes.status === 'fulfilled' && battlesRes.value?.data?.success) {
@@ -88,7 +88,7 @@ export default function StudentBattleArenaPage() {
     }
     setJoining(true);
     try {
-      const res = await studentApi.joinBattle({ roomCode: cleanCode });
+      const res = await studentAPI.joinBattle({ roomCode: cleanCode });
       if (res.data?.success) {
         toast.success('Joined battle room!');
         router.push(`/student/battle/${cleanCode}`);
@@ -116,7 +116,7 @@ export default function StudentBattleArenaPage() {
         difficulty: createForm.difficulty
       };
 
-      const res = await studentApi.createBattle(payload);
+      const res = await studentAPI.createBattle(payload);
       if (res.data?.success) {
         toast.success(`Battle created! Room code: ${res.data.data.roomCode}`);
         setShowCreateModal(false);

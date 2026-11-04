@@ -6,7 +6,7 @@ import {
   Trash2, Copy, Check, Eye, Clock, Shield, Search, BookOpen, 
   Award, X, AlertTriangle, ExternalLink
 } from 'lucide-react';
-import { adminApi } from '@/api/admin';
+import { adminAPI } from '@/api/admin';
 import toast from 'react-hot-toast';
 
 export default function AdminBattlesPage() {
@@ -41,8 +41,8 @@ export default function AdminBattlesPage() {
     setLoading(true);
     try {
       const [battlesRes, filterRes] = await Promise.allSettled([
-        adminApi.getAdminBattles(),
-        adminApi.getBattleFilters()
+        adminAPI.getAdminBattles(),
+        adminAPI.getBattleFilters()
       ]);
 
       if (battlesRes.status === 'fulfilled' && battlesRes.value?.data?.success) {
@@ -78,7 +78,7 @@ export default function AdminBattlesPage() {
         difficulty: createForm.difficulty
       };
 
-      const res = await adminApi.createOfficialBattle(payload);
+      const res = await adminAPI.createOfficialBattle(payload);
       if (res.data?.success) {
         toast.success(`Official tournament created! Room Code: ${res.data.data.roomCode}`);
         setShowCreateModal(false);
@@ -97,7 +97,7 @@ export default function AdminBattlesPage() {
     if (!confirm(`Are you sure you want to delete battle room ${code}? This cannot be undone.`)) return;
 
     try {
-      const res = await adminApi.deleteBattle(id);
+      const res = await adminAPI.deleteBattle(id);
       if (res.data?.success) {
         toast.success(`Battle ${code} removed`);
         setBattles(prev => prev.filter(b => b._id !== id));
