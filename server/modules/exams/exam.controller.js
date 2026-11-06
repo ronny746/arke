@@ -86,17 +86,48 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
     qObj.averageTimeSeconds = Number(averageTimeByQuestion.get(String(q._id)) || 0);
     let isCorrect = false;
     let marksObtained = 0;
+    let attempted = false;
 
-    if (userAns && userAns.selectedOptionId) {
+    const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+    const isIntegerOrNumerical = ['INTEGER', 'NUMERICAL'].includes(q.type) || (!hasOptions && q.correctAnswerText);
+    const isMultipleCorrect = q.type === 'MULTIPLE_CORRECT';
+
+    if (userAns) {
+      if (isIntegerOrNumerical || q.type === 'FILL_BLANKS') {
+        const studentVal = (userAns.numericAnswer ?? userAns.subjectiveAnswerText ?? '').toString().trim();
+        if (studentVal) {
+          attempted = true;
+          const expectedVal = (q.correctAnswerText || '').toString().trim();
+          const isNumEqual = !isNaN(Number(studentVal)) && !isNaN(Number(expectedVal)) && Math.abs(Number(studentVal) - Number(expectedVal)) < 0.0001;
+          const isStrEqual = studentVal.toLowerCase() === expectedVal.toLowerCase();
+          isCorrect = isNumEqual || isStrEqual;
+        }
+      } else if (isMultipleCorrect) {
+        const studentSelected = (userAns.selectedOptionIds && userAns.selectedOptionIds.length > 0)
+          ? userAns.selectedOptionIds.map(id => id.toString())
+          : (userAns.selectedOptionId ? [userAns.selectedOptionId.toString()] : []);
+        if (studentSelected.length > 0) {
+          attempted = true;
+          const correctOptIds = (q.options || []).filter(o => o.isCorrect).map(o => o._id.toString());
+          isCorrect = correctOptIds.length === studentSelected.length &&
+            correctOptIds.every(id => studentSelected.includes(id));
+        }
+      } else {
+        if (userAns.selectedOptionId) {
+          attempted = true;
+          const correctOpt = (q.options || []).find(o => o.isCorrect);
+          if (correctOpt && correctOpt._id?.toString() === userAns.selectedOptionId?.toString()) {
+            isCorrect = true;
+          }
+        }
+      }
+    }
+
+    if (attempted) {
       subjectStats[subject].attempted++;
       topicStats[topic].attempted++;
       difficultyStats[diff].attempted++;
       nestedStats[subject][topic][diff].attempted++;
-      
-      const correctOpt = q.options.find(o => o.isCorrect);
-      if (correctOpt && correctOpt._id?.toString() === userAns.selectedOptionId?.toString()) {
-        isCorrect = true;
-      }
 
       if (isCorrect) {
         subjectStats[subject].correct++;
@@ -131,6 +162,7 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
       }
     }
 
+    qObj.attempted = attempted;
     qObj.isCorrect = isCorrect;
     qObj.marksObtained = marksObtained;
     return qObj;

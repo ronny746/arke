@@ -39,7 +39,12 @@ export default function ExamAnalysis() {
   
   // Solution view modes: 'solutions' (show all options, chosen & correct option + solution) vs 'practice' (interactive self-practice)
   const [viewMode, setViewMode] = useState<'solutions' | 'practice'>('solutions');
-  const [practiceState, setPracticeState] = useState<Record<string, { selectedOptionId: string | null; isRevealed: boolean }>>({});
+  const [practiceState, setPracticeState] = useState<Record<string, { 
+    selectedOptionId?: string | null; 
+    selectedOptionIds?: string[];
+    numericAnswer?: string;
+    isRevealed: boolean 
+  }>>({});
 
   const handleGenerateDPP = async (parentSessionId = null, customWeakTopics = null) => {
     try {
@@ -122,7 +127,54 @@ export default function ExamAnalysis() {
     setPracticeState(prev => ({
       ...prev,
       [questionId]: {
+        ...(prev[questionId] || {}),
         selectedOptionId: optionId,
+        isRevealed: true
+      }
+    }));
+  };
+
+  const handlePracticeToggleMultiOption = (questionId: string, optionId: string) => {
+    setPracticeState(prev => {
+      const current = prev[questionId]?.selectedOptionIds || [];
+      const updated = current.includes(optionId)
+        ? current.filter(id => id !== optionId)
+        : [...current, optionId];
+      return {
+        ...prev,
+        [questionId]: {
+          ...(prev[questionId] || {}),
+          selectedOptionIds: updated
+        }
+      };
+    });
+  };
+
+  const handlePracticeNumericChange = (questionId: string, value: string) => {
+    setPracticeState(prev => ({
+      ...prev,
+      [questionId]: {
+        ...(prev[questionId] || {}),
+        numericAnswer: value
+      }
+    }));
+  };
+
+  const handlePracticeCheckNumeric = (questionId: string) => {
+    setPracticeState(prev => ({
+      ...prev,
+      [questionId]: {
+        ...(prev[questionId] || {}),
+        isRevealed: true
+      }
+    }));
+  };
+
+  const handlePracticeCheckMulti = (questionId: string) => {
+    setPracticeState(prev => ({
+      ...prev,
+      [questionId]: {
+        ...(prev[questionId] || {}),
         isRevealed: true
       }
     }));
@@ -130,11 +182,11 @@ export default function ExamAnalysis() {
 
   const handleToggleRevealPractice = (questionId: string) => {
     setPracticeState(prev => {
-      const current = prev[questionId] || { selectedOptionId: null, isRevealed: false };
+      const current = prev[questionId] || { isRevealed: false };
       return {
         ...prev,
         [questionId]: {
-          selectedOptionId: current.selectedOptionId,
+          ...current,
           isRevealed: !current.isRevealed
         }
       };
@@ -436,19 +488,32 @@ export default function ExamAnalysis() {
         {/* Questions List */}
         <div className="p-6 space-y-8 bg-gray-50/60">
           {activeSubjectQuestions.map((q, index) => {
-            const isAttempted = q.userAnswer && q.userAnswer.status !== 'NOT_ANSWERED';
+            const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+            const isIntegerOrNumerical = ['INTEGER', 'NUMERICAL'].includes(q.type) || (!hasOptions && q.correctAnswerText);
+            const isMultipleCorrect = q.type === 'MULTIPLE_CORRECT';
+
+            const hasStudentVal = Boolean(q.userAnswer?.numericAnswer) || Boolean(q.userAnswer?.subjectiveAnswerText);
+            const hasStudentOptions = Boolean(q.userAnswer?.selectedOptionId) || (Array.isArray(q.userAnswer?.selectedOptionIds) && q.userAnswer.selectedOptionIds.length > 0);
+            const isAttempted = q.attempted !== undefined ? q.attempted : (hasStudentVal || hasStudentOptions);
             const isCorrect = q.isCorrect;
-            const practice = practiceState[q._id] || { selectedOptionId: null, isRevealed: false };
+            const practice = practiceState[q._id] || { selectedOptionId: null, selectedOptionIds: [], numericAnswer: '', isRevealed: false };
 
             return (
               <div key={q._id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200/80 transition-all hover:shadow-md">
                 {/* Question Top Header */}
                 <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3 mb-4 pb-3 border-b border-gray-100">
                   <div className="flex gap-3 items-start flex-1">
-                    <span className="bg-primary-50 text-primary-700 font-bold px-3 py-1.5 rounded-lg text-sm whitespace-nowrap border border-primary-100 shadow-xs">
-                      Q {index + 1}
-                    </span>
-                    <div className="prose max-w-none text-gray-800 text-base font-medium" dangerouslySetInnerHTML={{ __html: q.questionText }} />
+                    <div className="flex flex-col gap-1.5 shrink-0">
+                      <span className="bg-primary-50 text-primary-700 font-bold px-3 py-1.5 rounded-lg text-sm whitespace-nowrap border border-primary-100 shadow-xs">
+                        Q {index + 1}
+                      </span>
+                      {q.type && (
+                        <span className="text-[10px] font-semibold text-center tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded uppercase">
+                          {q.type.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="prose max-w-none text-gray-800 text-base font-medium flex-1" dangerouslySetInnerHTML={{ __html: q.questionText }} />
                   </div>
                   <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-2 shrink-0">
                     <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md">
@@ -462,11 +527,11 @@ export default function ExamAnalysis() {
                           </span>
                         ) : isCorrect ? (
                           <span className="px-2.5 py-1 bg-success-50 text-success-700 text-xs rounded-full font-bold flex items-center gap-1 border border-success-200">
-                            <CheckCircle className="w-3.5 h-3.5"/> Correct in Exam (+{q.marksObtained})
+                            <CheckCircle className="w-3.5 h-3.5"/> Correct in Exam (+{q.marksObtained !== undefined ? q.marksObtained : q.marks})
                           </span>
                         ) : (
                           <span className="px-2.5 py-1 bg-danger-50 text-danger-700 text-xs rounded-full font-bold flex items-center gap-1 border border-danger-200">
-                            <XCircle className="w-3.5 h-3.5"/> Incorrect in Exam ({q.marksObtained})
+                            <XCircle className="w-3.5 h-3.5"/> Incorrect in Exam ({q.marksObtained !== undefined ? q.marksObtained : `-${q.negativeMarks}`})
                           </span>
                         )}
                       </div>
@@ -489,9 +554,81 @@ export default function ExamAnalysis() {
                 {/* Practice Mode Feedback Banner (when revealed) */}
                 {viewMode === 'practice' && practice.isRevealed && (
                   <div className="mb-4 ml-0 sm:ml-11">
-                    {practice.selectedOptionId ? (
+                    {(isIntegerOrNumerical || q.type === 'FILL_BLANKS' || !hasOptions) ? (
                       (() => {
-                        const selectedOpt = q.options.find(opt => opt._id === practice.selectedOptionId || opt.id === practice.selectedOptionId);
+                        const studentVal = (practice.numericAnswer || '').trim();
+                        const expectedVal = (q.correctAnswerText || '').trim();
+                        const isNumEqual = !isNaN(Number(studentVal)) && !isNaN(Number(expectedVal)) && Math.abs(Number(studentVal) - Number(expectedVal)) < 0.0001;
+                        const isStrEqual = studentVal.toLowerCase() === expectedVal.toLowerCase();
+                        const isMatch = studentVal && (isNumEqual || isStrEqual);
+                        return isMatch ? (
+                          <div className="p-3 bg-success-50 border border-success-200 rounded-xl flex items-center justify-between text-success-800 text-sm font-semibold animate-fade-in">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-5 h-5 text-success-600" />
+                              <span>🎉 Spot on! Correct answer is {expectedVal}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleResetPracticeQuestion(q._id)}
+                              className="text-xs text-success-700 hover:text-success-900 underline flex items-center gap-1 font-bold"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Practice Again
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-rose-800 text-sm font-semibold animate-fade-in">
+                            <div className="flex items-center gap-2">
+                              <XCircle className="w-5 h-5 text-rose-600" />
+                              <span>Incorrect. Correct answer is <strong>{expectedVal}</strong>.</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleResetPracticeQuestion(q._id)}
+                              className="text-xs text-rose-700 hover:text-rose-900 underline flex items-center gap-1 font-bold"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Try Again
+                            </button>
+                          </div>
+                        );
+                      })()
+                    ) : isMultipleCorrect ? (
+                      (() => {
+                        const practiceSelectedIds = practice.selectedOptionIds || [];
+                        const correctOptIds = (q.options || []).filter(o => o.isCorrect).map(o => String(o._id || o.id));
+                        const isMatch = practiceSelectedIds.length === correctOptIds.length && correctOptIds.every(id => practiceSelectedIds.includes(id));
+                        return isMatch ? (
+                          <div className="p-3 bg-success-50 border border-success-200 rounded-xl flex items-center justify-between text-success-800 text-sm font-semibold animate-fade-in">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-5 h-5 text-success-600" />
+                              <span>🎉 Perfect! You selected all correct options!</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleResetPracticeQuestion(q._id)}
+                              className="text-xs text-success-700 hover:text-success-900 underline flex items-center gap-1 font-bold"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Practice Again
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-rose-800 text-sm font-semibold animate-fade-in">
+                            <div className="flex items-center gap-2">
+                              <XCircle className="w-5 h-5 text-rose-600" />
+                              <span>Incorrect combination. The correct options are highlighted in green below.</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleResetPracticeQuestion(q._id)}
+                              className="text-xs text-rose-700 hover:text-rose-900 underline flex items-center gap-1 font-bold"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Try Again
+                            </button>
+                          </div>
+                        );
+                      })()
+                    ) : practice.selectedOptionId ? (
+                      (() => {
+                        const selectedOpt = (q.options || []).find(opt => opt._id === practice.selectedOptionId || opt.id === practice.selectedOptionId);
                         const isSelectionCorrect = selectedOpt?.isCorrect;
                         return isSelectionCorrect ? (
                           <div className="p-3 bg-success-50 border border-success-200 rounded-xl flex items-center justify-between text-success-800 text-sm font-semibold animate-fade-in">
@@ -527,7 +664,7 @@ export default function ExamAnalysis() {
                       <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-blue-800 text-sm font-semibold animate-fade-in">
                         <div className="flex items-center gap-2">
                           <Eye className="w-5 h-5 text-blue-600" />
-                          <span>Solution revealed. The correct answer is highlighted in green below.</span>
+                          <span>Solution revealed. The correct answer is shown below.</span>
                         </div>
                         <button
                           type="button"
@@ -541,112 +678,136 @@ export default function ExamAnalysis() {
                   </div>
                 )}
 
-                {/* Options List */}
-                <div className="space-y-3 sm:pl-11">
-                  {q.options.map((opt, optIndex) => {
-                    const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
-                    
-                    if (viewMode === 'solutions') {
-                      // Mode 1: Full Solution View (All options with chosen and correct option clearly highlighted)
-                      const isChosenByStudent = q.userAnswer && (q.userAnswer.selectedOptionId === opt._id || q.userAnswer.selectedOptionId === opt.id);
-                      const isActualCorrect = opt.isCorrect;
-
-                      let containerStyle = 'border-gray-200 bg-white hover:border-gray-300';
-                      let labelStyle = 'bg-gray-100 text-gray-700 border-gray-300';
-                      let badge = null;
-
-                      if (isActualCorrect && isChosenByStudent) {
-                        containerStyle = 'border-success-500 bg-success-50/70 ring-1 ring-success-500';
-                        labelStyle = 'bg-success-600 text-white border-success-600';
-                        badge = (
-                          <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
-                            <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Your Choice (Correct)
-                          </span>
-                        );
-                      } else if (isActualCorrect) {
-                        containerStyle = 'border-success-500 bg-success-50/50 ring-1 ring-success-500';
-                        labelStyle = 'bg-success-600 text-white border-success-600';
-                        badge = (
-                          <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
-                            <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Correct Answer
-                          </span>
-                        );
-                      } else if (isChosenByStudent && !isActualCorrect) {
-                        containerStyle = 'border-danger-500 bg-danger-50/70 ring-1 ring-danger-500';
-                        labelStyle = 'bg-danger-600 text-white border-danger-600';
-                        badge = (
-                          <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-danger-300">
-                            <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Choice (Incorrect)
-                          </span>
-                        );
-                      }
-
-                      return (
-                        <div key={opt._id} className={`flex items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${containerStyle}`}>
-                          <div className="flex items-start sm:items-center gap-3 flex-1">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border shrink-0 ${labelStyle}`}>
-                              {optionLabel}
-                            </div>
-                            <div className="text-gray-800 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                {/* Answers / Options Area */}
+                {(isIntegerOrNumerical || q.type === 'FILL_BLANKS' || !hasOptions) ? (
+                  /* Numerical / Integer / Fill in blanks answers */
+                  <div className="space-y-4 sm:pl-11">
+                    {viewMode === 'solutions' ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className={`p-4 rounded-xl border ${!isAttempted ? 'bg-amber-50/60 border-amber-200' : isCorrect ? 'bg-success-50/70 border-success-300 ring-1 ring-success-400' : 'bg-danger-50/70 border-danger-300 ring-1 ring-danger-400'}`}>
+                          <div className="text-xs font-semibold text-gray-500 mb-1">Your Submitted Answer</div>
+                          <div className="text-xl font-bold text-gray-900">
+                            {q.userAnswer?.numericAnswer || q.userAnswer?.subjectiveAnswerText || (
+                              <span className="text-sm font-semibold text-amber-700 italic">Not Answered / Skipped</span>
+                            )}
                           </div>
-                          {badge && <div className="shrink-0 ml-2">{badge}</div>}
+                          <div className="mt-2.5">
+                            {!isAttempted ? (
+                              <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full inline-flex items-center gap-1 border border-amber-300">
+                                <AlertCircle className="w-3.5 h-3.5" /> Skipped
+                              </span>
+                            ) : isCorrect ? (
+                              <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full inline-flex items-center gap-1 border border-success-300">
+                                <CheckCircle className="w-3.5 h-3.5" /> Correct (+{q.marksObtained !== undefined ? q.marksObtained : q.marks})
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full inline-flex items-center gap-1 border border-danger-300">
+                                <XCircle className="w-3.5 h-3.5" /> Incorrect ({q.marksObtained !== undefined ? q.marksObtained : `-${q.negativeMarks}`})
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      );
-                    } else {
-                      // Mode 2: Practice Mode (Clean options initially, interactive click reveals answer & solution)
-                      if (!practice.isRevealed) {
-                        return (
-                          <div
-                            key={opt._id}
-                            onClick={() => handlePracticeSelectOption(q._id, opt._id)}
-                            className="flex items-start sm:items-center gap-3 p-3.5 rounded-xl border border-gray-200 bg-white hover:border-primary-400 hover:bg-primary-50/40 hover:shadow-sm cursor-pointer transition-all group"
-                          >
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border border-gray-300 bg-gray-100 text-gray-700 group-hover:bg-primary-600 group-hover:text-white group-hover:border-primary-600 transition-colors shrink-0">
-                              {optionLabel}
-                            </div>
-                            <div className="text-gray-800 text-sm leading-relaxed flex-1 group-hover:text-gray-900" dangerouslySetInnerHTML={{ __html: opt.text }} />
-                            <span className="text-[11px] font-semibold text-gray-400 group-hover:text-primary-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                              Click to select
+
+                        <div className="p-4 rounded-xl border border-success-400 bg-success-50/60 ring-1 ring-success-500/20">
+                          <div className="text-xs font-semibold text-success-700 mb-1">Correct Answer / Value</div>
+                          <div className="text-xl font-bold text-success-900">
+                            {q.correctAnswerText || 'Not specified'}
+                          </div>
+                          <div className="mt-2.5">
+                            <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full inline-flex items-center gap-1 border border-success-300">
+                              <CheckCircle className="w-3.5 h-3.5" /> Official Answer
                             </span>
                           </div>
-                        );
-                      } else {
-                        // Practice Mode when revealed
-                        const isSelectedInPractice = practice.selectedOptionId === opt._id || practice.selectedOptionId === opt.id;
-                        const isActualCorrect = opt.isCorrect;
+                        </div>
+                      </div>
+                    ) : (
+                      /* Practice Mode for numerical */
+                      <div className="p-4 rounded-xl border border-gray-200 bg-white space-y-3">
+                        {!practice.isRevealed ? (
+                          <div className="space-y-3">
+                            <label className="text-xs font-semibold text-gray-700 block">
+                              Enter your answer to verify:
+                            </label>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <input
+                                type="text"
+                                value={practice.numericAnswer || ''}
+                                onChange={(e) => handlePracticeNumericChange(q._id, e.target.value)}
+                                placeholder="e.g. 25"
+                                className="px-3.5 py-2 border border-gray-300 rounded-lg text-sm w-44 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => handlePracticeCheckNumeric(q._id)}
+                                disabled={!practice.numericAnswer?.trim()}
+                                className="text-xs"
+                              >
+                                Check Answer
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                              <div className="text-xs text-gray-500 font-semibold mb-0.5">Your Practice Input:</div>
+                              <div className="font-bold text-gray-800">{practice.numericAnswer || 'None'}</div>
+                            </div>
+                            <div className="p-3 bg-success-50 rounded-lg border border-success-200">
+                              <div className="text-xs text-success-700 font-semibold mb-0.5">Correct Answer:</div>
+                              <div className="font-bold text-success-800">{q.correctAnswerText || 'Not specified'}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Standard Options List (MCQ / MULTIPLE_CORRECT / TRUE_FALSE / etc.) */
+                  <div className="space-y-3 sm:pl-11">
+                    {q.options.map((opt, optIndex) => {
+                      const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
+                      const optIdStr = String(opt._id || opt.id || optIndex);
 
-                        let containerStyle = 'border-gray-200 bg-white';
+                      if (viewMode === 'solutions') {
+                        const studentSelectedIds = Array.isArray(q.userAnswer?.selectedOptionIds) && q.userAnswer.selectedOptionIds.length > 0
+                          ? q.userAnswer.selectedOptionIds.map(id => String(id?._id || id))
+                          : (q.userAnswer?.selectedOptionId ? [String(q.userAnswer.selectedOptionId)] : []);
+                        
+                        const isChosenByStudent = studentSelectedIds.includes(optIdStr);
+                        const isActualCorrect = Boolean(opt.isCorrect);
+
+                        let containerStyle = 'border-gray-200 bg-white hover:border-gray-300';
                         let labelStyle = 'bg-gray-100 text-gray-700 border-gray-300';
                         let badge = null;
 
-                        if (isActualCorrect && isSelectedInPractice) {
+                        if (isActualCorrect && isChosenByStudent) {
                           containerStyle = 'border-success-500 bg-success-50/70 ring-1 ring-success-500';
                           labelStyle = 'bg-success-600 text-white border-success-600';
                           badge = (
                             <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
-                              <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Your Selection (Correct)
+                              <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Your Choice (Correct)
                             </span>
                           );
                         } else if (isActualCorrect) {
-                          containerStyle = 'border-success-500 bg-success-50/60 ring-1 ring-success-500';
+                          containerStyle = 'border-success-500 bg-success-50/50 ring-1 ring-success-500';
                           labelStyle = 'bg-success-600 text-white border-success-600';
                           badge = (
                             <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
                               <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Correct Answer
                             </span>
                           );
-                        } else if (isSelectedInPractice && !isActualCorrect) {
+                        } else if (isChosenByStudent && !isActualCorrect) {
                           containerStyle = 'border-danger-500 bg-danger-50/70 ring-1 ring-danger-500';
                           labelStyle = 'bg-danger-600 text-white border-danger-600';
                           badge = (
                             <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-danger-300">
-                              <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Selection (Incorrect)
+                              <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Choice (Incorrect)
                             </span>
                           );
                         }
 
                         return (
-                          <div key={opt._id} className={`flex items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${containerStyle}`}>
+                          <div key={optIdStr} className={`flex items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${containerStyle}`}>
                             <div className="flex items-start sm:items-center gap-3 flex-1">
                               <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border shrink-0 ${labelStyle}`}>
                                 {optionLabel}
@@ -656,10 +817,144 @@ export default function ExamAnalysis() {
                             {badge && <div className="shrink-0 ml-2">{badge}</div>}
                           </div>
                         );
+                      } else {
+                        // Practice Mode
+                        if (isMultipleCorrect) {
+                          const practiceSelectedIds = practice.selectedOptionIds || [];
+                          const isSelected = practiceSelectedIds.includes(optIdStr);
+                          const isActualCorrect = Boolean(opt.isCorrect);
+
+                          if (!practice.isRevealed) {
+                            return (
+                              <div
+                                key={optIdStr}
+                                onClick={() => handlePracticeToggleMultiOption(q._id, optIdStr)}
+                                className={`flex items-start sm:items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${isSelected ? 'border-primary-500 bg-primary-50/50 shadow-xs' : 'border-gray-200 bg-white hover:border-primary-300'}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {}}
+                                  className="w-4 h-4 text-primary-600 rounded border-gray-300 pointer-events-none mt-1 sm:mt-0"
+                                />
+                                <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border border-gray-300 bg-gray-100 text-gray-700 shrink-0">
+                                  {optionLabel}
+                                </div>
+                                <div className="text-gray-800 text-sm leading-relaxed flex-1" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                              </div>
+                            );
+                          } else {
+                            let containerStyle = 'border-gray-200 bg-white';
+                            let labelStyle = 'bg-gray-100 text-gray-700 border-gray-300';
+                            let badge = null;
+
+                            if (isActualCorrect && isSelected) {
+                              containerStyle = 'border-success-500 bg-success-50/70 ring-1 ring-success-500';
+                              labelStyle = 'bg-success-600 text-white border-success-600';
+                              badge = (
+                                <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
+                                  <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Your Selection (Correct)
+                                </span>
+                              );
+                            } else if (isActualCorrect) {
+                              containerStyle = 'border-success-500 bg-success-50/60 ring-1 ring-success-500';
+                              labelStyle = 'bg-success-600 text-white border-success-600';
+                              badge = (
+                                <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
+                                  <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Correct Answer
+                                </span>
+                              );
+                            } else if (isSelected && !isActualCorrect) {
+                              containerStyle = 'border-danger-500 bg-danger-50/70 ring-1 ring-danger-500';
+                              labelStyle = 'bg-danger-600 text-white border-danger-600';
+                              badge = (
+                                <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-danger-300">
+                                  <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Selection (Incorrect)
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <div key={optIdStr} className={`flex items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${containerStyle}`}>
+                                <div className="flex items-start sm:items-center gap-3 flex-1">
+                                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border shrink-0 ${labelStyle}`}>
+                                    {optionLabel}
+                                  </div>
+                                  <div className="text-gray-800 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                                </div>
+                                {badge && <div className="shrink-0 ml-2">{badge}</div>}
+                              </div>
+                            );
+                          }
+                        } else {
+                          // Single choice MCQ / TRUE_FALSE
+                          if (!practice.isRevealed) {
+                            return (
+                              <div
+                                key={optIdStr}
+                                onClick={() => handlePracticeSelectOption(q._id, optIdStr)}
+                                className="flex items-start sm:items-center gap-3 p-3.5 rounded-xl border border-gray-200 bg-white hover:border-primary-400 hover:bg-primary-50/40 hover:shadow-sm cursor-pointer transition-all group"
+                              >
+                                <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border border-gray-300 bg-gray-100 text-gray-700 group-hover:bg-primary-600 group-hover:text-white group-hover:border-primary-600 transition-colors shrink-0">
+                                  {optionLabel}
+                                </div>
+                                <div className="text-gray-800 text-sm leading-relaxed flex-1 group-hover:text-gray-900" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                                <span className="text-[11px] font-semibold text-gray-400 group-hover:text-primary-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Click to select
+                                </span>
+                              </div>
+                            );
+                          } else {
+                            const isSelectedInPractice = practice.selectedOptionId === optIdStr;
+                            const isActualCorrect = Boolean(opt.isCorrect);
+
+                            let containerStyle = 'border-gray-200 bg-white';
+                            let labelStyle = 'bg-gray-100 text-gray-700 border-gray-300';
+                            let badge = null;
+
+                            if (isActualCorrect && isSelectedInPractice) {
+                              containerStyle = 'border-success-500 bg-success-50/70 ring-1 ring-success-500';
+                              labelStyle = 'bg-success-600 text-white border-success-600';
+                              badge = (
+                                <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
+                                  <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Your Selection (Correct)
+                                </span>
+                              );
+                            } else if (isActualCorrect) {
+                              containerStyle = 'border-success-500 bg-success-50/60 ring-1 ring-success-500';
+                              labelStyle = 'bg-success-600 text-white border-success-600';
+                              badge = (
+                                <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300">
+                                  <CheckCircle className="w-3.5 h-3.5 text-success-600" /> Correct Answer
+                                </span>
+                              );
+                            } else if (isSelectedInPractice && !isActualCorrect) {
+                              containerStyle = 'border-danger-500 bg-danger-50/70 ring-1 ring-danger-500';
+                              labelStyle = 'bg-danger-600 text-white border-danger-600';
+                              badge = (
+                                <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-danger-300">
+                                  <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Selection (Incorrect)
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <div key={optIdStr} className={`flex items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${containerStyle}`}>
+                                <div className="flex items-start sm:items-center gap-3 flex-1">
+                                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs border shrink-0 ${labelStyle}`}>
+                                    {optionLabel}
+                                  </div>
+                                  <div className="text-gray-800 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                                </div>
+                                {badge && <div className="shrink-0 ml-2">{badge}</div>}
+                              </div>
+                            );
+                          }
+                        }
                       }
-                    }
-                  })}
-                </div>
+                    })}
+                  </div>
+                )}
 
                 {/* Practice Mode Action Toolbar (Show Solution Button / Reset) */}
                 {viewMode === 'practice' && (
@@ -667,17 +962,30 @@ export default function ExamAnalysis() {
                     {!practice.isRevealed ? (
                       <div className="flex items-center justify-between w-full">
                         <span className="text-xs text-gray-500 flex items-center gap-1">
-                          <HelpCircle className="w-3.5 h-3.5 text-gray-400" /> Select an option above to test yourself, or
+                          <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+                          {isMultipleCorrect ? 'Check one or more options above, then click Check Answers' : (isIntegerOrNumerical || !hasOptions) ? 'Type your answer above to check, or' : 'Select an option above to test yourself, or'}
                         </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleRevealPractice(q._id)}
-                          className="text-xs text-primary-700 border-primary-200 hover:bg-primary-50"
-                        >
-                          <Eye className="w-3.5 h-3.5 mr-1" />
-                          Show Solution & Answer
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {isMultipleCorrect && (
+                            <Button
+                              size="sm"
+                              onClick={() => handlePracticeCheckMulti(q._id)}
+                              disabled={!practice.selectedOptionIds || practice.selectedOptionIds.length === 0}
+                              className="text-xs bg-primary-600 text-white hover:bg-primary-700"
+                            >
+                              Check Answers
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleRevealPractice(q._id)}
+                            className="text-xs text-primary-700 border-primary-200 hover:bg-primary-50"
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            Show Solution & Answer
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between w-full">

@@ -176,55 +176,118 @@ export default function AdminExamAnalysis() {
             const subjectName = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
             return activeSubject ? subjectName === activeSubject : true;
           }).map((q, index) => {
-            const isAttempted = q.userAnswer && q.userAnswer.status !== 'NOT_ANSWERED';
+            const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+            const isIntegerOrNumerical = ['INTEGER', 'NUMERICAL'].includes(q.type) || (!hasOptions && q.correctAnswerText);
+            const isMultipleCorrect = q.type === 'MULTIPLE_CORRECT';
+
+            const hasStudentVal = Boolean(q.userAnswer?.numericAnswer) || Boolean(q.userAnswer?.subjectiveAnswerText);
+            const hasStudentOptions = Boolean(q.userAnswer?.selectedOptionId) || (Array.isArray(q.userAnswer?.selectedOptionIds) && q.userAnswer.selectedOptionIds.length > 0);
+            const isAttempted = q.attempted !== undefined ? q.attempted : (hasStudentVal || hasStudentOptions);
             const isCorrect = q.isCorrect;
 
             return (
               <div key={q._id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex gap-3 items-start">
-                    <span className="bg-gray-100 text-gray-700 font-bold px-3 py-1 rounded">Q {index + 1}</span>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <span className="bg-gray-100 text-gray-700 font-bold px-3 py-1 rounded text-sm">Q {index + 1}</span>
+                      {q.type && (
+                        <span className="text-[10px] font-semibold text-center text-indigo-700 bg-indigo-50 border border-indigo-200 px-1 py-0.5 rounded uppercase">
+                          {q.type.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
                     <div className="prose max-w-none text-gray-800" dangerouslySetInnerHTML={{ __html: q.questionText }} />
                   </div>
-                  <div className="flex flex-col items-end gap-2">
+                  <div className="flex flex-col items-end gap-2 shrink-0">
                     <span className="text-sm font-medium text-gray-500 whitespace-nowrap">Marks: {q.marks} | -{q.negativeMarks}</span>
                     {!isAttempted ? (
                       <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-bold flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Skipped</span>
                     ) : isCorrect ? (
-                      <span className="px-2 py-1 bg-success-100 text-success-700 text-xs rounded-full font-bold flex items-center gap-1"><CheckCircle className="w-3 h-3"/> Correct (+{q.marksObtained})</span>
+                      <span className="px-2 py-1 bg-success-100 text-success-700 text-xs rounded-full font-bold flex items-center gap-1"><CheckCircle className="w-3 h-3"/> Correct (+{q.marksObtained !== undefined ? q.marksObtained : q.marks})</span>
                     ) : (
-                      <span className="px-2 py-1 bg-danger-100 text-danger-700 text-xs rounded-full font-bold flex items-center gap-1"><XCircle className="w-3 h-3"/> Incorrect ({q.marksObtained})</span>
+                      <span className="px-2 py-1 bg-danger-100 text-danger-700 text-xs rounded-full font-bold flex items-center gap-1"><XCircle className="w-3 h-3"/> Incorrect ({q.marksObtained !== undefined ? q.marksObtained : `-${q.negativeMarks}`})</span>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-3 pl-12">
-                  {q.options.map((opt) => {
-                    const isSelected = q.userAnswer && (q.userAnswer.selectedOptionId === opt._id || q.userAnswer.selectedOptionId === opt.id);
-                    const isActualCorrect = opt.isCorrect;
-                    
-                    let borderClass = 'border-gray-200';
-                    let bgClass = 'bg-white';
-                    let icon = null;
-
-                    if (isActualCorrect) {
-                      borderClass = 'border-success-500 ring-1 ring-success-500';
-                      bgClass = 'bg-success-50';
-                      icon = <CheckCircle className="w-5 h-5 text-success-500" />;
-                    } else if (isSelected && !isActualCorrect) {
-                      borderClass = 'border-danger-500';
-                      bgClass = 'bg-danger-50';
-                      icon = <XCircle className="w-5 h-5 text-danger-500" />;
-                    }
-
-                    return (
-                      <div key={opt._id} className={`flex items-center gap-3 p-3 rounded-lg border ${borderClass} ${bgClass}`}>
-                        <div className="w-5 flex justify-center">{icon}</div>
-                        <div className="text-gray-800" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                {/* Answers / Options Area */}
+                {(isIntegerOrNumerical || q.type === 'FILL_BLANKS' || !hasOptions) ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-12">
+                    <div className={`p-4 rounded-xl border ${!isAttempted ? 'bg-gray-50 border-gray-200' : isCorrect ? 'bg-success-50 border-success-300' : 'bg-danger-50 border-danger-300'}`}>
+                      <div className="text-xs font-semibold text-gray-500 mb-1">Student's Answer</div>
+                      <div className="text-lg font-bold text-gray-900">
+                        {q.userAnswer?.numericAnswer || q.userAnswer?.subjectiveAnswerText || (
+                          <span className="text-sm font-semibold text-gray-500 italic">Not Answered / Skipped</span>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="mt-2">
+                        {!isAttempted ? (
+                          <span className="text-xs font-bold text-gray-600 bg-gray-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> Skipped
+                          </span>
+                        ) : isCorrect ? (
+                          <span className="text-xs font-bold text-success-700 bg-success-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" /> Correct
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                            <XCircle className="w-3 h-3" /> Incorrect
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl border border-success-400 bg-success-50/60">
+                      <div className="text-xs font-semibold text-success-700 mb-1">Correct Answer / Value</div>
+                      <div className="text-lg font-bold text-success-900">
+                        {q.correctAnswerText || 'Not specified'}
+                      </div>
+                      <div className="mt-2">
+                        <span className="text-xs font-bold text-success-700 bg-success-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" /> Official Key
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 pl-12">
+                    {q.options.map((opt, optIndex) => {
+                      const optIdStr = String(opt._id || opt.id || optIndex);
+                      const studentSelectedIds = Array.isArray(q.userAnswer?.selectedOptionIds) && q.userAnswer.selectedOptionIds.length > 0
+                        ? q.userAnswer.selectedOptionIds.map(id => String(id?._id || id))
+                        : (q.userAnswer?.selectedOptionId ? [String(q.userAnswer.selectedOptionId)] : []);
+                      
+                      const isSelected = studentSelectedIds.includes(optIdStr);
+                      const isActualCorrect = Boolean(opt.isCorrect);
+                      
+                      let borderClass = 'border-gray-200';
+                      let bgClass = 'bg-white';
+                      let icon = null;
+
+                      if (isActualCorrect && isSelected) {
+                        borderClass = 'border-success-500 ring-1 ring-success-500';
+                        bgClass = 'bg-success-50';
+                        icon = <CheckCircle className="w-5 h-5 text-success-600" />;
+                      } else if (isActualCorrect) {
+                        borderClass = 'border-success-500 ring-1 ring-success-500';
+                        bgClass = 'bg-success-50/60';
+                        icon = <CheckCircle className="w-5 h-5 text-success-600" />;
+                      } else if (isSelected && !isActualCorrect) {
+                        borderClass = 'border-danger-500';
+                        bgClass = 'bg-danger-50';
+                        icon = <XCircle className="w-5 h-5 text-danger-500" />;
+                      }
+
+                      return (
+                        <div key={optIdStr} className={`flex items-center gap-3 p-3 rounded-lg border ${borderClass} ${bgClass}`}>
+                          <div className="w-5 flex justify-center">{icon}</div>
+                          <div className="text-gray-800" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {q.explanation && (
                   <div className="mt-4 ml-12 p-4 bg-primary-50 rounded-lg border border-primary-100">
