@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import 'suneditor/dist/css/suneditor.min.css';
 import 'katex/dist/katex.min.css';
@@ -32,6 +32,15 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
   const getSunEditorInstance = (sunEditor: any) => {
     editorRef.current = sunEditor;
   };
+
+  useEffect(() => {
+    if (editorRef.current) {
+      const currentContent = editorRef.current.getContents(false);
+      if (value !== undefined && value !== currentContent) {
+        editorRef.current.setContents(value || '');
+      }
+    }
+  }, [value]);
 
   const handleInsertMath = (latex: string) => {
     if (editorRef.current && latex.trim()) {
@@ -85,6 +94,11 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
             ['fullScreen', 'showBlocks', 'codeView']
           ],
           katex: katex,
+          addTagsWhitelist: '*',
+          pasteTagsWhitelist: '*',
+          attributesWhitelist: {
+            all: '*'
+          },
           imageResizing: true,
           imageHeightShow: true,
           imageWidthShow: true,

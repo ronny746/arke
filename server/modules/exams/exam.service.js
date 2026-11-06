@@ -109,9 +109,9 @@ class ExamService {
       html = html.replace(/&lt;\/thisismath&gt;/g, () => {
         const mathElement = mathData.shift();
         if (mathElement) {
-          return `<span class="math-equation">${mathElement}</span>`;
+          return `<span class="math-equation" contenteditable="false">${mathElement}</span>`;
         }
-        return `<span class="math-equation text-red-500">[Math Parse Error]</span>`;
+        return `<span class="math-equation text-red-500" contenteditable="false">[Math Parse Error]</span>`;
       });
     } catch (err) {
       console.error("Math parse error:", err);
