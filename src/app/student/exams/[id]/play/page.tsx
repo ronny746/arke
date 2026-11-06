@@ -315,6 +315,55 @@ export default function ExamPlayer() {
     studentAPI.saveAnswer(id, { questionId, selectedOptionId: optionId, status: newAnswers[existingIdx]?.status || 'NOT_ANSWERED', timeSpentSeconds: elapsedForQuestion(questionId) }).catch(()=>{});
   };
 
+  const handleMultiOptionToggle = (questionId, optionId) => {
+    const newAnswers = [...(submission?.answers || [])];
+    const existingIdx = newAnswers.findIndex(a => a.questionId === questionId);
+    let selectedIds = (existingIdx > -1 && Array.isArray(newAnswers[existingIdx].selectedOptionIds)) 
+      ? [...newAnswers[existingIdx].selectedOptionIds] 
+      : [];
+    
+    if (selectedIds.includes(optionId)) {
+      selectedIds = selectedIds.filter(id => id !== optionId);
+    } else {
+      selectedIds.push(optionId);
+    }
+
+    if (existingIdx > -1) {
+      newAnswers[existingIdx].selectedOptionIds = selectedIds;
+      newAnswers[existingIdx].selectedOptionId = selectedIds[0] || null;
+    } else {
+      newAnswers.push({ questionId, selectedOptionIds: selectedIds, selectedOptionId: selectedIds[0] || null, status: 'NOT_ANSWERED' });
+    }
+    setSubmission({ ...submission, answers: newAnswers });
+    studentAPI.saveAnswer(id, { 
+      questionId, 
+      selectedOptionIds: selectedIds, 
+      selectedOptionId: selectedIds[0] || null,
+      status: newAnswers[existingIdx]?.status || 'NOT_ANSWERED', 
+      timeSpentSeconds: elapsedForQuestion(questionId) 
+    }).catch(()=>{});
+  };
+
+  const handleNumericChange = (questionId, value) => {
+    const newAnswers = [...(submission?.answers || [])];
+    const existingIdx = newAnswers.findIndex(a => a.questionId === questionId);
+    
+    if (existingIdx > -1) {
+      newAnswers[existingIdx].numericAnswer = value;
+      newAnswers[existingIdx].subjectiveAnswerText = value;
+    } else {
+      newAnswers.push({ questionId, numericAnswer: value, subjectiveAnswerText: value, status: 'NOT_ANSWERED' });
+    }
+    setSubmission({ ...submission, answers: newAnswers });
+    studentAPI.saveAnswer(id, { 
+      questionId, 
+      numericAnswer: value,
+      subjectiveAnswerText: value,
+      status: newAnswers[existingIdx]?.status || 'NOT_ANSWERED', 
+      timeSpentSeconds: elapsedForQuestion(questionId) 
+    }).catch(()=>{});
+  };
+
   const goToNext = () => {
     if (currentQIdx < examState.questions.length - 1) {
       const nextIdx = currentQIdx + 1;
@@ -331,6 +380,15 @@ export default function ExamPlayer() {
     }
   };
 
+  const hasAnswered = (ans) => {
+    if (!ans) return false;
+    if (ans.selectedOptionId) return true;
+    if (ans.selectedOptionIds && ans.selectedOptionIds.length > 0) return true;
+    if (ans.numericAnswer !== undefined && ans.numericAnswer !== null && ans.numericAnswer.toString().trim() !== '') return true;
+    if (ans.subjectiveAnswerText !== undefined && ans.subjectiveAnswerText !== null && ans.subjectiveAnswerText.toString().trim() !== '') return true;
+    return false;
+  };
+
   const updateStatusAndNext = async (qId, status) => {
     const newAnswers = [...(submission?.answers || [])];
     let ans = newAnswers.find(a => a.questionId === qId);
@@ -341,13 +399,21 @@ export default function ExamPlayer() {
       ans.status = status;
     }
     setSubmission({ ...submission, answers: newAnswers });
-    await studentAPI.saveAnswer(id, { questionId: qId, selectedOptionId: ans.selectedOptionId, status, timeSpentSeconds: elapsedForQuestion(qId) }).catch(()=>{});
+    await studentAPI.saveAnswer(id, { 
+      questionId: qId, 
+      selectedOptionId: ans.selectedOptionId, 
+      selectedOptionIds: ans.selectedOptionIds,
+      numericAnswer: ans.numericAnswer,
+      subjectiveAnswerText: ans.subjectiveAnswerText,
+      status, 
+      timeSpentSeconds: elapsedForQuestion(qId) 
+    }).catch(()=>{});
     goToNext();
   };
 
   const handleSaveAndNext = (qId) => {
     const ans = submission?.answers?.find(a => a.questionId === qId);
-    if (ans?.selectedOptionId) {
+    if (hasAnswered(ans)) {
       updateStatusAndNext(qId, 'ANSWERED');
     } else {
       updateStatusAndNext(qId, 'NOT_ANSWERED');
@@ -356,10 +422,10 @@ export default function ExamPlayer() {
 
   const handleSaveAndMarkReview = (qId) => {
     const ans = submission?.answers?.find(a => a.questionId === qId);
-    if (ans?.selectedOptionId) {
+    if (hasAnswered(ans)) {
       updateStatusAndNext(qId, 'ANSWERED_AND_MARKED_FOR_REVIEW');
     } else {
-      toast.error('Please select an option first to Save & Mark for Review');
+      toast.error('Please enter or select an answer first to Save & Mark for Review');
     }
   };
 
@@ -373,9 +439,20 @@ export default function ExamPlayer() {
     
     if (existingIdx !== -1) {
       newAnswers[existingIdx].selectedOptionId = null;
+      newAnswers[existingIdx].selectedOptionIds = [];
+      newAnswers[existingIdx].numericAnswer = '';
+      newAnswers[existingIdx].subjectiveAnswerText = '';
       newAnswers[existingIdx].status = 'NOT_ANSWERED';
       setSubmission({ ...submission, answers: newAnswers });
-      await studentAPI.saveAnswer(id, { questionId, selectedOptionId: null, status: 'NOT_ANSWERED', timeSpentSeconds: elapsedForQuestion(questionId) });
+      await studentAPI.saveAnswer(id, { 
+        questionId, 
+        selectedOptionId: null, 
+        selectedOptionIds: [],
+        numericAnswer: '',
+        subjectiveAnswerText: '',
+        status: 'NOT_ANSWERED', 
+        timeSpentSeconds: elapsedForQuestion(questionId) 
+      });
     }
   };
 
@@ -554,44 +631,137 @@ export default function ExamPlayer() {
                 }} 
               />
 
-              {/* Options */}
-              <div className="space-y-3 flex-1 ml-4">
-                {currentQuestion.options?.map((opt, idx) => {
-                  const optionLabel = opt.label || String.fromCharCode(65 + idx);
-                  const isSelected = currentAnswer?.selectedOptionId === opt._id;
-                  return (
-                    <label 
-                      key={opt._id}
-                      className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer group ${
-                        isSelected 
-                          ? 'bg-blue-50/70 border-[#1c75b8]' 
-                          : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
-                      }`}
+              {/* Question Input / Options based on question type */}
+              {(!currentQuestion.options || currentQuestion.options.length === 0 || ['INTEGER', 'NUMERICAL', 'FILL_BLANKS', 'SUBJECTIVE'].includes(currentQuestion.type)) ? (
+                <div className="max-w-md ml-4 p-5 bg-white rounded-xl border border-gray-300 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-bold text-gray-700">Enter Numerical / Text Answer:</label>
+                    <span className="text-xs bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded">
+                      {currentQuestion.type || 'INTEGER'}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={currentAnswer?.numericAnswer ?? currentAnswer?.subjectiveAnswerText ?? ''}
+                    onChange={(e) => handleNumericChange(currentQuestion._id, e.target.value)}
+                    placeholder="Enter value (e.g. 2, 45, -1.5)"
+                    className="w-full text-xl font-bold font-mono px-4 py-2.5 border-2 border-primary-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 text-gray-900 bg-gray-50"
+                  />
+                  {/* On-screen Keypad */}
+                  <div className="grid grid-cols-3 gap-2 pt-2">
+                    {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '-'].map(key => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          const currentVal = (currentAnswer?.numericAnswer ?? currentAnswer?.subjectiveAnswerText ?? '').toString();
+                          handleNumericChange(currentQuestion._id, currentVal + key);
+                        }}
+                        className="py-2.5 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded font-bold text-gray-800 text-base shadow-sm border border-gray-300 transition-colors"
+                      >
+                        {key}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentVal = (currentAnswer?.numericAnswer ?? currentAnswer?.subjectiveAnswerText ?? '').toString();
+                        handleNumericChange(currentQuestion._id, currentVal.slice(0, -1));
+                      }}
+                      className="col-span-1 py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm rounded shadow-sm border border-amber-300 transition-colors"
                     >
-                      <input 
-                        type="radio" 
-                        name="question_option" 
-                        className="w-4 h-4 mt-1.5 text-[#1c75b8] border-gray-400 focus:ring-[#1c75b8] cursor-pointer shrink-0"
-                        checked={isSelected}
-                        onChange={() => handleOptionSelect(currentQuestion._id, opt._id)}
-                      />
-                      <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border select-none transition-colors ${
-                        isSelected 
-                          ? 'bg-[#1c75b8] text-white border-[#1c75b8]' 
-                          : 'bg-gray-100 text-gray-700 border-gray-300 group-hover:bg-gray-200'
-                      }`}>
-                        {optionLabel}
-                      </span>
-                      <div 
-                        className="text-gray-800 text-sm leading-relaxed flex-1 min-w-0 option-content" 
-                        dangerouslySetInnerHTML={{ 
-                          __html: opt.text.replace(/src="([^"]+)"/g, (match, url) => `src="${url}${url.includes('?') ? '&' : '?'}retry=${refreshKey}"`) 
-                        }} 
-                      />
-                    </label>
-                  );
-                })}
-              </div>
+                      ⌫ Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleNumericChange(currentQuestion._id, '')}
+                      className="col-span-2 py-2.5 bg-red-100 hover:bg-red-200 text-red-900 font-bold text-sm rounded shadow-sm border border-red-300 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : currentQuestion.type === 'MULTIPLE_CORRECT' ? (
+                /* Multiple Correct Option Checkboxes */
+                <div className="space-y-3 flex-1 ml-4">
+                  <div className="text-xs text-amber-700 font-semibold mb-2 bg-amber-50 border border-amber-200 rounded px-2.5 py-1 inline-block">
+                    ★ Multiple Correct Options: One or more options may be correct.
+                  </div>
+                  {currentQuestion.options?.map((opt, idx) => {
+                    const optionLabel = opt.label || String.fromCharCode(65 + idx);
+                    const isSelected = Array.isArray(currentAnswer?.selectedOptionIds) && currentAnswer.selectedOptionIds.includes(opt._id);
+                    return (
+                      <label 
+                        key={opt._id}
+                        className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer group ${
+                          isSelected 
+                            ? 'bg-blue-50/70 border-[#1c75b8]' 
+                            : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                        }`}
+                      >
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 mt-1.5 text-[#1c75b8] rounded border-gray-400 focus:ring-[#1c75b8] cursor-pointer shrink-0"
+                          checked={isSelected}
+                          onChange={() => handleMultiOptionToggle(currentQuestion._id, opt._id)}
+                        />
+                        <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border select-none transition-colors ${
+                          isSelected 
+                            ? 'bg-[#1c75b8] text-white border-[#1c75b8]' 
+                            : 'bg-gray-100 text-gray-700 border-gray-300 group-hover:bg-gray-200'
+                        }`}>
+                          {optionLabel}
+                        </span>
+                        <div 
+                          className="text-gray-800 text-sm leading-relaxed flex-1 min-w-0 option-content" 
+                          dangerouslySetInnerHTML={{ 
+                            __html: opt.text.replace(/src="([^"]+)"/g, (match, url) => `src="${url}${url.includes('?') ? '&' : '?'}retry=${refreshKey}"`) 
+                          }} 
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Standard Single Choice Options */
+                <div className="space-y-3 flex-1 ml-4">
+                  {currentQuestion.options?.map((opt, idx) => {
+                    const optionLabel = opt.label || String.fromCharCode(65 + idx);
+                    const isSelected = currentAnswer?.selectedOptionId === opt._id;
+                    return (
+                      <label 
+                        key={opt._id}
+                        className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer group ${
+                          isSelected 
+                            ? 'bg-blue-50/70 border-[#1c75b8]' 
+                            : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                        }`}
+                      >
+                        <input 
+                          type="radio" 
+                          name="question_option" 
+                          className="w-4 h-4 mt-1.5 text-[#1c75b8] border-gray-400 focus:ring-[#1c75b8] cursor-pointer shrink-0"
+                          checked={isSelected}
+                          onChange={() => handleOptionSelect(currentQuestion._id, opt._id)}
+                        />
+                        <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border select-none transition-colors ${
+                          isSelected 
+                            ? 'bg-[#1c75b8] text-white border-[#1c75b8]' 
+                            : 'bg-gray-100 text-gray-700 border-gray-300 group-hover:bg-gray-200'
+                        }`}>
+                          {optionLabel}
+                        </span>
+                        <div 
+                          className="text-gray-800 text-sm leading-relaxed flex-1 min-w-0 option-content" 
+                          dangerouslySetInnerHTML={{ 
+                            __html: opt.text.replace(/src="([^"]+)"/g, (match, url) => `src="${url}${url.includes('?') ? '&' : '?'}retry=${refreshKey}"`) 
+                          }} 
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
            </div>
         </main>
         

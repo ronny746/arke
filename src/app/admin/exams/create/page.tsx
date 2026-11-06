@@ -1053,23 +1053,37 @@ export default function ExamBuilder() {
                                     }`}>
                                       Difficulty: {q.difficulty || 'Medium'}
                                     </span>
+                                    <span className="px-2.5 py-0.5 rounded-full border font-medium bg-indigo-50 text-indigo-700 border-indigo-100">
+                                      Type: {q.type || 'MCQ'}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
                               
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-11">
-                                {q.options?.map((opt, oIdx) => (
-                                  <div key={oIdx} className={`p-3 rounded-lg border ${opt.isCorrect ? 'bg-success-50 border-success-200' : 'bg-white border-gray-200'}`}>
-                                    <div className="flex items-center">
-                                      <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mr-3 ${opt.isCorrect ? 'bg-success-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                                        {String.fromCharCode(65 + oIdx)}
-                                      </span>
-                                      <span dangerouslySetInnerHTML={{ __html: opt.text }} />
+                              {q.options && q.options.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-11">
+                                  {q.options.map((opt, oIdx) => (
+                                    <div key={oIdx} className={`p-3 rounded-lg border ${opt.isCorrect ? 'bg-success-50 border-success-200' : 'bg-white border-gray-200'}`}>
+                                      <div className="flex items-center">
+                                        <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mr-3 ${opt.isCorrect ? 'bg-success-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                          {String.fromCharCode(65 + oIdx)}
+                                        </span>
+                                        <span dangerouslySetInnerHTML={{ __html: opt.text }} />
+                                      </div>
                                     </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="pl-11 py-1">
+                                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-900 rounded-lg text-sm font-semibold">
+                                    <span>Correct Answer / Value:</span>
+                                    <span className="font-mono bg-white px-2 py-0.5 rounded border border-blue-300 text-blue-700 font-bold">
+                                      {q.correctAnswerText || 'Not specified'}
+                                    </span>
                                   </div>
-                                ))}
-                              </div>
-                              {(!q.options || q.options.filter(o => o.isCorrect).length === 0) && (
+                                </div>
+                              )}
+                              {((q.options && q.options.length > 0 && !q.options.some(o => o.isCorrect)) || (!q.options || q.options.length === 0) && !q.correctAnswerText) && (
                                 <p className="text-sm text-error-500 pl-11">⚠️ Warning: No correct answer ([Ans]) specified for this question.</p>
                               )}
                             </div>

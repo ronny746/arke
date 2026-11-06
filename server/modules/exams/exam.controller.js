@@ -745,7 +745,7 @@ exports.startExam = async (req, res) => {
 
 exports.saveAnswer = async (req, res) => {
   try {
-    const { questionId, selectedOptionId, status, violations, timeSpentSeconds } = req.body;
+    const { questionId, selectedOptionId, selectedOptionIds, numericAnswer, subjectiveAnswerText, status, violations, timeSpentSeconds } = req.body;
     const examId = req.params.id;
     const studentId = req.user.userId;
     const ExamSubmission = require('./exam-submission.model');
@@ -757,7 +757,10 @@ exports.saveAnswer = async (req, res) => {
 
     const ansIndex = submission.answers.findIndex(a => a?.questionId && a.questionId?.toString() === questionId?.toString());
     if (ansIndex !== -1) {
-      submission.answers[ansIndex].selectedOptionId = selectedOptionId;
+      if (selectedOptionId !== undefined) submission.answers[ansIndex].selectedOptionId = selectedOptionId;
+      if (selectedOptionIds !== undefined) submission.answers[ansIndex].selectedOptionIds = selectedOptionIds;
+      if (numericAnswer !== undefined) submission.answers[ansIndex].numericAnswer = numericAnswer;
+      if (subjectiveAnswerText !== undefined) submission.answers[ansIndex].subjectiveAnswerText = subjectiveAnswerText;
       submission.answers[ansIndex].status = status || 'ANSWERED';
       if (Number.isFinite(Number(timeSpentSeconds))) {
         submission.answers[ansIndex].timeSpentSeconds = Math.max(Number(submission.answers[ansIndex].timeSpentSeconds || 0), Math.max(0, Math.floor(Number(timeSpentSeconds))));
@@ -766,6 +769,9 @@ exports.saveAnswer = async (req, res) => {
       submission.answers.push({
         questionId,
         selectedOptionId,
+        selectedOptionIds: selectedOptionIds || [],
+        numericAnswer,
+        subjectiveAnswerText,
         status: status || 'ANSWERED',
         timeSpentSeconds: Number.isFinite(Number(timeSpentSeconds)) ? Math.max(0, Math.floor(Number(timeSpentSeconds))) : 0
       });
@@ -861,20 +867,73 @@ exports.submitExam = async (req, res) => {
       const qMarks = q.marks !== undefined && q.marks !== null ? q.marks : 4;
       const qNegativeMarks = q.negativeMarks !== undefined && q.negativeMarks !== null ? q.negativeMarks : 1;
 
-      if (!studentAns || !studentAns.selectedOptionId) {
+      const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+      const isIntegerOrNumerical = ['INTEGER', 'NUMERICAL'].includes(q.type) || (!hasOptions && q.correctAnswerText);
+      const isMultipleCorrect = q.type === 'MULTIPLE_CORRECT';
+
+      if (!studentAns) {
         unattempted++;
-      } else {
-        const correctOpt = q.options.find(o => o.isCorrect);
-        if (correctOpt && studentAns.selectedOptionId?.toString() === correctOpt._id?.toString()) {
-          correct++;
-          score += qMarks;
-          studentAns.isCorrect = true;
-          studentAns.marksObtained = qMarks;
+      } else if (isIntegerOrNumerical || q.type === 'FILL_BLANKS') {
+        const studentVal = (studentAns.numericAnswer ?? studentAns.subjectiveAnswerText ?? '').toString().trim();
+        if (!studentVal) {
+          unattempted++;
         } else {
-          wrong++;
-          score -= qNegativeMarks;
-          studentAns.isCorrect = false;
-          studentAns.marksObtained = -qNegativeMarks;
+          const expectedVal = (q.correctAnswerText || '').toString().trim();
+          const isNumEqual = !isNaN(Number(studentVal)) && !isNaN(Number(expectedVal)) && Math.abs(Number(studentVal) - Number(expectedVal)) < 0.0001;
+          const isStrEqual = studentVal.toLowerCase() === expectedVal.toLowerCase();
+          
+          if (isNumEqual || isStrEqual) {
+            correct++;
+            score += qMarks;
+            studentAns.isCorrect = true;
+            studentAns.marksObtained = qMarks;
+          } else {
+            wrong++;
+            score -= qNegativeMarks;
+            studentAns.isCorrect = false;
+            studentAns.marksObtained = -qNegativeMarks;
+          }
+        }
+      } else if (isMultipleCorrect) {
+        const studentSelected = (studentAns.selectedOptionIds && studentAns.selectedOptionIds.length > 0)
+          ? studentAns.selectedOptionIds.map(id => id.toString())
+          : (studentAns.selectedOptionId ? [studentAns.selectedOptionId.toString()] : []);
+        
+        if (studentSelected.length === 0) {
+          unattempted++;
+        } else {
+          const correctOptIds = q.options.filter(o => o.isCorrect).map(o => o._id.toString());
+          const isAllCorrect = correctOptIds.length === studentSelected.length &&
+            correctOptIds.every(id => studentSelected.includes(id));
+          
+          if (isAllCorrect) {
+            correct++;
+            score += qMarks;
+            studentAns.isCorrect = true;
+            studentAns.marksObtained = qMarks;
+          } else {
+            wrong++;
+            score -= qNegativeMarks;
+            studentAns.isCorrect = false;
+            studentAns.marksObtained = -qNegativeMarks;
+          }
+        }
+      } else {
+        if (!studentAns.selectedOptionId) {
+          unattempted++;
+        } else {
+          const correctOpt = q.options.find(o => o.isCorrect);
+          if (correctOpt && studentAns.selectedOptionId?.toString() === correctOpt._id?.toString()) {
+            correct++;
+            score += qMarks;
+            studentAns.isCorrect = true;
+            studentAns.marksObtained = qMarks;
+          } else {
+            wrong++;
+            score -= qNegativeMarks;
+            studentAns.isCorrect = false;
+            studentAns.marksObtained = -qNegativeMarks;
+          }
         }
       }
 

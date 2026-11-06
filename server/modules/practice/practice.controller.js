@@ -567,7 +567,7 @@ exports.getSession = async (req, res) => {
 // Save progress for Pause/Resume or per-question practice
 exports.saveProgress = async (req, res) => {
   try {
-    const { questionId, selectedOptionId, status } = req.body; // status: ANSWERED, MARKED_FOR_REVIEW, etc
+    const { questionId, selectedOptionId, selectedOptionIds, numericAnswer, subjectiveAnswerText, status } = req.body; // status: ANSWERED, MARKED_FOR_REVIEW, etc
     const session = await PracticeSession.findOne({ _id: req.params.id, student: req.user.userId });
     
     if (!session) {
@@ -583,9 +583,18 @@ exports.saveProgress = async (req, res) => {
     
     // Determine correctness for Practice Mode (instant feedback)
     let isCorrect = false;
-    if (selectedOptionId) {
-      const q = session.questions.find(q => q.questionId === questionId);
-      if (q) {
+    const q = session.questions.find(q => q.questionId === questionId);
+    if (q) {
+      const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+      if (!hasOptions || ['INTEGER', 'NUMERICAL', 'FILL_BLANKS', 'SUBJECTIVE'].includes(q.type)) {
+        const studentVal = (numericAnswer ?? subjectiveAnswerText ?? '').toString().trim();
+        const expectedVal = (q.correctAnswerText || '').toString().trim();
+        if (studentVal && expectedVal) {
+          const isNumEqual = !isNaN(Number(studentVal)) && !isNaN(Number(expectedVal)) && Math.abs(Number(studentVal) - Number(expectedVal)) < 0.0001;
+          const isStrEqual = studentVal.toLowerCase() === expectedVal.toLowerCase();
+          if (isNumEqual || isStrEqual) isCorrect = true;
+        }
+      } else if (selectedOptionId) {
         const correctOpt = (q.options || []).find(o => o.isCorrect);
         if (correctOpt && (
           (correctOpt._id && correctOpt._id.toString() === selectedOptionId) ||
@@ -599,6 +608,9 @@ exports.saveProgress = async (req, res) => {
     
     if (answerIndex > -1) {
       if (selectedOptionId !== undefined) session.answers[answerIndex].selectedOptionId = selectedOptionId;
+      if (selectedOptionIds !== undefined) session.answers[answerIndex].selectedOptionIds = selectedOptionIds;
+      if (numericAnswer !== undefined) session.answers[answerIndex].numericAnswer = numericAnswer;
+      if (subjectiveAnswerText !== undefined) session.answers[answerIndex].subjectiveAnswerText = subjectiveAnswerText;
       if (status !== undefined) session.answers[answerIndex].status = status;
       if (req.body.timeSpentSeconds !== undefined) session.answers[answerIndex].timeSpentSeconds = req.body.timeSpentSeconds;
       session.answers[answerIndex].isCorrect = isCorrect;
@@ -606,6 +618,9 @@ exports.saveProgress = async (req, res) => {
       session.answers.push({
         questionId,
         selectedOptionId,
+        selectedOptionIds: selectedOptionIds || [],
+        numericAnswer,
+        subjectiveAnswerText,
         status: status || 'ANSWERED',
         isCorrect,
         timeSpentSeconds: req.body.timeSpentSeconds || 0
@@ -615,8 +630,7 @@ exports.saveProgress = async (req, res) => {
     await session.save();
     
     // For Practice mode, return the correctness and explanation instantly
-    if (session.sessionType === 'PRACTICE' && selectedOptionId) {
-       const q = session.questions.find(q => q.questionId === questionId);
+    if (session.sessionType === 'PRACTICE' && (selectedOptionId || numericAnswer || subjectiveAnswerText)) {
        return res.status(200).json({ 
          success: true, 
          data: { isCorrect, explanation: q ? q.explanation : '' } 
@@ -648,15 +662,29 @@ exports.submitSession = async (req, res) => {
     
     // Evaluate all answers
     session.answers.forEach(ans => {
-       if ((ans.selectedOptionId && ans.status === 'ANSWERED') || ans.status === 'ANSWERED_AND_MARKED_FOR_REVIEW') {
+       const isAnswered = (ans.status === 'ANSWERED' || ans.status === 'ANSWERED_AND_MARKED_FOR_REVIEW');
+       if (isAnswered) {
           const q = session.questions.find(q => q.questionId === ans.questionId);
           if (q) {
-            const correctOpt = (q.options || []).find(o => o.isCorrect);
-            const isCorrectSelected = correctOpt && (
-              (correctOpt._id && correctOpt._id.toString() === ans.selectedOptionId) ||
-              (correctOpt.id && correctOpt.id.toString() === ans.selectedOptionId) ||
-              (correctOpt._id === ans.selectedOptionId)
-            );
+            const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+            let isCorrectSelected = false;
+
+            if (!hasOptions || ['INTEGER', 'NUMERICAL', 'FILL_BLANKS', 'SUBJECTIVE'].includes(q.type)) {
+              const studentVal = (ans.numericAnswer ?? ans.subjectiveAnswerText ?? '').toString().trim();
+              const expectedVal = (q.correctAnswerText || '').toString().trim();
+              if (studentVal && expectedVal) {
+                const isNumEqual = !isNaN(Number(studentVal)) && !isNaN(Number(expectedVal)) && Math.abs(Number(studentVal) - Number(expectedVal)) < 0.0001;
+                const isStrEqual = studentVal.toLowerCase() === expectedVal.toLowerCase();
+                isCorrectSelected = isNumEqual || isStrEqual;
+              }
+            } else if (ans.selectedOptionId) {
+              const correctOpt = (q.options || []).find(o => o.isCorrect);
+              isCorrectSelected = correctOpt && (
+                (correctOpt._id && correctOpt._id.toString() === ans.selectedOptionId) ||
+                (correctOpt.id && correctOpt.id.toString() === ans.selectedOptionId) ||
+                (correctOpt._id === ans.selectedOptionId)
+              );
+            }
             
             if (isCorrectSelected) {
               ans.isCorrect = true;

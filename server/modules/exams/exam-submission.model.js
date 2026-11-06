@@ -36,8 +36,14 @@ const examSubmissionSchema = new mongoose.Schema({
     selectedOptionId: {
       type: mongoose.Schema.Types.ObjectId, // For MCQs
     },
+    selectedOptionIds: [{
+      type: mongoose.Schema.Types.ObjectId, // For Multiple Correct
+    }],
     subjectiveAnswerText: {
-      type: String, // For Subjective
+      type: String, // For Subjective / Text
+    },
+    numericAnswer: {
+      type: String, // For Integer / Numerical
     },
     status: {
       type: String,

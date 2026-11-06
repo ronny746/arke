@@ -19,6 +19,7 @@ export default function PracticePlayer() {
   const [currentQIdx, setCurrentQIdx] = useState(0);
   const [activeSubject, setActiveSubject] = useState(null);
   const [unsavedAnswers, setUnsavedAnswers] = useState({});
+  const [numericInput, setNumericInput] = useState('');
   const [savingAnswer, setSavingAnswer] = useState(false);
   const [zoomedImage, setZoomedImage] = useState(null);
 
@@ -92,22 +93,37 @@ export default function PracticePlayer() {
 
   const handleCheckAnswer = async () => {
     const questionId = session.questions[currentQIdx]?.questionId;
+    const currentQ = session.questions[currentQIdx];
+    const isNumeric = (!currentQ?.options || currentQ.options.length === 0);
     const optionId = unsavedAnswers[questionId];
-    if (!optionId || savingAnswer) return;
+    if ((!isNumeric && !optionId) || (isNumeric && !numericInput.trim()) || savingAnswer) return;
 
     setSavingAnswer(true);
     try {
-      const res = await studentAPI.savePracticeProgress(id, {
+      const payload = isNumeric ? {
+        questionId,
+        numericAnswer: numericInput.trim(),
+        subjectiveAnswerText: numericInput.trim(),
+        status: 'ANSWERED'
+      } : {
         questionId,
         selectedOptionId: optionId,
         status: 'ANSWERED'
-      });
-      
+      };
+
+      const res = await studentAPI.savePracticeProgress(id, payload);
       const { isCorrect, explanation } = res.data.data;
       
       const newAnswers = [...(session.answers || [])];
       const existingIdx = newAnswers.findIndex(a => a.questionId === questionId);
-      const newAns = { questionId, selectedOptionId: optionId, status: 'ANSWERED', isCorrect, explanation };
+      const newAns = { 
+        questionId, 
+        selectedOptionId: optionId, 
+        numericAnswer: isNumeric ? numericInput.trim() : undefined,
+        status: 'ANSWERED', 
+        isCorrect, 
+        explanation 
+      };
       
       if (existingIdx >= 0) {
         newAnswers[existingIdx] = newAns;
@@ -140,7 +156,7 @@ export default function PracticePlayer() {
   const questions = session.questions || [];
   const currentQuestion = questions[currentQIdx];
   const currentAnswer = session.answers?.find(a => a.questionId === currentQuestion?.questionId);
-  const isAnswered = currentAnswer && currentAnswer.selectedOptionId;
+  const isAnswered = currentAnswer && (currentAnswer.selectedOptionId || currentAnswer.numericAnswer !== undefined);
   const isCompleted = session.status === 'COMPLETED';
   const isDpp = session.sessionType === 'DPP';
   
@@ -215,61 +231,80 @@ export default function PracticePlayer() {
                 {/* Question Text */}
                 <div className="prose max-w-none text-gray-900 text-lg mb-8 question-content" dangerouslySetInnerHTML={{ __html: currentQuestion.questionText }} />
 
-                {/* Options */}
-                <div className="space-y-4">
-                  {currentQuestion.options?.map((opt, idx) => {
-                    const optionLabel = opt.label || String.fromCharCode(65 + idx);
-                    const isSelected = (currentAnswer?.selectedOptionId === opt._id) || (unsavedAnswers[currentQuestion.questionId] === opt._id);
-                    const showCorrectness = isCompleted || (!isDpp && isAnswered);
-                    const isLocked = isCompleted || (!isDpp && isAnswered);
-                    
-                    let optionClass = "border-gray-200 hover:border-primary-200 hover:bg-gray-50";
-                    let circleClass = "border-gray-300 bg-gray-100 text-gray-700";
-                    let badge = null;
-
-                    if (showCorrectness) {
-                      if (opt.isCorrect) {
-                        optionClass = "border-success-500 bg-success-50";
-                        circleClass = "border-success-500 bg-success-500 text-white";
-                        badge = (
-                          <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300 shrink-0 ml-2">
-                            <CheckCircle className="w-3.5 h-3.5 text-success-600" /> {isSelected ? 'Your Choice (Correct)' : 'Correct Answer'}
-                          </span>
-                        );
-                      } else if (isSelected && !opt.isCorrect) {
-                        optionClass = "border-danger-500 bg-danger-50";
-                        circleClass = "border-danger-500 bg-danger-500 text-white";
-                        badge = (
-                          <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-danger-300 shrink-0 ml-2">
-                            <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Choice (Incorrect)
-                          </span>
-                        );
-                      } else {
-                        optionClass = "border-gray-200 opacity-50";
-                        circleClass = "border-gray-200 bg-gray-100 text-gray-400";
-                      }
-                    } else if (isSelected) {
-                      optionClass = "border-primary-500 bg-primary-50 ring-1 ring-primary-500";
-                      circleClass = "border-primary-500 bg-primary-500 text-white";
-                    }
-
-                    return (
-                      <div 
-                        key={opt._id}
-                        onClick={() => !isLocked && !savingAnswer && handleOptionSelect(currentQuestion.questionId, opt._id)}
-                        className={`flex items-start justify-between gap-3 p-4 rounded-xl border-2 transition-all ${(isLocked || savingAnswer) ? 'cursor-default' : 'cursor-pointer'} ${optionClass}`}
-                      >
-                        <div className="flex items-start gap-4 flex-1 min-w-0">
-                          <div className={`w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full border-2 text-xs font-bold transition-colors select-none mt-0.5 ${circleClass}`}>
-                            {optionLabel}
-                          </div>
-                          <div className="flex-1 text-gray-800 prose min-w-0 option-content" dangerouslySetInnerHTML={{ __html: opt.text }} />
-                        </div>
-                        {badge && <div className="shrink-0">{badge}</div>}
+                {/* Options or Numerical Input */}
+                {(!currentQuestion.options || currentQuestion.options.length === 0) ? (
+                  <div className="p-6 bg-gray-50 rounded-xl border border-gray-200 space-y-4">
+                    <label className="text-sm font-bold text-gray-700 block">Enter Numerical / Text Answer:</label>
+                    <input
+                      type="text"
+                      disabled={isCompleted || (!isDpp && isAnswered)}
+                      value={isCompleted || (!isDpp && isAnswered) ? (currentAnswer?.numericAnswer || '') : numericInput}
+                      onChange={(e) => setNumericInput(e.target.value)}
+                      placeholder="Type your answer"
+                      className="w-full text-lg font-bold font-mono px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                    />
+                    {(isCompleted || (!isDpp && isAnswered)) && currentQuestion.correctAnswerText && (
+                      <div className="p-3 bg-success-50 border border-success-200 rounded-lg text-success-800 text-sm font-semibold">
+                        Correct Answer: <span className="font-mono font-bold">{currentQuestion.correctAnswerText}</span>
                       </div>
-                    );
-                  })}
-                </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {currentQuestion.options?.map((opt, idx) => {
+                      const optionLabel = opt.label || String.fromCharCode(65 + idx);
+                      const isSelected = (currentAnswer?.selectedOptionId === opt._id) || (unsavedAnswers[currentQuestion.questionId] === opt._id);
+                      const showCorrectness = isCompleted || (!isDpp && isAnswered);
+                      const isLocked = isCompleted || (!isDpp && isAnswered);
+                      
+                      let optionClass = "border-gray-200 hover:border-primary-200 hover:bg-gray-50";
+                      let circleClass = "border-gray-300 bg-gray-100 text-gray-700";
+                      let badge = null;
+
+                      if (showCorrectness) {
+                        if (opt.isCorrect) {
+                          optionClass = "border-success-500 bg-success-50";
+                          circleClass = "border-success-500 bg-success-500 text-white";
+                          badge = (
+                            <span className="text-xs font-bold text-success-700 bg-success-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-success-300 shrink-0 ml-2">
+                              <CheckCircle className="w-3.5 h-3.5 text-success-600" /> {isSelected ? 'Your Choice (Correct)' : 'Correct Answer'}
+                            </span>
+                          );
+                        } else if (isSelected && !opt.isCorrect) {
+                          optionClass = "border-danger-500 bg-danger-50";
+                          circleClass = "border-danger-500 bg-danger-500 text-white";
+                          badge = (
+                            <span className="text-xs font-bold text-danger-700 bg-danger-100 px-2.5 py-1 rounded-full flex items-center gap-1 border border-danger-300 shrink-0 ml-2">
+                              <XCircle className="w-3.5 h-3.5 text-danger-600" /> Your Choice (Incorrect)
+                            </span>
+                          );
+                        } else {
+                          optionClass = "border-gray-200 opacity-50";
+                          circleClass = "border-gray-200 bg-gray-100 text-gray-400";
+                        }
+                      } else if (isSelected) {
+                        optionClass = "border-primary-500 bg-primary-50 ring-1 ring-primary-500";
+                        circleClass = "border-primary-500 bg-primary-500 text-white";
+                      }
+
+                      return (
+                        <div 
+                          key={opt._id}
+                          onClick={() => !isLocked && !savingAnswer && handleOptionSelect(currentQuestion.questionId, opt._id)}
+                          className={`flex items-start justify-between gap-3 p-4 rounded-xl border-2 transition-all ${(isLocked || savingAnswer) ? 'cursor-default' : 'cursor-pointer'} ${optionClass}`}
+                        >
+                          <div className="flex items-start gap-4 flex-1 min-w-0">
+                            <div className={`w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full border-2 text-xs font-bold transition-colors select-none mt-0.5 ${circleClass}`}>
+                              {optionLabel}
+                            </div>
+                            <div className="flex-1 text-gray-800 prose min-w-0 option-content" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                          </div>
+                          {badge && <div className="shrink-0">{badge}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Immediate Solution Feedback */}
                 {(isCompleted || (!isDpp && isAnswered && currentAnswer?.isCorrect !== undefined)) && (

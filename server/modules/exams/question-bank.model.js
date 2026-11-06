@@ -44,7 +44,7 @@ const questionBankSchema = new mongoose.Schema({
     chapter: { type: mongoose.Schema.Types.ObjectId, ref: 'QuestionChapter' },
     topic: { type: mongoose.Schema.Types.ObjectId, ref: 'QuestionTopic' },
     difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium' },
-    type: { type: String, enum: ['MCQ', 'TRUE_FALSE', 'SUBJECTIVE'], default: 'MCQ' },
+    type: { type: String, enum: ['MCQ', 'TRUE_FALSE', 'SUBJECTIVE', 'INTEGER', 'NUMERICAL', 'FILL_BLANKS', 'MULTIPLE_CORRECT', 'ASSERTION_REASON', 'MATCH_THE_COLUMN', 'STATEMENT_BASED', 'PARAGRAPH'], default: 'MCQ' },
     isUnpublished: { type: Boolean, default: false },
     questionImageUrl: String,
     options: [{

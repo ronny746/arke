@@ -40,7 +40,7 @@ export default function AdminLayout({ children }) {
       items: [
         { icon: FileCheck, label: 'Exams & Results', to: '/admin/exams' },
         { icon: Database, label: 'Question Banks', to: '/admin/question-banks' },
-        { icon: Swords, label: 'Quiz Battles ⚔️', to: '/admin/battles' },
+        // { icon: Swords, label: 'Quiz Battles ⚔️', to: '/admin/battles' },
       ]
     },
     {

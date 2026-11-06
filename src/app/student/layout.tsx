@@ -136,7 +136,7 @@ export default function StudentLayout({ children }) {
       items: [
         { icon: Sparkles, label: 'Daily Practice (DPP)', to: '/student/dpp' },
         { icon: FileCheck, label: 'Online Tests', to: '/student/exams' },
-        { icon: Swords, label: 'Quiz Battle ⚔️', to: '/student/battle' },
+        // { icon: Swords, label: 'Quiz Battle ⚔️', to: '/student/battle' },
       ]
     }
   ];

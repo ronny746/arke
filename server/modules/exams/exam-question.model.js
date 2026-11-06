@@ -8,7 +8,7 @@ const examQuestionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['MCQ', 'TRUE_FALSE', 'SUBJECTIVE'],
+    enum: ['MCQ', 'TRUE_FALSE', 'SUBJECTIVE', 'INTEGER', 'NUMERICAL', 'FILL_BLANKS', 'MULTIPLE_CORRECT', 'ASSERTION_REASON', 'MATCH_THE_COLUMN', 'STATEMENT_BASED', 'PARAGRAPH'],
     default: 'MCQ',
   },
   subject: {
