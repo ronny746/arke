@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Clock, AlertTriangle, ShieldAlert, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button.jsx';
 import ImageZoomModal from '@/components/ui/ImageZoomModal';
+import BasicCalculator from '@/components/exams/BasicCalculator';
 import { studentAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
 
@@ -30,6 +31,7 @@ export default function ExamPlayer() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [zoomedImage, setZoomedImage] = useState(null);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
 
   const handleContentClick = (e) => {
     const target = e.target;
@@ -823,6 +825,8 @@ export default function ExamPlayer() {
          </div>
 
          {/* Legend */}
+         <BasicCalculator open={calculatorOpen} onToggle={() => setCalculatorOpen(open => !open)} />
+
          <div className="p-3 bg-[#e8f1f8] grid grid-cols-2 gap-x-1 gap-y-2 text-[11px] font-bold text-gray-700 border-b border-white border-t border-t-gray-200/50">
             <div className="flex items-center gap-2">
                <div className="w-[30px] h-[26px] bg-[#f0f0f0] border border-[#cccccc] shadow-[inset_0_-2px_0_rgba(0,0,0,0.05)] flex items-center justify-center font-bold text-gray-700 rounded-[3px]">
