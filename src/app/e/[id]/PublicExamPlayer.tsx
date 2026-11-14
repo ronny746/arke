@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, ShieldAlert, ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import ImageZoomModal from '@/components/ui/ImageZoomModal';
+import BasicCalculator from '@/components/exams/BasicCalculator';
 import { publicAPI } from '@/api/publicAPI';
 import toast from 'react-hot-toast';
 
@@ -17,6 +18,7 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
   const [result, setResult] = useState(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [zoomedImage, setZoomedImage] = useState(null);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
 
   const handleContentClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -518,6 +520,8 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
               </div>
            </div>
          </div>
+
+         <BasicCalculator open={calculatorOpen} onToggle={() => setCalculatorOpen(open => !open)} />
 
          <div className="p-3 bg-[#e8f1f8] grid grid-cols-2 gap-x-1 gap-y-2 text-[11px] font-bold text-gray-700 border-b border-white border-t border-t-gray-200/50">
             <div className="flex items-center gap-2">
