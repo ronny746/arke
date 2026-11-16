@@ -119,7 +119,11 @@ export default function DPPAnalysisReport() {
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
                     <span className="text-sm font-medium text-gray-500 whitespace-nowrap">Marks: {q.marks || 4} | -{q.negativeMarks || 1}</span>
-                    {userAnswer && <span className="text-xs font-semibold text-gray-400 flex items-center gap-1 justify-end"><Clock className="w-3 h-3"/> {formatTime(userAnswer.timeSpentSeconds || 0)}</span>}
+                    <div className="rounded-lg bg-gray-50 border border-gray-100 px-2.5 py-2 text-right text-xs space-y-1">
+                      <div className="font-semibold text-gray-600">Student time: <span className="text-gray-900">{formatTime(q.studentTimeSeconds ?? userAnswer?.timeSpentSeconds ?? 0)}</span></div>
+                      <div className="font-semibold text-gray-600">DPP average: <span className="text-gray-900">{q.averageTimeSeconds > 0 ? formatTime(q.averageTimeSeconds) : 'Not available yet'}</span></div>
+                      <div className="text-gray-400">{q.attemptedStudentCount || 0} attempted</div>
+                    </div>
                     {!isAttempted ? (
                       <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-bold flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Skipped</span>
                     ) : isCorrect ? (

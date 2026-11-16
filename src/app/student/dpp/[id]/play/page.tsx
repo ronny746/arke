@@ -176,8 +176,11 @@ export default function DPPPlayer() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const res = await studentAPI.submitPracticeSession(id, { totalTimeSpentSeconds: timeSpent, timeSpentPerQuestion });
-      setSession(res.data.data);
+      await studentAPI.submitPracticeSession(id, { totalTimeSpentSeconds: timeSpent, timeSpentPerQuestion });
+      // Reload after submission so this review has the server-calculated,
+      // anonymised class benchmark rather than a client-side estimate.
+      const refreshed = await studentAPI.getPracticeSession(id);
+      setSession(refreshed.data.data);
       setSubmitted(true);
       setShowSubmitModal(false);
       toast.success('DPP Submitted Successfully!');
@@ -371,14 +374,16 @@ export default function DPPPlayer() {
                       <div className="prose max-w-none text-blue-800 question-content" dangerouslySetInnerHTML={{ __html: currentAnswer?.explanation || currentQuestion?.explanation || '<p>No explanation provided.</p>' }} />
                     </div>
                     
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-gray-700">
-                        <Clock className="w-5 h-5 text-gray-500" />
-                        <span className="font-semibold">Time Spent on this Question:</span>
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 grid gap-3 sm:grid-cols-2">
+                      <div className="flex items-center justify-between gap-3 text-gray-700">
+                        <span className="flex items-center gap-2 font-semibold"><Clock className="w-5 h-5 text-gray-500" /> Your time</span>
+                        <span className="font-bold text-gray-900">{formatTime(currentQuestion.studentTimeSeconds ?? currentAnswer?.timeSpentSeconds ?? 0)}</span>
                       </div>
-                      <div className="font-bold text-gray-900">
-                        {formatTime(currentAnswer?.timeSpentSeconds || 0)}
+                      <div className="flex items-center justify-between gap-3 border-t pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0 text-gray-700">
+                        <span className="font-semibold">DPP average</span>
+                        <span className="font-bold text-gray-900">{currentQuestion.averageTimeSeconds > 0 ? formatTime(currentQuestion.averageTimeSeconds) : 'Not available yet'}</span>
                       </div>
+                      <p className="text-xs text-gray-500 sm:col-span-2">Based on {currentQuestion.attemptedStudentCount || 0} student{currentQuestion.attemptedStudentCount === 1 ? '' : 's'} who attempted this question.</p>
                     </div>
                   </div>
                 )}

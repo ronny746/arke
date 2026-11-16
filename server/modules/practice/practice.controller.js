@@ -540,6 +540,55 @@ exports.getRemedialDpps = async (req, res) => {
   }
 };
 
+/**
+ * Returns anonymised timing benchmarks for the exact DPP questions in a
+ * session.  We deliberately aggregate only completed DPPs and only answers
+ * that were actually attempted, so an open tab or a student merely viewing a
+ * question cannot distort the class average.
+ */
+async function getDppQuestionTimingBenchmarks(instituteId, questionIds = []) {
+  const uniqueQuestionIds = [...new Set(questionIds.filter(Boolean).map(String))];
+  if (!uniqueQuestionIds.length || !mongoose.Types.ObjectId.isValid(instituteId)) {
+    return new Map();
+  }
+
+  const rows = await PracticeSession.aggregate([
+    {
+      $match: {
+        institute: new mongoose.Types.ObjectId(instituteId),
+        sessionType: 'DPP',
+        status: 'COMPLETED',
+      },
+    },
+    { $unwind: '$answers' },
+    {
+      $match: {
+        'answers.questionId': { $in: uniqueQuestionIds },
+        'answers.status': { $in: ['ANSWERED', 'ANSWERED_AND_MARKED_FOR_REVIEW'] },
+        'answers.timeSpentSeconds': { $gt: 0 },
+      },
+    },
+    {
+      $group: {
+        _id: { questionId: '$answers.questionId', student: '$student' },
+        studentAverageTimeSeconds: { $avg: '$answers.timeSpentSeconds' },
+      },
+    },
+    {
+      $group: {
+        _id: '$_id.questionId',
+        averageTimeSeconds: { $avg: '$studentAverageTimeSeconds' },
+        attemptedStudentCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  return new Map(rows.map((row) => [String(row._id), {
+    averageTimeSeconds: Math.round(Number(row.averageTimeSeconds) || 0),
+    attemptCount: Number(row.attemptedStudentCount) || 0,
+  }]));
+}
+
 // Fetch a specific session to play/resume/review
 exports.getSession = async (req, res) => {
   try {
@@ -557,7 +606,23 @@ exports.getSession = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Session not found.' });
     }
     
-    res.status(200).json({ success: true, data: session });
+    const sessionData = session.toObject();
+    const questionIds = (sessionData.questions || []).map((question) => question.questionId);
+    const benchmarks = await getDppQuestionTimingBenchmarks(sessionData.institute, questionIds);
+    const answersByQuestion = new Map((sessionData.answers || []).map((answer) => [String(answer.questionId), answer]));
+
+    sessionData.questions = (sessionData.questions || []).map((question) => {
+      const answer = answersByQuestion.get(String(question.questionId));
+      const benchmark = benchmarks.get(String(question.questionId));
+      return {
+        ...question,
+        studentTimeSeconds: Number(answer?.timeSpentSeconds) || 0,
+        averageTimeSeconds: benchmark?.averageTimeSeconds || 0,
+        attemptedStudentCount: benchmark?.attemptCount || 0,
+      };
+    });
+
+    res.status(200).json({ success: true, data: sessionData });
   } catch (error) {
     console.error("Error fetching session:", error);
     res.status(500).json({ success: false, message: 'Server error fetching session.' });
