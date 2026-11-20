@@ -3,8 +3,11 @@ const crypto = require('crypto');
 
 class RazorpayService {
   constructor() {
-    this.keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_TZAWZi6xItEYWa';
-    this.keySecret = process.env.RAZORPAY_KEY_SECRET || 'zaCUtNZsCgq1jLERhZ7FidtX';
+    // Keep payment credentials exclusively in the deployment environment.
+    // A test-key fallback here could accidentally route a production checkout
+    // to the wrong Razorpay account when an environment variable is missing.
+    this.keyId = process.env.RAZORPAY_KEY_ID;
+    this.keySecret = process.env.RAZORPAY_KEY_SECRET;
     
     if (this.keyId && this.keySecret) {
       this.razorpay = new Razorpay({

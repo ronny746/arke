@@ -215,7 +215,9 @@ class PaymentsService {
 
     return {
       success: true,
-      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || 'rzp_test_TZAWZi6xItEYWa',
+      // The checkout receives the key that created this order.  It is safe to
+      // expose Razorpay's key id, but never expose the key secret.
+      keyId: razorpayService.keyId,
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
