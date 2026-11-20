@@ -20,6 +20,16 @@ const examSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  // Optional provenance for papers imported from external question-bank portals.
+  // The pair is used for idempotent imports and is never shown to students.
+  sourceSystem: {
+    type: String,
+    trim: true,
+  },
+  sourcePaperId: {
+    type: String,
+    trim: true,
+  },
   assignedBatches: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Batch',
@@ -87,6 +97,8 @@ const examSchema = new mongoose.Schema({
     default: 0,
   }
 }, { timestamps: true });
+
+examSchema.index({ institute: 1, sourceSystem: 1, sourcePaperId: 1 }, { sparse: true });
 
 // Check if exam is active right now
 examSchema.virtual('isActive').get(function () {

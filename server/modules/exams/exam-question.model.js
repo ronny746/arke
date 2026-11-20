@@ -23,6 +23,11 @@ const examQuestionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'QuestionTopic'
   },
+  // Preserve external paper taxonomy even when the source portal does not
+  // share ARKE's ObjectIds.
+  subjectName: String,
+  chapterName: String,
+  topicName: String,
   questionText: {
     type: String,
     required: true,

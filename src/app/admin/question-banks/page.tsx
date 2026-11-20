@@ -23,7 +23,7 @@ export default function QuestionBanks() {
   const [topicQuestions, setTopicQuestions] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   
-  const [activeTab, setActiveTab] = useState('CLASS_FOLDERS'); // 'CLASS_FOLDERS' | 'FULL_PAPERS' | 'PART_PAPERS'
+  const [activeTab, setActiveTab] = useState('CLASS_FOLDERS'); // 'CLASS_FOLDERS' | 'FULL_PAPERS' | 'PART_PAPERS' | 'EXAM_PAPERS'
   const [fullPapers, setFullPapers] = useState([]);
   const [loadingFullPapers, setLoadingFullPapers] = useState(false);
   // fullPaperPath: Level 0: [], Level 1: [class], Level 2: [class, paper], Level 3: [class, paper, subject], Level 4: [class, paper, subject, chapter], Level 5: [class, paper, subject, chapter, topic]
@@ -35,6 +35,13 @@ export default function QuestionBanks() {
   // partPaperPath: Level 0: [], Level 1: [class], Level 2: [class, paper], Level 3: [class, paper, subject], Level 4: [class, paper, subject, chapter], Level 5: [class, paper, subject, chapter, topic]
   const [partPaperPath, setPartPaperPath] = useState([]);
   const [partPaperData, setPartPaperData] = useState(null);
+
+  // Exams are stored in OnlineExam + ExamQuestion collections. They are exposed
+  // here as a read-only Question Bank folder without duplicating question data.
+  const [examPapers, setExamPapers] = useState([]);
+  const [loadingExamPapers, setLoadingExamPapers] = useState(false);
+  const [examPaperPath, setExamPaperPath] = useState([]);
+  const [examPaperData, setExamPaperData] = useState(null);
   
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -58,6 +65,7 @@ export default function QuestionBanks() {
     fetchData();
     fetchFullPapers();
     fetchPartPapers();
+    fetchExamPapers();
   }, []);
 
   const [editingQuestion, setEditingQuestion] = useState(null);
@@ -161,6 +169,18 @@ export default function QuestionBanks() {
       toast.error('Failed to load part papers');
     } finally {
       setLoadingPartPapers(false);
+    }
+  };
+
+  const fetchExamPapers = async () => {
+    try {
+      setLoadingExamPapers(true);
+      const res = await adminAPI.getExams();
+      setExamPapers(res.data?.data || []);
+    } catch (error) {
+      toast.error('Failed to load exam papers');
+    } finally {
+      setLoadingExamPapers(false);
     }
   };
 
@@ -365,6 +385,19 @@ export default function QuestionBanks() {
       }
     } catch (err) {
       toast.error('Failed to load paper details');
+    }
+  };
+
+  const handleExamPaperClick = async (exam) => {
+    try {
+      const res = await adminAPI.getExamById(exam._id);
+      const data = res.data?.data;
+      if (data) {
+        setExamPaperData(data);
+        setExamPaperPath([exam]);
+      }
+    } catch (err) {
+      toast.error('Failed to load exam paper details');
     }
   };
 
@@ -676,6 +709,9 @@ export default function QuestionBanks() {
       setFullPaperPath(fullPaperPath.slice(0, -1));
     } else if (activeTab === 'PART_PAPERS' && partPaperPath.length > 0) {
       setPartPaperPath(partPaperPath.slice(0, -1));
+    } else if (activeTab === 'EXAM_PAPERS' && examPaperPath.length > 0) {
+      setExamPaperPath([]);
+      setExamPaperData(null);
     }
   };
 
@@ -1337,9 +1373,92 @@ export default function QuestionBanks() {
     return null;
   };
 
+  const renderExamPaperTab = () => {
+    if (examPaperPath.length === 0) {
+      return (
+        <div className="space-y-4">
+          {loadingExamPapers ? (
+            <p className="text-gray-500">Loading exam papers...</p>
+          ) : examPapers.length === 0 ? (
+            <div className="py-12 text-center text-gray-500">
+              <FileText className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+              <p className="font-semibold text-gray-700">No exam papers found</p>
+              <p className="text-sm mt-1">Create an exam from Exams &amp; Results and it will appear here.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {examPapers.map((exam) => (
+                <Card
+                  key={exam._id}
+                  className="p-4 border-l-4 border-l-amber-500 relative group cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => handleExamPaperClick(exam)}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Folder className="w-6 h-6 text-amber-500" />
+                    <h3 className="font-bold text-lg text-gray-800 truncate pr-2">{exam.title}</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">{exam.examType || 'INTERNAL'}</span>
+                    <span className="px-2 py-1 rounded-full bg-gray-50 text-gray-600 border border-gray-200">{exam.status || 'DRAFT'}</span>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-3">{exam.totalQuestions || 0} Questions</p>
+                  <p className="text-sm text-gray-500 mt-1">{exam.totalMarks || 0} Total Marks</p>
+                  <p className="text-xs text-gray-400 mt-3">Created: {exam.createdAt ? new Date(exam.createdAt).toLocaleDateString('en-IN') : '—'}</p>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const exam = examPaperPath[0];
+    const questions = examPaperData?.questions || [];
+    return (
+      <div className="space-y-4">
+        <Card className="p-5 border-l-4 border-l-amber-500">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{exam.title}</h2>
+              <p className="text-sm text-gray-500 mt-1">{exam.examType || 'INTERNAL'} • {exam.status || 'DRAFT'} • {questions.length} Questions • {exam.totalMarks || 0} Marks</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => router.push(`/teacher/exams/${exam._id}/edit`)}>Open Exam</Button>
+          </div>
+        </Card>
+        {questions.length === 0 ? (
+          <div className="py-12 text-center text-gray-500">No questions have been added to this exam yet.</div>
+        ) : (
+          <div className="space-y-4">
+            {questions.map((q, idx) => (
+              <Card key={q._id || idx} className="p-4">
+                <div className="flex items-start gap-3">
+                  <span className="font-bold text-gray-700 w-8">Q{idx + 1}.</span>
+                  <div className="flex-1">
+                    <div className="text-gray-900 font-medium overflow-x-auto" dangerouslySetInnerHTML={{ __html: q.questionText || '' }} />
+                    {q.options?.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        {q.options.map((opt, oIdx) => (
+                          <div key={opt._id || oIdx} className={`p-3 rounded-lg border ${opt.isCorrect ? 'bg-success-50 border-success-200' : 'bg-white border-gray-200'}`}>
+                            <span className="font-bold mr-2">{String.fromCharCode(65 + oIdx)}.</span>
+                            <span dangerouslySetInnerHTML={{ __html: opt.text || '' }} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const hasActivePath = (activeTab === 'CLASS_FOLDERS' && path.length > 0) || 
                         (activeTab === 'FULL_PAPERS' && fullPaperPath.length > 0) || 
-                        (activeTab === 'PART_PAPERS' && partPaperPath.length > 0);
+                        (activeTab === 'PART_PAPERS' && partPaperPath.length > 0) ||
+                        (activeTab === 'EXAM_PAPERS' && examPaperPath.length > 0);
 
   return (
     <div className="space-y-6">
@@ -1463,6 +1582,16 @@ export default function QuestionBanks() {
             >
               Part Papers
             </button>
+            <button
+              className={`px-6 py-2 rounded-md font-medium text-sm transition-all ${
+                activeTab === 'EXAM_PAPERS'
+                  ? 'bg-white shadow text-primary-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => { setActiveTab('EXAM_PAPERS'); setExamPaperPath([]); setExamPaperData(null); }}
+            >
+              Exam Papers
+            </button>
           </div>
         )}
 
@@ -1522,7 +1651,7 @@ export default function QuestionBanks() {
                   </div>
                 ))}
               </>
-            ) : (
+            ) : activeTab === 'PART_PAPERS' ? (
               <>
                 <button 
                   onClick={() => setPartPaperPath([])}
@@ -1539,6 +1668,23 @@ export default function QuestionBanks() {
                       className={`${idx === partPaperPath.length - 1 ? 'font-bold text-primary-700' : 'text-gray-500 hover:text-primary-600'}`}
                     >
                       {idx === 0 ? crumb.name : idx === 1 ? crumb.title : crumb}
+                    </button>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setExamPaperPath([])}
+                  className={`flex items-center ${examPaperPath.length === 0 ? 'font-bold text-primary-700' : 'text-gray-500 hover:text-primary-600'}`}
+                >
+                  Exam Papers
+                </button>
+                {examPaperPath.map((crumb, idx) => (
+                  <div key={idx} className="flex items-center">
+                    <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                    <button onClick={() => setExamPaperPath([])} className="font-bold text-primary-700">
+                      {crumb.title}
                     </button>
                   </div>
                 ))}
@@ -1562,8 +1708,10 @@ export default function QuestionBanks() {
               </>
             ) : activeTab === 'FULL_PAPERS' ? (
               renderPaperTab('FULL_PAPER')
-            ) : (
+            ) : activeTab === 'PART_PAPERS' ? (
               renderPaperTab('PART_PAPER')
+            ) : (
+              renderExamPaperTab()
             )}
           </div>
         )}

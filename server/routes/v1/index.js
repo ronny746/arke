@@ -27,6 +27,7 @@ const analyticsReportsRouter = require('../../modules/analytics-reports');
 const inventoryRouter = require('../../modules/inventory');
 const securityAuditRouter = require('../../modules/security-audit');
 const integrationsRouter = require('../../modules/integrations');
+const arkePaperImportRouter = require('../../modules/integrations/arke-paper-import.routes');
 const systemConfigRouter = require('../../modules/system-config');
 const backupsRouter = require('../../modules/backups');
 const broadcastRouter = require('../../modules/broadcast');
@@ -79,6 +80,10 @@ router.use('/ptm-booking', ptmBookingRouter);
 router.use('/analytics-reports', analyticsReportsRouter);
 router.use('/inventory', inventoryRouter);
 router.use('/security-audit', securityAuditRouter);
+// Server-to-server paper import from the shared question-bank portal.
+// This route authenticates with its own secret and must remain independent of
+// the browser JWT middleware used by normal faculty integrations.
+router.use('/integrations/arke-paper-import', arkePaperImportRouter);
 router.use('/integrations', integrationsRouter);
 router.use('/system-config', systemConfigRouter);
 router.use('/backups', backupsRouter);

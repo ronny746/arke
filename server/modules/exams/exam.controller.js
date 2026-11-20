@@ -283,7 +283,7 @@ exports.getExams = async (req, res) => {
 
 exports.getExamDetails = async (req, res) => {
   try {
-    const exam = await Exam.findById(req.params.id)
+    const exam = await Exam.findOne({ _id: req.params.id, institute: req.user.instituteId })
       .populate('assignedBatches', 'name section');
       
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });

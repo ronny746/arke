@@ -38,6 +38,7 @@
 | Behavioural leads | `/admin/leads` | `GET /leads/logged-in-without-course` | read-only automatic queue | API integration |
 | Mentor session scheduling | `/admin/mentor-sessions` | operations service + notification service | target one course or one batch | API integration + socket room |
 | Announcement delivery | `/admin/notifications` | notification service + FCM device registry | all students, all parents, one batch/family, individual | API integration + FCM acceptance test |
+| Exam paper folder | `/admin/question-banks` → `Exam Papers` | `GET /exams`, `GET /exams/:id` | read-only folder view; open exam for editing | API integration + production build |
 
 ## Flow ledger
 
