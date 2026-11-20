@@ -738,10 +738,6 @@ export default function StudentCourseDetailPage() {
                   </p>
                 </div>
 
-                {/shakti/i.test(course?.name || '') && (
-                  <ShaktiPlanner onEnroll={handleBuyClick} isEnrolled={isEnrolled} />
-                )}
-
                 {/* Batch Deliverables Grid */}
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
                   <h2 className="text-xl font-black text-[#0B132B] mb-6 flex items-center gap-2.5">
@@ -1307,6 +1303,12 @@ export default function StudentCourseDetailPage() {
           </div>}
 
         </div>
+
+        {/shakti/i.test(course?.name || '') && (
+          <div className="w-full mt-8">
+            <ShaktiPlanner onEnroll={handleBuyClick} isEnrolled={isEnrolled} />
+          </div>
+        )}
 
         {/* EXPLORE OTHER COURSES SECTION */}
         <section className="mt-16 pt-12 border-t border-gray-200">
