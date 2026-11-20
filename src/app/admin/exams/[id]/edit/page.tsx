@@ -12,6 +12,24 @@ import { adminAPI } from '@/api/index.js';
 import toast from 'react-hot-toast';
 import { AdvancedEditor } from '@/components/ui/AdvancedEditor';
 import { Edit2, Trash2 } from 'lucide-react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+
+const renderImportedMath = (value: unknown) => {
+  const source = String(value ?? '');
+  const render = (latex: string, displayMode = false) => {
+    try {
+      return katex.renderToString(latex.trim(), { displayMode, throwOnError: false, trust: false });
+    } catch {
+      return latex;
+    }
+  };
+  return source
+    .replace(/\$\$([\s\S]*?)\$\$/g, (_, latex) => render(latex, true))
+    .replace(/\$([^$\n]+)\$/g, (_, latex) => render(latex))
+    .replace(/\\\(([^\n]*?)\\\)/g, (_, latex) => render(latex))
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => render(latex, true));
+};
 
 export default function ExamBuilder() {
   const { id } = useParams();
@@ -1176,7 +1194,7 @@ export default function ExamBuilder() {
                                     <div className="flex items-start gap-3 flex-1 min-w-0">
                                       <span className="font-bold text-gray-700 w-8 flex-shrink-0">Q{idx + 1}.</span>
                                       <div className="flex-1 space-y-3 min-w-0">
-                                        <div className="prose max-w-none text-gray-900 font-medium break-words overflow-x-auto" dangerouslySetInnerHTML={{ __html: q.questionText }} />
+                                        <div className="prose max-w-none text-gray-900 font-medium break-words overflow-x-auto" dangerouslySetInnerHTML={{ __html: renderImportedMath(q.questionText) }} />
                                         <div className="flex flex-wrap gap-2 text-xs">
                                           <span className="px-2.5 py-0.5 rounded-full bg-primary-50 text-primary-700 border border-primary-100 font-medium">
                                             Topic: {q.topic?.name || q.topicName || 'General'}
@@ -1191,8 +1209,8 @@ export default function ExamBuilder() {
                                         </div>
                                       </div>
                                     </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 flex-shrink-0 mt-0">
-                                      <Button variant="ghost" size="sm" icon={Edit2} onClick={() => startEdit(idx)} />
+                                    <div className="flex gap-2 flex-shrink-0 mt-0">
+                                      <Button variant="outline" size="sm" icon={Edit2} title="Edit question" onClick={() => startEdit(idx)}>Edit</Button>
                                       <button 
                                         onClick={() => removeQuestion(idx)}
                                         className="text-red-500 bg-red-50 hover:bg-red-100 p-1.5 px-3 rounded text-sm font-semibold transition-colors"
@@ -1211,7 +1229,7 @@ export default function ExamBuilder() {
                                             <span className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-bold mr-3 ${opt.isCorrect ? 'bg-success-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
                                               {String.fromCharCode(65 + oIdx)}
                                             </span>
-                                            <span className="break-words min-w-0 flex-1 overflow-x-auto" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                                            <span className="break-words min-w-0 flex-1 overflow-x-auto" dangerouslySetInnerHTML={{ __html: renderImportedMath(opt.text) }} />
                                           </div>
                                         </div>
                                       ))}
@@ -1330,7 +1348,7 @@ export default function ExamBuilder() {
                               {q.difficulty || 'Medium'}
                             </span>
                           </div>
-                          <div className="prose prose-sm max-w-none text-gray-800 font-medium" dangerouslySetInnerHTML={{ __html: q.questionText }} />
+                          <div className="prose prose-sm max-w-none text-gray-800 font-medium" dangerouslySetInnerHTML={{ __html: renderImportedMath(q.questionText) }} />
                           
                           {/* Options */}
                           {q.options && q.options.length > 0 && (
@@ -1340,7 +1358,7 @@ export default function ExamBuilder() {
                                   <span className={`font-bold mr-2 mt-0.5 flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${opt.isCorrect ? 'bg-success-500 text-white' : 'bg-gray-200'}`}>
                                     {String.fromCharCode(65 + oIdx)}
                                   </span>
-                                  <span className="break-words min-w-0 flex-1 overflow-x-auto" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                                  <span className="break-words min-w-0 flex-1 overflow-x-auto" dangerouslySetInnerHTML={{ __html: renderImportedMath(opt.text) }} />
                                 </div>
                               ))}
                             </div>

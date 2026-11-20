@@ -31,6 +31,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginModal } from '@/components/LoginModal';
+import { ShaktiPlanner } from '@/components/course/ShaktiPlanner';
 
 const calculateDuration = (start: any, end: any, fallback: string) => {
   if (start && end) {
@@ -528,6 +529,7 @@ export default function PublicCourseOverviewPage() {
   };
 
   const batchDeliverables = getDynamicDeliverables(course);
+  const isShaktiSeries = /shakti/i.test(course?.name || '') || /shakti/i.test(course?.tag || '');
 
   // Dynamic Features List
   const dynamicFeatures = (course.features && course.features.length > 0)
@@ -779,6 +781,10 @@ export default function PublicCourseOverviewPage() {
                     {course.description || "The ultimate preparation program carefully designed by top educators to help you achieve top ranks in competitive examinations with comprehensive concept coverage, daily problem solving, and rigorous national mock tests."}
                   </p>
                 </div>
+
+                {isShaktiSeries && (
+                  <ShaktiPlanner onEnroll={handleBuyClick} isEnrolled={isEnrolled} />
+                )}
 
                 {/* Batch Highlights Grid - 6 Key Features */}
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
