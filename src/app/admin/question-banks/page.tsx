@@ -11,6 +11,24 @@ import { Folder, FolderOpen, FileText, ChevronRight, Upload, Plus, Trash2, Arrow
 import { DeleteModal, Modal, ModalHeader, ModalBody, ModalFooter, ConfirmModal } from '@/components/modals/index.jsx';
 import toast from 'react-hot-toast';
 import { AdvancedEditor } from '@/components/ui/AdvancedEditor';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+
+const renderImportedMath = (value: unknown) => {
+  const source = String(value ?? '');
+  const render = (latex: string, displayMode = false) => {
+    try {
+      return katex.renderToString(latex.trim(), { displayMode, throwOnError: false, trust: false });
+    } catch {
+      return latex;
+    }
+  };
+  return source
+    .replace(/\$\$([\s\S]*?)\$\$/g, (_, latex) => render(latex, true))
+    .replace(/\$([^$\n]+)\$/g, (_, latex) => render(latex))
+    .replace(/\\\(([^\n]*?)\\\)/g, (_, latex) => render(latex))
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => render(latex, true));
+};
 
 export default function QuestionBanks() {
   const { isDeveloperMode } = useDeveloperStore();
@@ -1441,13 +1459,13 @@ export default function QuestionBanks() {
                 <div className="flex items-start gap-3">
                   <span className="font-bold text-gray-700 w-8">Q{idx + 1}.</span>
                   <div className="flex-1">
-                    <div className="text-gray-900 font-medium overflow-x-auto" dangerouslySetInnerHTML={{ __html: q.questionText || '' }} />
+                    <div className="text-gray-900 font-medium overflow-x-auto" dangerouslySetInnerHTML={{ __html: renderImportedMath(q.questionText) }} />
                     {q.options?.length > 0 && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                         {q.options.map((opt, oIdx) => (
                           <div key={opt._id || oIdx} className={`p-3 rounded-lg border ${opt.isCorrect ? 'bg-success-50 border-success-200' : 'bg-white border-gray-200'}`}>
                             <span className="font-bold mr-2">{String.fromCharCode(65 + oIdx)}.</span>
-                            <span dangerouslySetInnerHTML={{ __html: opt.text || '' }} />
+                            <span dangerouslySetInnerHTML={{ __html: renderImportedMath(opt.text) }} />
                           </div>
                         ))}
                       </div>
