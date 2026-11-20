@@ -722,7 +722,7 @@ export default function StudentCourseDetailPage() {
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           
           {/* Left Column: Tab Views */}
-          <div className="lg:w-2/3 w-full space-y-8">
+          <div className={`w-full ${/shakti/i.test(course?.name || "") ? "lg:w-full" : "lg:w-2/3"} space-y-8`}>
             
             {/* TAB 1: DESCRIPTION */}
             {activeTab === 'description' && (
@@ -1196,7 +1196,7 @@ export default function StudentCourseDetailPage() {
 
           {/* A purchased course must not continue to advertise purchase. Classroom access
               remains in the main course tabs, so the entire commercial card disappears. */}
-          {!isEnrolled && <div className="lg:w-1/3 w-full">
+          {!isEnrolled && !/shakti/i.test(course?.name || "") && <div className="lg:w-1/3 w-full">
             <div className="sticky top-20 bg-white rounded-3xl border border-gray-200/80 shadow-xl overflow-hidden">
               <div className="h-2.5 bg-gradient-to-r from-[#0B132B] via-[#C99A2E] to-[#0B132B]" />
               
