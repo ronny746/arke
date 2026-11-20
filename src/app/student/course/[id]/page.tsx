@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ShaktiPlanner } from '@/components/course/ShaktiPlanner';
 
 const calculateDuration = (start: any, end: any, fallback: string) => {
   if (start && end) {
@@ -736,6 +737,10 @@ export default function StudentCourseDetailPage() {
                     {course.description || "Comprehensive concept coverage, daily problem solving, verified doubt clearance, and rigorous mock test series designed by top faculty educators to help you master the exam syllabus."}
                   </p>
                 </div>
+
+                {/shakti/i.test(course?.name || '') && (
+                  <ShaktiPlanner onEnroll={handleBuyClick} isEnrolled={isEnrolled} />
+                )}
 
                 {/* Batch Deliverables Grid */}
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs">
