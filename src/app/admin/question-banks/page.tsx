@@ -23,7 +23,7 @@ export default function QuestionBanks() {
   const [topicQuestions, setTopicQuestions] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   
-  const [activeTab, setActiveTab] = useState('CLASS_FOLDERS'); // 'CLASS_FOLDERS' | 'FULL_PAPERS' | 'PART_PAPERS' | 'EXAM_PAPERS'
+  const [activeTab, setActiveTab] = useState('CLASS_FOLDERS'); // 'CLASS_FOLDERS' | 'FULL_PAPERS' | 'PART_PAPERS' | 'EXAM_PAPERS' | 'BANK_PAPERS'
   const [fullPapers, setFullPapers] = useState([]);
   const [loadingFullPapers, setLoadingFullPapers] = useState(false);
   // fullPaperPath: Level 0: [], Level 1: [class], Level 2: [class, paper], Level 3: [class, paper, subject], Level 4: [class, paper, subject, chapter], Level 5: [class, paper, subject, chapter, topic]
@@ -712,6 +712,9 @@ export default function QuestionBanks() {
     } else if (activeTab === 'EXAM_PAPERS' && examPaperPath.length > 0) {
       setExamPaperPath([]);
       setExamPaperData(null);
+    } else if (activeTab === 'BANK_PAPERS' && examPaperPath.length > 0) {
+      setExamPaperPath([]);
+      setExamPaperData(null);
     }
   };
 
@@ -1373,13 +1376,17 @@ export default function QuestionBanks() {
     return null;
   };
 
-  const renderExamPaperTab = () => {
+  const renderExamPaperTab = (sourceSystem = null) => {
+    const visibleExamPapers = sourceSystem
+      ? examPapers.filter((exam) => exam.sourceSystem === sourceSystem)
+      : examPapers;
+    const folderTitle = sourceSystem === 'arkebank' ? 'Bank Papers' : 'Exam Papers';
     if (examPaperPath.length === 0) {
       return (
         <div className="space-y-4">
           {loadingExamPapers ? (
             <p className="text-gray-500">Loading exam papers...</p>
-          ) : examPapers.length === 0 ? (
+          ) : visibleExamPapers.length === 0 ? (
             <div className="py-12 text-center text-gray-500">
               <FileText className="w-10 h-10 mx-auto mb-3 text-gray-300" />
               <p className="font-semibold text-gray-700">No exam papers found</p>
@@ -1387,14 +1394,14 @@ export default function QuestionBanks() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {examPapers.map((exam) => (
+              {visibleExamPapers.map((exam) => (
                 <Card
                   key={exam._id}
                   className="p-4 border-l-4 border-l-amber-500 relative group cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => handleExamPaperClick(exam)}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Folder className="w-6 h-6 text-amber-500" />
+                    <Folder className={`w-6 h-6 ${sourceSystem === 'arkebank' ? 'text-emerald-600' : 'text-amber-500'}`} />
                     <h3 className="font-bold text-lg text-gray-800 truncate pr-2">{exam.title}</h3>
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs">
@@ -1458,7 +1465,7 @@ export default function QuestionBanks() {
   const hasActivePath = (activeTab === 'CLASS_FOLDERS' && path.length > 0) || 
                         (activeTab === 'FULL_PAPERS' && fullPaperPath.length > 0) || 
                         (activeTab === 'PART_PAPERS' && partPaperPath.length > 0) ||
-                        (activeTab === 'EXAM_PAPERS' && examPaperPath.length > 0);
+                        ((activeTab === 'EXAM_PAPERS' || activeTab === 'BANK_PAPERS') && examPaperPath.length > 0);
 
   return (
     <div className="space-y-6">
@@ -1592,6 +1599,16 @@ export default function QuestionBanks() {
             >
               Exam Papers
             </button>
+            <button
+              className={`px-6 py-2 rounded-md font-medium text-sm transition-all ${
+                activeTab === 'BANK_PAPERS'
+                  ? 'bg-white shadow text-primary-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => { setActiveTab('BANK_PAPERS'); setExamPaperPath([]); setExamPaperData(null); }}
+            >
+              Bank Papers
+            </button>
           </div>
         )}
 
@@ -1678,7 +1695,7 @@ export default function QuestionBanks() {
                   onClick={() => setExamPaperPath([])}
                   className={`flex items-center ${examPaperPath.length === 0 ? 'font-bold text-primary-700' : 'text-gray-500 hover:text-primary-600'}`}
                 >
-                  Exam Papers
+                  {activeTab === 'BANK_PAPERS' ? 'Bank Papers' : 'Exam Papers'}
                 </button>
                 {examPaperPath.map((crumb, idx) => (
                   <div key={idx} className="flex items-center">
@@ -1711,7 +1728,7 @@ export default function QuestionBanks() {
             ) : activeTab === 'PART_PAPERS' ? (
               renderPaperTab('PART_PAPER')
             ) : (
-              renderExamPaperTab()
+              renderExamPaperTab(activeTab === 'BANK_PAPERS' ? 'arkebank' : null)
             )}
           </div>
         )}
