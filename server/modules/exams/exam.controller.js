@@ -16,6 +16,7 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
     Hard: { totalQuestions: 0, attempted: 0, correct: 0, wrong: 0, totalMarks: 0, score: 0 }
   };
   let nestedStats = {};
+  const timingStats = { recorded: 0, tooFast: 0, timeHeavy: 0, normal: 0, totalSeconds: 0 };
 
   const detailedQuestions = questions.map(q => {
     const qObj = q.toObject();
@@ -84,6 +85,7 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
     qObj.userAnswer = userAns || null;
     qObj.studentTimeSeconds = Number(userAns?.timeSpentSeconds || 0);
     qObj.averageTimeSeconds = Number(averageTimeByQuestion.get(String(q._id)) || 0);
+    qObj.timingCategory = 'UNRECORDED';
     let isCorrect = false;
     let marksObtained = 0;
     let attempted = false;
@@ -162,6 +164,22 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
       }
     }
 
+    const recordedSeconds = qObj.studentTimeSeconds;
+    if (recordedSeconds > 0) {
+      timingStats.recorded++;
+      timingStats.totalSeconds += recordedSeconds;
+      if (attempted && recordedSeconds < 10) {
+        qObj.timingCategory = 'TOO_FAST';
+        timingStats.tooFast++;
+      } else if (recordedSeconds > 300) {
+        qObj.timingCategory = 'TIME_HEAVY';
+        timingStats.timeHeavy++;
+      } else {
+        qObj.timingCategory = 'NORMAL';
+        timingStats.normal++;
+      }
+    }
+    
     qObj.attempted = attempted;
     qObj.isCorrect = isCorrect;
     qObj.marksObtained = marksObtained;
@@ -204,7 +222,8 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
     nestedStats,
     detailedQuestions,
     totalMarks,
-    score
+    score,
+    timingStats: { ...timingStats, averageSeconds: timingStats.recorded > 0 ? Math.round(timingStats.totalSeconds / timingStats.recorded) : 0 }
   };
 };
 
@@ -633,7 +652,8 @@ exports.getParentExamAnalysis = async (req, res) => {
         totalTime: submission.totalTimeTaken || 0,
         submittedAt: submission.endTime || submission.updatedAt,
         totalMarks: analysis.totalMarks,
-        score: analysis.score
+        score: analysis.score,
+        timingStats: analysis.timingStats,
       }
     });
 
@@ -679,7 +699,8 @@ exports.getExamAnalysis = async (req, res) => {
         totalTime: submission.totalTimeTaken || 0,
         submittedAt: submission.endTime || submission.updatedAt,
         totalMarks: analysis.totalMarks,
-        score: analysis.score
+        score: analysis.score,
+        timingStats: analysis.timingStats,
       }
     });
 
@@ -725,7 +746,8 @@ exports.getAdminExamAnalysis = async (req, res) => {
         submittedAt: submission.endTime || submission.updatedAt,
         student: submission.student || submission.publicUser,
         totalMarks: analysis.totalMarks,
-        score: analysis.score
+        score: analysis.score,
+        timingStats: analysis.timingStats,
       }
     });
 

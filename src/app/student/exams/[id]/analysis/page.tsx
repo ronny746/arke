@@ -19,7 +19,8 @@ import {
   Eye, 
   EyeOff,
   CheckCircle2,
-  HelpCircle
+  HelpCircle,
+  Clock
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/index.jsx';
 import { Card } from '@/components/ui/index.jsx';
@@ -244,7 +245,7 @@ export default function ExamAnalysis() {
 
   if (!data) return null;
 
-  const { submission, subjectStats, detailedQuestions, totalMarks, score, nestedStats } = data;
+  const { submission, subjectStats, detailedQuestions, totalMarks, score, nestedStats, timingStats } = data;
   const subjects = Object.keys(subjectStats);
   const formatSeconds = (seconds: number) => {
     const value = Math.max(0, Math.round(Number(seconds) || 0));
@@ -255,6 +256,18 @@ export default function ExamAnalysis() {
     const subjectName = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
     return subjectName === activeSubject;
   });
+
+  const timing = timingStats || detailedQuestions.reduce((acc, q) => {
+    const seconds = Number(q.studentTimeSeconds || 0);
+    if (seconds <= 0) return acc;
+    acc.recorded++;
+    acc.totalSeconds += seconds;
+    if (q.timingCategory === 'TOO_FAST' || (q.attempted && seconds < 10)) acc.tooFast++;
+    else if (q.timingCategory === 'TIME_HEAVY' || seconds > 300) acc.timeHeavy++;
+    else acc.normal++;
+    return acc;
+  }, { recorded: 0, tooFast: 0, timeHeavy: 0, normal: 0, totalSeconds: 0 });
+  const averageTime = timing.averageSeconds || (timing.recorded ? Math.round(timing.totalSeconds / timing.recorded) : 0);
 
   return (
     <div className="space-y-6 animate-fade-in p-6">
@@ -283,6 +296,37 @@ export default function ExamAnalysis() {
           <div className="mt-6 md:mt-0 flex items-baseline gap-2 bg-black/20 px-8 py-4 rounded-2xl shadow-inner backdrop-blur-sm">
             <span className="text-6xl font-bold">{score}</span>
             <span className="text-2xl font-medium opacity-75">/ {totalMarks}</span>
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-5 h-5 text-primary-600" />
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">Question Timing Analysis</h3>
+              <p className="text-xs text-gray-500">Fast answers may indicate guessing/skipping; over 5 minutes may indicate a time-heavy question.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+              <div className="text-xs font-semibold text-slate-500">Recorded questions</div>
+              <div className="text-2xl font-black text-slate-800">{timing.recorded || 0}</div>
+            </div>
+            <div className="rounded-xl bg-rose-50 border border-rose-200 p-3">
+              <div className="text-xs font-semibold text-rose-700">Under 10 sec</div>
+              <div className="text-2xl font-black text-rose-800">{timing.tooFast || 0}</div>
+              <div className="text-[11px] text-rose-700">Possible guess / not read</div>
+            </div>
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
+              <div className="text-xs font-semibold text-amber-700">Over 5 min</div>
+              <div className="text-2xl font-black text-amber-800">{timing.timeHeavy || 0}</div>
+              <div className="text-[11px] text-amber-700">Time-heavy questions</div>
+            </div>
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+              <div className="text-xs font-semibold text-emerald-700">Average time</div>
+              <div className="text-2xl font-black text-emerald-800">{formatSeconds(averageTime)}</div>
+              <div className="text-[11px] text-emerald-700">Recorded questions</div>
+            </div>
           </div>
         </Card>
 
@@ -548,6 +592,16 @@ export default function ExamAnalysis() {
                     <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800 border border-violet-200/60">
                       Class average: {q.averageTimeSeconds > 0 ? formatSeconds(q.averageTimeSeconds) : 'Not available yet'}
                     </span>
+                    {q.timingCategory === 'TOO_FAST' && (
+                      <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-800 border border-rose-200">
+                        Under 10s: possible guess / not read
+                      </span>
+                    )}
+                    {q.timingCategory === 'TIME_HEAVY' && (
+                      <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200">
+                        Over 5m: time-heavy
+                      </span>
+                    )}
                   </div>
                 )}
 
