@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 export default function PublicExamPlayer({ exam, questions, token }: any) {
   const [submission, setSubmission] = useState<{ answers: any[] }>({ answers: [] });
   const [currentQIdx, setCurrentQIdx] = useState(0);
+  const [timeSpentByQuestion, setTimeSpentByQuestion] = useState<Record<string, number>>({});
   
   const [timeLeft, setTimeLeft] = useState(exam.settings?.durationMinutes * 60 || 3600);
   const [violations, setViolations] = useState({ tabSwitches: 0, fullScreenExits: 0 });
@@ -37,6 +38,11 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
   const canvasRef = useRef(null);
   const snapshotIntervalRef = useRef(null);
   const timerRef = useRef(null);
+  const currentQIdxRef = useRef(0);
+
+  useEffect(() => {
+    currentQIdxRef.current = currentQIdx;
+  }, [currentQIdx]);
   
   const getSubjectName = (q) => q?.subject?.name || q?.subjectName || (typeof q?.subject === 'string' ? q.subject : 'General');
   const subjects = [...new Set(questions.map(q => getSubjectName(q)))];
@@ -79,9 +85,14 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
 
   const submitExamData = async () => {
     try {
+      const answersWithTiming = submission.answers.map((answer) => ({
+        ...answer,
+        timeSpentSeconds: timeSpentByQuestion[String(answer.questionId)] || 0,
+      }));
       const res = await publicAPI.submitExam(exam._id, token, {
-        answers: submission.answers,
-        violations
+        answers: answersWithTiming,
+        timeSpentPerQuestion: timeSpentByQuestion,
+        violations,
       });
       setResult(res.data.data);
       setSubmitted(true);
@@ -101,7 +112,7 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
     clearInterval(snapshotIntervalRef.current);
     await submitExamData();
     setSubmitting(false);
-  }, [submission, violations, submitting]);
+  }, [submission, violations, submitting, timeSpentByQuestion]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -113,14 +124,21 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ answers: submission.answers, violations }),
+          body: JSON.stringify({
+            answers: submission.answers.map((answer) => ({
+              ...answer,
+              timeSpentSeconds: timeSpentByQuestion[String(answer.questionId)] || 0,
+            })),
+            timeSpentPerQuestion: timeSpentByQuestion,
+            violations,
+          }),
           keepalive: true
         }).catch(() => {});
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [submission, violations, submitted, submitting, exam._id, token]);
+  }, [submission, violations, submitted, submitting, exam._id, token, timeSpentByQuestion]);
 
   useEffect(() => {
     const startCamera = async () => {
@@ -147,6 +165,14 @@ export default function PublicExamPlayer({ exam, questions, token }: any) {
     startCamera();
 
     timerRef.current = setInterval(() => {
+      const activeQuestion = questions[currentQIdxRef.current];
+      const activeQuestionId = activeQuestion?._id || activeQuestion?.id;
+      if (activeQuestionId) {
+        setTimeSpentByQuestion((previous) => ({
+          ...previous,
+          [String(activeQuestionId)]: (previous[String(activeQuestionId)] || 0) + 1,
+        }));
+      }
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);

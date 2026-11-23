@@ -152,7 +152,7 @@ export default function LandingPage() {
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               1:1 Coaching
             </Link>
-            <a href="#courses" className="hover:text-emerald-400 transition-colors">Courses</a>
+            <Link href="/explore-courses" className="hover:text-emerald-400 transition-colors">Explore Courses</Link>
             <a href="#features" className="hover:text-emerald-400 transition-colors">Why ARKE</a>
             <a href="#mentors" className="hover:text-emerald-400 transition-colors">Mentors</a>
             <a href="#mobile-app" className="hover:text-emerald-400 transition-colors">App</a>
@@ -217,11 +217,11 @@ export default function LandingPage() {
                 1:1 Coaching Program
               </Link>
               <a
-                href="#courses"
+                href="/explore-courses"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block py-2 text-base font-semibold text-white/90 hover:text-[#10B981] transition-colors"
               >
-                Courses
+                Explore Courses
               </a>
               <a
                 href="#features"
@@ -376,11 +376,14 @@ export default function LandingPage() {
         <div className="max-w-[70rem] mx-auto px-3 sm:px-4">
           <div className="text-center max-w-2xl mx-auto">
             <h2 className="text-xl sm:text-4xl font-black font-display text-foreground tracking-tight leading-tight">
-              Choose Your Exam
+              Explore Live Courses
             </h2>
             <p className="mt-1.5 sm:mt-3 text-xs sm:text-base text-muted-foreground">
-              Focused preparation tracks tailored for every target competitive goal
+              Preview every active ARKE course before you sign in
             </p>
+            <Link href="/explore-courses" className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-xs font-black text-navy shadow-sm transition hover:brightness-105 sm:text-sm">
+              Browse all live courses <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
           <div className="mt-6 sm:mt-12 grid gap-4 sm:gap-6 md:grid-cols-3">
@@ -420,7 +423,7 @@ export default function LandingPage() {
                   </li>
                 </ul>
                 <button
-                  onClick={() => setIsLoginModalOpen(true)}
+                  onClick={() => router.push('/explore-courses?targetExam=IIT-JEE')}
                   className="w-full text-center rounded-xl bg-primary/10 border border-primary/30 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-primary group-hover:bg-primary group-hover:text-navy transition-colors"
                 >
                   Explore JEE Prep
@@ -464,7 +467,7 @@ export default function LandingPage() {
                   </li>
                 </ul>
                 <button
-                  onClick={() => setIsLoginModalOpen(true)}
+                  onClick={() => router.push('/explore-courses?targetExam=NEET')}
                   className="w-full text-center rounded-xl bg-primary/10 border border-primary/30 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-primary group-hover:bg-primary group-hover:text-navy transition-colors"
                 >
                   Explore NEET Prep
@@ -508,7 +511,7 @@ export default function LandingPage() {
                   </li>
                 </ul>
                 <button
-                  onClick={() => setIsLoginModalOpen(true)}
+                  onClick={() => router.push('/explore-courses?targetExam=FOUNDATION-9-10')}
                   className="w-full text-center rounded-xl bg-primary/10 border border-primary/30 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-primary group-hover:bg-primary group-hover:text-navy transition-colors"
                 >
                   Explore Foundation

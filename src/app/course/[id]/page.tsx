@@ -31,6 +31,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginModal } from '@/components/LoginModal';
+import CoursePlanner from '@/components/course/CoursePlanner';
 
 const calculateDuration = (start: any, end: any, fallback: string) => {
   if (start && end) {
@@ -211,9 +212,9 @@ function RazorpayPaymentModal({ course, onClose, onAuthError }: { course: any; o
   );
 }
 
-export default function PublicCourseOverviewPage() {
+export default function PublicCourseOverviewPage({ identifier }: { identifier?: string } = {}) {
   const params = useParams();
-  const id = params?.id;
+  const id = identifier || params?.id;
   const router = useRouter();
 
   const [course, setCourse] = useState<any>(null);
@@ -306,20 +307,40 @@ export default function PublicCourseOverviewPage() {
 
   // Load Exams for test series
   useEffect(() => {
+    if (!id) return;
     const token = localStorage.getItem('token');
     setLoadingExams(true);
-    fetch('/api/v1/exams', {
+    fetch(`/api/v1/public/courses/${id}/exams`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     })
       .then(res => res.json())
       .then(data => {
         if (data.success && Array.isArray(data.data)) {
-          setExams(data.data.slice(0, 8));
+          // Keep every published exam in the course list. The previous eight-item
+          // cap hid free tests because the API returns the paid chapter tests first.
+          setExams([...data.data].sort((a, b) => {
+            if (a.accessMode === b.accessMode) return 0;
+            return a.accessMode === 'FREE' ? -1 : 1;
+          }));
         }
       })
       .catch(console.error)
       .finally(() => setLoadingExams(false));
-  }, []);
+  }, [id]);
+
+  const handleExamAccess = (exam: any) => {
+    const token = localStorage.getItem('token');
+    if (!token || !user) {
+      toast('Please login to continue.', { icon: '👋' });
+      setIsLoginModalOpen(true);
+      return;
+    }
+    if (exam.accessMode === 'FREE' || isEnrolled) {
+      router.push(`/student/exams/${exam._id}/play`);
+      return;
+    }
+    handleBuyClick();
+  };
 
   const handleAuthError = () => {
     localStorage.removeItem('token');
@@ -550,6 +571,16 @@ export default function PublicCourseOverviewPage() {
         `${course.medium || 'Hinglish/English'} Medium Students`
       ];
 
+  const isJeeSeries = /jee/i.test(String(course.targetExam || '')) || /shakti/i.test(String(course.name || ''));
+  const scheduleEyebrow = `${isJeeSeries ? 'Shakti schedule' : 'Course schedule'} · ${course.targetExam || 'Exam preparation'}`;
+  const scheduleTitle = isJeeSeries ? 'Build your exam power, date by date.' : 'Build your exam preparation, step by step.';
+  const scheduleSubtitle = isJeeSeries
+    ? 'One ladder from chapter tests to part tests to full mocks, planned around both JEE Main sessions.'
+    : 'A clear ladder from focused practice to chapter tests and full-length assessments.';
+  const scheduleChips = isJeeSeries
+    ? ['Series live · 25 Nov', 'Session 1 · 20–28 Jan', 'Session 2 · 2–7 Apr']
+    : ['Live course schedule', 'Chapter practice', 'Full-length assessments'];
+
   return (
     <div className="min-h-screen bg-[#F4F6F9] font-sans pb-24 text-gray-900">
       <LoginModal isOpen={isLoginModalOpen} redirectOnSuccess={false} onClose={() => {
@@ -563,7 +594,15 @@ export default function PublicCourseOverviewPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center">
-              <Image src="/arke_logo.png" alt="ARKE Scholars" width={130} height={42} className="h-9 w-auto object-contain brightness-110" priority />
+              <Image
+                src="/arke_logo.png"
+                alt="ARKE Scholars"
+                width={130}
+                height={42}
+                className="block h-9 w-[130px] max-h-9 max-w-[130px] object-contain brightness-110"
+                style={{ width: 130, height: 42, maxWidth: 130, maxHeight: 42 }}
+                priority
+              />
             </Link>
             <div className="hidden md:flex items-center text-xs text-gray-400 gap-2 border-l border-gray-700 pl-4">
               <span>Study Portal</span>
@@ -643,10 +682,14 @@ export default function PublicCourseOverviewPage() {
                 )}
               </div>
 
-              {/* Title & Subtitle */}
+              {/* Shakti-style schedule headline */}
+              <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#C99A2E]">{scheduleEyebrow}</p>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-                {course.name}
+                {scheduleTitle}
               </h1>
+
+              <p className="text-sm sm:text-base text-gray-300 font-medium leading-relaxed max-w-2xl">{scheduleSubtitle}</p>
+              <p className="text-base sm:text-lg text-white/90 font-bold">{course.name}</p>
 
               {course.subtitle && (
                 <p className="text-sm sm:text-base text-gray-300 font-medium leading-relaxed max-w-2xl">
@@ -656,6 +699,12 @@ export default function PublicCourseOverviewPage() {
 
               {/* Key metadata chips */}
               <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-gray-300 font-medium">
+                {scheduleChips.map((chip) => (
+                  <div key={chip} className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
+                    <Sparkles size={14} className="text-[#C99A2E]" />
+                    <span>{chip}</span>
+                  </div>
+                ))}
                 <div className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
                   <Clock size={14} className="text-[#C99A2E]" />
                   <span>Duration: <strong className="text-white">{durationStr}</strong></span>
@@ -757,6 +806,10 @@ export default function PublicCourseOverviewPage() {
             </button>
           </nav>
         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <CoursePlanner targetExam={course.targetExam} courseName={course.name} />
       </div>
 
       {/* Main Content Layout */}
@@ -1007,9 +1060,10 @@ export default function PublicCourseOverviewPage() {
                           </div>
 
                           <div className="sm:self-center shrink-0">
-                            {isEnrolled ? (
+                            <div className="flex flex-col items-stretch sm:items-end gap-2">
+                            {(exam.accessMode === 'FREE' ? Boolean(user) : isEnrolled) ? (
                               <button 
-                                onClick={() => router.push(`/student/exams/${exam._id || ''}`)}
+                                onClick={() => handleExamAccess(exam)}
                                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0B132B] hover:bg-[#1C2541] text-[#C99A2E] font-black text-xs transition-all shadow flex items-center justify-center gap-1.5"
                               >
                                 <span>Attempt Test</span>
@@ -1017,13 +1071,14 @@ export default function PublicCourseOverviewPage() {
                               </button>
                             ) : (
                               <button 
-                                onClick={handleBuyClick}
+                                onClick={() => handleExamAccess(exam)}
                                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
                               >
-                                <span>Enroll to Unlock</span>
+                                <span>{exam.accessMode === 'FREE' ? 'Login to Attempt' : 'Buy to Unlock'}</span>
                                 <ArrowRight size={14} />
                               </button>
                             )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1305,7 +1360,9 @@ export default function PublicCourseOverviewPage() {
 
         </div>
 
-        {/* EXPLORE OTHER COURSES SECTION */}
+        {/* Keep each course detail self-contained. Cross-course recommendations
+            belong on /explore-courses, not below the current batch. */}
+        {false && <>
         <section className="mt-16 pt-12 border-t border-gray-200">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
             <div>
@@ -1495,6 +1552,7 @@ export default function PublicCourseOverviewPage() {
             </div>
           )}
         </section>
+        </>}
 
       </main>
 

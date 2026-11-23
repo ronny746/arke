@@ -24,6 +24,8 @@ export default function ExamBuilder() {
     title: '',
     description: '',
     examType: 'INTERNAL',
+    accessMode: 'PAID',
+    accessPrice: 0,
     assignedClasses: [],
     settings: {
       startTime: '',
@@ -308,6 +310,8 @@ export default function ExamBuilder() {
         title: data.exam.title,
         description: data.exam.description || '',
         examType: data.exam.examType || 'INTERNAL',
+        accessMode: data.exam.accessMode || 'PAID',
+        accessPrice: data.exam.accessPrice || 0,
         assignedClasses: data.exam.assignedBatches?.map(c => typeof c === 'object' ? c._id : c) || [],
         settings: {
           startTime: formatDateForInput(data.exam.settings.startTime),
@@ -730,6 +734,24 @@ export default function ExamBuilder() {
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2">Test Access</h3>
+            <p className="text-sm text-gray-500">Free tests require login only. Paid tests require the student to purchase/enroll in the course.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className={`p-4 border rounded-xl cursor-pointer transition-all ${examData.accessMode === 'FREE' ? 'border-emerald-500 bg-emerald-50' : 'hover:border-gray-300'}`}>
+                <input type="radio" name="accessMode" className="sr-only" checked={examData.accessMode === 'FREE'} onChange={() => setExamData({ ...examData, accessMode: 'FREE', accessPrice: 0 })} />
+                <div className="font-semibold text-gray-900">Free test</div>
+                <div className="text-sm text-gray-500">Login and attempt directly.</div>
+              </label>
+              <label className={`p-4 border rounded-xl cursor-pointer transition-all ${examData.accessMode === 'PAID' ? 'border-amber-500 bg-amber-50' : 'hover:border-gray-300'}`}>
+                <input type="radio" name="accessMode" className="sr-only" checked={examData.accessMode === 'PAID'} onChange={() => setExamData({ ...examData, accessMode: 'PAID' })} />
+                <div className="font-semibold text-gray-900">Paid test</div>
+                <div className="text-sm text-gray-500">Course purchase/enrollment required.</div>
+              </label>
+            </div>
+            {examData.accessMode === 'PAID' && <Input label="Standalone test price (optional)" type="number" min="0" value={examData.accessPrice} onChange={(e) => setExamData({ ...examData, accessPrice: Number(e.target.value) || 0 })} />}
           </div>
 
           <div className="space-y-4">

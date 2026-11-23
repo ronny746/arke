@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import CoursePlanner from '@/components/course/CoursePlanner';
 
 const calculateDuration = (start: any, end: any, fallback: string) => {
   if (start && end) {
@@ -338,7 +339,10 @@ export default function StudentCourseDetailPage() {
         const res = await fetch(`/api/v1/public/courses/${id}/exams`, { headers });
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
-          setExams(data.data);
+          setExams([...data.data].sort((a, b) => {
+            if (a.accessMode === b.accessMode) return 0;
+            return a.accessMode === 'FREE' ? -1 : 1;
+          }));
         }
       } catch (err) {
         console.error('Failed to load real exams for course:', err);
@@ -518,6 +522,15 @@ export default function StudentCourseDetailPage() {
 
   const dynamicFeatures = (course.features && course.features.length > 0) ? course.features : [];
   const dynamicBestFor = (course.bestFor && course.bestFor.length > 0) ? course.bestFor : [];
+  const isJeeSeries = /jee/i.test(String(course.targetExam || '')) || /shakti/i.test(String(course.name || ''));
+  const scheduleEyebrow = `${isJeeSeries ? 'Shakti schedule' : 'Course schedule'} · ${course.targetExam || 'Exam preparation'}`;
+  const scheduleTitle = isJeeSeries ? 'Build your exam power, date by date.' : 'Build your exam preparation, step by step.';
+  const scheduleSubtitle = isJeeSeries
+    ? 'One ladder from chapter tests to part tests to full mocks, planned around both JEE Main sessions.'
+    : 'A clear ladder from focused practice to chapter tests and full-length assessments.';
+  const scheduleChips = isJeeSeries
+    ? ['Series live · 25 Nov', 'Session 1 · 20–28 Jan', 'Session 2 · 2–7 Apr']
+    : ['Live course schedule', 'Chapter practice', 'Full-length assessments'];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans pb-24 text-gray-900">
@@ -598,10 +611,14 @@ export default function StudentCourseDetailPage() {
                 )}
               </div>
 
-              {/* Title & Subtitle */}
+              {/* Shakti-style schedule headline */}
+              <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#C99A2E]">{scheduleEyebrow}</p>
               <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-                {course.name}
+                {scheduleTitle}
               </h1>
+
+              <p className="text-sm sm:text-base text-gray-300 font-medium leading-relaxed max-w-2xl">{scheduleSubtitle}</p>
+              <p className="text-base sm:text-lg text-white/90 font-bold">{course.name}</p>
 
               {course.subtitle && (
                 <p className="text-sm sm:text-base text-gray-300 font-medium leading-relaxed max-w-2xl">
@@ -611,6 +628,12 @@ export default function StudentCourseDetailPage() {
 
               {/* Quick Metadata Bar */}
               <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-gray-300 font-medium">
+                {scheduleChips.map((chip) => (
+                  <div key={chip} className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
+                    <Sparkles size={14} className="text-[#C99A2E]" />
+                    <span>{chip}</span>
+                  </div>
+                ))}
                 <div className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
                   <Clock size={14} className="text-[#C99A2E]" />
                   <span>Duration: <strong className="text-white">{calculateDuration(course.startDate, course.endDate, course.duration)}</strong></span>
@@ -714,6 +737,10 @@ export default function StudentCourseDetailPage() {
             </button>
           </nav>
         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <CoursePlanner targetExam={course.targetExam} courseName={course.name} />
       </div>
 
       {/* Main Content Layout */}
@@ -1007,6 +1034,7 @@ export default function StudentCourseDetailPage() {
                       {exams.map((exam, idx) => {
                         const isCompleted = exam.submissionStatus === 'SUBMITTED' || exam.submissionStatus === 'AUTO_SUBMITTED';
                         const isInProgress = exam.submissionStatus === 'IN_PROGRESS';
+                        const canAccessExam = exam.accessMode === 'FREE' ? Boolean(user) : isEnrolled;
                         
                         return (
                           <div 
@@ -1036,7 +1064,7 @@ export default function StudentCourseDetailPage() {
                               </div>
                             </div>
 
-                            {isEnrolled ? (
+                            {canAccessExam ? (
                               isCompleted ? (
                                 <button
                                   onClick={() => router.push(`/student/exams/${exam._id}/analysis`)}
