@@ -1,8 +1,34 @@
 const mongoose = require('mongoose');
 
+function slugifyCourseName(value = '') {
+  return String(value)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120) || 'course';
+}
+
+// A course students can see/buy: active, published and not ended.
+const liveCourseQuery = () => ({
+  isActive: true,
+  isPublished: { $ne: false },
+  $or: [
+    { endDate: { $exists: false } },
+    { endDate: null },
+    { endDate: { $gt: new Date() } }
+  ]
+});
+
 const courseSchema = new mongoose.Schema({
   instituteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
   name: { type: String, required: true },
+  // Public, human-readable course URL segment. It is intentionally not unique
+  // because names are scoped to an institute, while the public catalog can
+  // contain courses from more than one institute.
+  slug: { type: String, index: true },
   description: { type: String },
   tag: { type: String },
   fee: { type: Number },
@@ -55,4 +81,13 @@ const courseSchema = new mongoose.Schema({
 
 courseSchema.index({ instituteId: 1, name: 1 }, { unique: true });
 
+courseSchema.pre('validate', function ensureCourseSlug(next) {
+  if (this.name && (!this.slug || this.isModified('name'))) {
+    this.slug = slugifyCourseName(this.name);
+  }
+  next();
+});
+
 module.exports = mongoose.models.Course || mongoose.model('Course', courseSchema);
+module.exports.slugifyCourseName = slugifyCourseName;
+module.exports.liveCourseQuery = liveCourseQuery;

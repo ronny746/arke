@@ -53,18 +53,44 @@ exports.getMe = async (req, res, next) => {
   }
 };
 
+// Self-service profile update. Only these top-level fields may be changed;
+// role, isActive, childrenIds, parentId, permissions, etc. are ignored.
+const SELF_EDITABLE_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'profilePictureUrl'];
+// Set by the institute; a user cannot change them on their own profile.
+const ADMIN_ONLY_METADATA_KEYS = new Set(['rollNo', 'section', 'session']);
+
+const buildSelfProfileUpdate = (body = {}) => {
+  const $set = {};
+  for (const field of SELF_EDITABLE_FIELDS) {
+    let value = body[field];
+    if (value === undefined || value === null || typeof value === 'object') continue;
+    value = String(value).trim();
+    if (field === 'email') {
+      if (!value) continue; // never store an empty email
+    }
+    $set[field] = value;
+  }
+  // Merge metadata key by key so fields the client did not send (rollNo,
+  // section, targetExam...) are kept instead of being wiped.
+  const metadata = body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata) ? body.metadata : {};
+  for (const [key, value] of Object.entries(metadata)) {
+    if (!/^[A-Za-z0-9_]+$/.test(key) || ADMIN_ONLY_METADATA_KEYS.has(key)) continue;
+    if (value === undefined || value === null) continue;
+    if (key === 'email' && !String(value).trim()) continue;
+    $set[`metadata.${key}`] = value;
+  }
+  $set['metadata.isProfileIncomplete'] = false;
+  return { $set };
+};
+exports.buildSelfProfileUpdate = buildSelfProfileUpdate;
+
 exports.updateMe = async (req, res, next) => {
   try {
-    const payload = req.body;
-    // Don't allow changing role or instituteId via this endpoint
-    delete payload.role;
-    delete payload.instituteId;
-    delete payload.password;
-    if (!payload.metadata) payload.metadata = {};
-    payload.metadata.isProfileIncomplete = false;
-    
     const User = require('./users.model');
-    const updated = await User.findByIdAndUpdate(req.user.userId, payload, { new: true });
+    const update = buildSelfProfileUpdate(req.body);
+    // Legacy users may have metadata stored as null; dotted $set cannot write into null.
+    await User.updateOne({ _id: req.user.userId, metadata: null }, { $set: { metadata: {} } });
+    const updated = await User.findByIdAndUpdate(req.user.userId, update, { new: true });
     
     return successResponse(res, 'Profile updated successfully', updated);
   } catch (error) {

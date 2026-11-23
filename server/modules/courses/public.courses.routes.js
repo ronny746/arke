@@ -1,19 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const CourseModel = require('./courses.model');
+const { slugifyCourseName, liveCourseQuery } = CourseModel;
+
+// Public pages show faculty name, photo and public bio only: no email, phone or other metadata.
+const PUBLIC_FACULTY_FIELDS = 'firstName lastName profilePictureUrl role metadata.subject metadata.designation metadata.bio metadata.experience';
+
+const withPublicSlug = (course) => {
+  const value = typeof course.toObject === 'function' ? course.toObject() : { ...course };
+  value.slug = value.slug || slugifyCourseName(value.name);
+  return value;
+};
 
 // Public route to get all active courses
 router.get('/', async (req, res, next) => {
   try {
-    const query = {
-      isActive: true, 
-      isPublished: { $ne: false },
-      $or: [
-        { endDate: { $exists: false } },
-        { endDate: null },
-        { endDate: { $gt: new Date() } }
-      ]
-    };
+    const query = liveCourseQuery();
     if (req.query.instituteId) {
       query.instituteId = req.query.instituteId;
     }
@@ -58,9 +60,9 @@ router.get('/', async (req, res, next) => {
       });
     }
     const courses = await CourseModel.find(query)
-      .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
+      .populate('faculties', PUBLIC_FACULTY_FIELDS)
       .sort({ updatedAt: -1, createdAt: -1 });
-    return res.status(200).json({ success: true, data: courses });
+    return res.status(200).json({ success: true, data: courses.map(withPublicSlug) });
   } catch (error) {
     next(error);
   }
@@ -70,21 +72,25 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const mongoose = require('mongoose');
-    if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(404).json({ success: false, message: 'Course not found' });
+    const identifier = String(req.params.id || '').trim();
+    if (!identifier) return res.status(404).json({ success: false, message: 'Course not found' });
+
+    const query = liveCourseQuery();
+    if (mongoose.Types.ObjectId.isValid(identifier)) query._id = identifier;
+    else query.slug = identifier.toLowerCase();
+
+    let course = await CourseModel.findOne(query)
+      .populate('faculties', PUBLIC_FACULTY_FIELDS);
+
+    // Backward compatibility for courses created before the slug field was
+    // introduced. This is a read-only fallback; no course data is changed.
+    if (!course && !mongoose.Types.ObjectId.isValid(identifier)) {
+      const candidates = await CourseModel.find(liveCourseQuery())
+        .populate('faculties', PUBLIC_FACULTY_FIELDS);
+      course = candidates.find(item => slugifyCourseName(item.name) === identifier.toLowerCase()) || null;
     }
-    const course = await CourseModel.findOne({ 
-      _id: req.params.id, 
-      isActive: true, 
-      isPublished: { $ne: false },
-      $or: [
-        { endDate: { $exists: false } },
-        { endDate: null },
-        { endDate: { $gt: new Date() } }
-      ]
-    }).populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role');
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
-    return res.status(200).json({ success: true, data: course });
+    return res.status(200).json({ success: true, data: withPublicSlug(course) });
   } catch (error) {
     next(error);
   }

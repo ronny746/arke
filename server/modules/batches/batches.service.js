@@ -9,6 +9,10 @@ async function teacherCourseIds(reqUser) {
   return courses.map(course => course._id);
 }
 
+// Students/parents must not receive classmates' names or emails; staff keep the roster.
+const rosterFields = (reqUser) =>
+  (reqUser?.role === 'student' || reqUser?.role === 'parent') ? '_id' : 'firstName lastName email';
+
 exports.createBatch = async (reqUser, payload) => {
   const batch = new BatchModel({
     ...payload,
@@ -40,7 +44,7 @@ exports.getBatches = async (reqUser, filters = {}) => {
     .populate('courseId', 'name tag fee duration startDate endDate access')
     .populate('batchTeacherId', 'firstName lastName email')
     .populate('teachers', 'firstName lastName email')
-    .populate('students', 'firstName lastName email');
+    .populate('students', rosterFields(reqUser));
 };
 
 exports.getMyBatches = async (reqUser) => {
@@ -59,14 +63,14 @@ exports.getMyBatches = async (reqUser) => {
     .populate('courseId', 'name tag access startDate endDate fee duration')
     .populate('batchTeacherId', 'firstName lastName email')
     .populate('teachers', 'firstName lastName email')
-    .populate('students', 'firstName lastName email');
+    .populate('students', rosterFields(reqUser));
 };
 
 exports.getBatchById = async (id, reqUser) => {
   return await BatchModel.findOne({ _id: id, instituteId: reqUser.instituteId })
     .populate('batchTeacherId', 'firstName lastName email')
     .populate('teachers', 'firstName lastName email')
-    .populate('students', 'firstName lastName email');
+    .populate('students', rosterFields(reqUser));
 };
 
 exports.updateBatch = async (id, payload, reqUser) => {
@@ -145,6 +149,15 @@ exports.joinBatch = async (batchId, reqUser) => {
   const batch = await BatchModel.findOne({ _id: batchId, instituteId: reqUser.instituteId });
   if (!batch) {
     throw new Error('Batch not found');
+  }
+
+  // Joining a paid course's batch must go through payment, not this endpoint.
+  if (reqUser.role === 'student' && batch.courseId) {
+    const CourseModel = require('../courses/courses.model');
+    const course = await CourseModel.findById(batch.courseId).select('fee');
+    if (!course || (Number(course.fee) || 0) > 0) {
+      throw Object.assign(new Error('This batch belongs to a paid course. Please enroll through payment.'), { statusCode: 403 });
+    }
   }
 
   const updateQuery = {};

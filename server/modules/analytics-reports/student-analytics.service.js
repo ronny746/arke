@@ -121,7 +121,11 @@ exports.getStudentPerformance = async (studentId) => {
       percentage: subTotalMarks > 0 ? ((sub.score / subTotalMarks) * 100).toFixed(2) : 0,
       totalCorrect: sub.totalCorrect,
       totalWrong: sub.totalWrong,
-      totalUnattempted: sub.totalUnattempted
+      totalUnattempted: sub.totalUnattempted,
+      // Share of attempted questions answered right (never negative, unlike percentage).
+      accuracy: ((sub.totalCorrect || 0) + (sub.totalWrong || 0)) > 0
+        ? Number((((sub.totalCorrect || 0) / ((sub.totalCorrect || 0) + (sub.totalWrong || 0))) * 100).toFixed(2))
+        : 0
     };
   });
 

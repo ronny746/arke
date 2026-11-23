@@ -208,6 +208,26 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
   };
 };
 
+// Seconds the attempt took. totalTimeTaken was never stored, so the
+// analysis always reported 0; derive it from the attempt start/end.
+const getAttemptSeconds = (submission) => {
+  if (Number(submission?.totalTimeTaken) > 0) return Number(submission.totalTimeTaken);
+  const start = submission?.startTime ? new Date(submission.startTime).getTime() : NaN;
+  const end = submission?.endTime ? new Date(submission.endTime).getTime() : NaN;
+  return Number.isFinite(start) && Number.isFinite(end) && end > start ? Math.round((end - start) / 1000) : 0;
+};
+exports.getAttemptSeconds = getAttemptSeconds;
+
+// Results (correct answers + solutions) stay hidden until the exam window
+// ends when the exam is set not to show results right after submit, so a
+// student who finished cannot pass answers to those still writing.
+const resultsLockedUntil = (exam) => {
+  if (!exam || exam.settings?.showResultsAfterSubmit !== false) return null;
+  const end = exam.settings?.endTime ? new Date(exam.settings.endTime) : null;
+  return end && end.getTime() > Date.now() ? end : null;
+};
+exports.resultsLockedUntil = resultsLockedUntil;
+
 const getQuestionAverageTimes = async (examId) => {
   const ExamSubmission = require('./exam-submission.model');
   const rows = await ExamSubmission.aggregate([
@@ -221,7 +241,7 @@ const getQuestionAverageTimes = async (examId) => {
 
 exports.createExam = async (req, res) => {
   try {
-    const { title, description, examType, assignedBatches, settings, security } = req.body;
+    const { title, description, examType, assignedBatches, settings, security, accessMode, accessPrice } = req.body;
     
     const exam = new Exam({
       title,
@@ -230,6 +250,8 @@ exports.createExam = async (req, res) => {
       assignedBatches,
       settings,
       security,
+      accessMode: accessMode === 'FREE' ? 'FREE' : 'PAID',
+      accessPrice: Number(accessPrice) || 0,
       status: 'PUBLISHED',
       institute: req.user.instituteId,
       createdBy: req.user.userId,
@@ -249,10 +271,10 @@ exports.createExam = async (req, res) => {
 
 exports.updateExam = async (req, res) => {
   try {
-    const { title, description, examType, assignedBatches, settings, security, status } = req.body;
+    const { title, description, examType, assignedBatches, settings, security, status, accessMode, accessPrice } = req.body;
     const exam = await Exam.findOneAndUpdate(
       { _id: req.params.id, institute: req.user.instituteId },
-      { title, description, examType, assignedBatches, settings, security, status },
+      { title, description, examType, assignedBatches, settings, security, status, accessMode: accessMode === 'FREE' ? 'FREE' : 'PAID', accessPrice: Number(accessPrice) || 0 },
       { new: true }
     );
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
@@ -613,6 +635,11 @@ exports.getParentExamAnalysis = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No completed submission found for this exam' });
     }
 
+    const lockedUntil = resultsLockedUntil(await Exam.findById(examId).select('settings'));
+    if (lockedUntil) {
+      return res.status(403).json({ success: false, message: `Results will be available after ${lockedUntil.toISOString()}`, resultsAvailableAt: lockedUntil });
+    }
+
     // Fetch all questions with correct answers
     const questions = await ExamQuestion.find({ exam: examId })
       .populate('subject', 'name')
@@ -630,7 +657,7 @@ exports.getParentExamAnalysis = async (req, res) => {
         difficultyStats: analysis.difficultyStats,
         detailedQuestions: analysis.detailedQuestions,
         details: analysis.detailedQuestions,
-        totalTime: submission.totalTimeTaken || 0,
+        totalTime: getAttemptSeconds(submission),
         submittedAt: submission.endTime || submission.updatedAt,
         totalMarks: analysis.totalMarks,
         score: analysis.score
@@ -658,6 +685,11 @@ exports.getExamAnalysis = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No completed submission found for this exam' });
     }
 
+    const lockedUntil = resultsLockedUntil(await Exam.findById(examId).select('settings'));
+    if (lockedUntil) {
+      return res.status(403).json({ success: false, message: `Results will be available after ${lockedUntil.toISOString()}`, resultsAvailableAt: lockedUntil });
+    }
+
     // Fetch all questions with correct answers
     const questions = await ExamQuestion.find({ exam: examId })
       .populate('subject', 'name')
@@ -676,7 +708,7 @@ exports.getExamAnalysis = async (req, res) => {
         nestedStats: analysis.nestedStats,
         detailedQuestions: analysis.detailedQuestions,
         details: analysis.detailedQuestions,
-        totalTime: submission.totalTimeTaken || 0,
+        totalTime: getAttemptSeconds(submission),
         submittedAt: submission.endTime || submission.updatedAt,
         totalMarks: analysis.totalMarks,
         score: analysis.score
@@ -721,7 +753,7 @@ exports.getAdminExamAnalysis = async (req, res) => {
         nestedStats: analysis.nestedStats,
         detailedQuestions: analysis.detailedQuestions,
         details: analysis.detailedQuestions,
-        totalTime: submission.totalTimeTaken || 0,
+        totalTime: getAttemptSeconds(submission),
         submittedAt: submission.endTime || submission.updatedAt,
         student: submission.student || submission.publicUser,
         totalMarks: analysis.totalMarks,
@@ -733,6 +765,22 @@ exports.getAdminExamAnalysis = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Server-side exam timing (do not trust the device clock).
+const EXAM_SUBMIT_GRACE_MS = 2 * 60 * 1000;
+
+// Latest moment an attempt may still save answers: the earlier of
+// (attempt start + duration) and the exam window end, plus a small grace.
+const getAttemptDeadline = (settings = {}, submission = {}) => {
+  const limits = [];
+  const startedAt = submission.startTime ? new Date(submission.startTime).getTime() : NaN;
+  const durationMs = Number(settings.durationMinutes) * 60 * 1000;
+  if (Number.isFinite(startedAt) && durationMs > 0) limits.push(startedAt + durationMs);
+  const windowEnd = settings.endTime ? new Date(settings.endTime).getTime() : NaN;
+  if (Number.isFinite(windowEnd)) limits.push(windowEnd);
+  return limits.length ? Math.min(...limits) + EXAM_SUBMIT_GRACE_MS : Infinity;
+};
+exports.getAttemptDeadline = getAttemptDeadline;
 
 exports.startExam = async (req, res) => {
   try {
@@ -747,6 +795,15 @@ exports.startExam = async (req, res) => {
 
     let submission = await ExamSubmission.findOne({ exam: examId, student: studentId });
     if (!submission) {
+      const now = Date.now();
+      const opensAt = exam.settings?.startTime ? new Date(exam.settings.startTime).getTime() : NaN;
+      const closesAt = exam.settings?.endTime ? new Date(exam.settings.endTime).getTime() : NaN;
+      if (Number.isFinite(opensAt) && now < opensAt) {
+        return res.status(403).json({ success: false, message: 'This exam has not started yet' });
+      }
+      if (Number.isFinite(closesAt) && now > closesAt) {
+        return res.status(403).json({ success: false, message: 'This exam has ended' });
+      }
       submission = new ExamSubmission({
         exam: examId,
         student: studentId,
@@ -775,9 +832,36 @@ exports.startExam = async (req, res) => {
   }
 };
 
+// App 1.0.7 (on the Play Store) sends a typed integer answer as
+// `selectedOptionId`, which is not an option id, so Mongoose refused the whole
+// save and the answer was graded as skipped. Move such values to
+// `numericAnswer`, and drop any other non-ObjectId option ids.
+const normalizeAnswerPayload = (body = {}) => {
+  const mongoose = require('mongoose');
+  const isId = (v) => v === null || mongoose.Types.ObjectId.isValid(String(v));
+  const out = { ...body };
+  if (out.selectedOptionId !== undefined && out.selectedOptionId !== '' && !isId(out.selectedOptionId)) {
+    if (out.numericAnswer === undefined || out.numericAnswer === null || out.numericAnswer === '') {
+      out.numericAnswer = String(out.selectedOptionId).trim();
+    }
+    delete out.selectedOptionId;
+  }
+  // Older builds also sent typed answers as `answerText`.
+  const legacyText = out.answerText !== undefined && out.answerText !== null ? String(out.answerText).trim() : '';
+  if (legacyText && out.numericAnswer === undefined && out.subjectiveAnswerText === undefined) {
+    if (legacyText !== '' && !isNaN(Number(legacyText))) out.numericAnswer = legacyText;
+    else out.subjectiveAnswerText = legacyText;
+  }
+  if (out.selectedOptionId === '') out.selectedOptionId = null;
+  if (Array.isArray(out.selectedOptionIds)) out.selectedOptionIds = out.selectedOptionIds.filter((v) => v && isId(v));
+  if (typeof out.numericAnswer === 'number') out.numericAnswer = String(out.numericAnswer);
+  return out;
+};
+exports.normalizeAnswerPayload = normalizeAnswerPayload;
+
 exports.saveAnswer = async (req, res) => {
   try {
-    const { questionId, selectedOptionId, selectedOptionIds, numericAnswer, subjectiveAnswerText, status, violations, timeSpentSeconds } = req.body;
+    const { questionId, selectedOptionId, selectedOptionIds, numericAnswer, subjectiveAnswerText, status, violations, timeSpentSeconds } = normalizeAnswerPayload(req.body);
     const examId = req.params.id;
     const studentId = req.user.userId;
     const ExamSubmission = require('./exam-submission.model');
@@ -785,6 +869,11 @@ exports.saveAnswer = async (req, res) => {
     const submission = await ExamSubmission.findOne({ exam: examId, student: studentId });
     if (!submission || submission.status !== 'IN_PROGRESS') {
       return res.status(400).json({ success: false, message: 'Invalid submission state' });
+    }
+
+    const examTiming = await Exam.findById(examId).select('settings');
+    if (Date.now() > getAttemptDeadline(examTiming?.settings, submission)) {
+      return res.status(403).json({ success: false, message: 'Time is over for this exam' });
     }
 
     const ansIndex = submission.answers.findIndex(a => a?.questionId && a.questionId?.toString() === questionId?.toString());
@@ -882,8 +971,27 @@ exports.submitExam = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid submission' });
     }
 
-    submission.status = req.body.isAutoSubmit ? 'AUTO_SUBMITTED' : 'SUBMITTED';
+    // A late submit is still accepted (so the attempt gets graded), but it is
+    // recorded as auto-submitted; answers saved after the deadline were refused.
+    const examTiming = await Exam.findById(examId).select('settings');
+    const isLate = Date.now() > getAttemptDeadline(examTiming?.settings, submission);
+    submission.status = (req.body.isAutoSubmit || isLate) ? 'AUTO_SUBMITTED' : 'SUBMITTED';
     submission.endTime = new Date();
+
+    if (req.body.timeSpentPerQuestion && typeof req.body.timeSpentPerQuestion === 'object') {
+      submission.timeSpentPerQuestion = Object.fromEntries(
+        Object.entries(req.body.timeSpentPerQuestion).map(([questionId, seconds]) => [
+          questionId,
+          Math.max(0, Math.floor(Number(seconds) || 0)),
+        ]),
+      );
+      // Keep the embedded answer record in sync so existing analysis screens
+      // can show per-question dwell time without a separate query.
+      for (const [questionId, seconds] of Object.entries(req.body.timeSpentPerQuestion)) {
+        const answer = submission.answers.find((item) => String(item.questionId) === String(questionId));
+        if (answer) answer.timeSpentSeconds = Math.max(Number(answer.timeSpentSeconds || 0), Math.max(0, Math.floor(Number(seconds) || 0)));
+      }
+    }
 
     const questions = await ExamQuestion.find({ exam: examId })
       .populate('subject', 'name')

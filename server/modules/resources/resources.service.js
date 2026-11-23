@@ -98,9 +98,17 @@ exports.createResource = async (reqUser, payload) => {
 exports.getResources = async (reqUser, filters = {}) => {
   const query = { instituteId: reqUser.instituteId };
 
-  if (reqUser.role === 'student') {
+  // Parents see exactly what their children see (not the admin view).
+  const isLearner = reqUser.role === 'student' || reqUser.role === 'parent';
+  if (isLearner) {
     query.isActive = { $ne: false };
-    const studentBatches = await BatchModel.find({ students: reqUser.userId });
+    let learnerIds = [reqUser.userId];
+    if (reqUser.role === 'parent') {
+      const UserModel = require('../users/users.model');
+      const parent = await UserModel.findById(reqUser.userId).select('childrenIds').lean();
+      learnerIds = parent?.childrenIds || [];
+    }
+    const studentBatches = await BatchModel.find({ students: { $in: learnerIds } });
     const studentBatchIds = studentBatches.map(c => c._id);
     const studentCourseIds = studentBatches.map(c => c.courseId).filter(Boolean);
 
@@ -188,7 +196,7 @@ exports.getResources = async (reqUser, filters = {}) => {
     .sort({ createdAt: -1 });
 
   // For teachers and students, ensure all parent folders and all child items of matched folders are included!
-  if (reqUser.role === 'teacher' || reqUser.role === 'student' || filters.courseId || filters.batchId) {
+  if (reqUser.role === 'teacher' || isLearner || filters.courseId || filters.batchId) {
     const existingIds = new Set(resources.map(r => r._id.toString()));
     
     // 1. If any matched item is inside a folder path (e.g. /FolderA/SubB/), include all ancestor folders
@@ -246,7 +254,7 @@ exports.getResources = async (reqUser, filters = {}) => {
           folderPath: new RegExp('^' + ffp.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'))
         }))
       };
-      if (reqUser.role === 'student') {
+      if (isLearner) {
         childQuery.isActive = { $ne: false };
       }
 
@@ -270,12 +278,10 @@ exports.getResources = async (reqUser, filters = {}) => {
   return resources.map(r => {
     const doc = r.toObject ? r.toObject() : { ...r };
     if (doc.type !== 'FOLDER' && doc._id && doc.fileUrl) {
-      const isExternalEmbedVideo = doc.type === 'VIDEO' && (
-        doc.fileUrl.includes('youtube.com') || 
-        doc.fileUrl.includes('youtu.be') || 
-        doc.fileUrl.includes('vimeo.com')
-      );
-      if (!isExternalEmbedVideo) {
+      // Videos keep their real URL: the stream proxy buffers the whole file and
+      // has no HTTP Range support, so players cannot play or seek through it.
+      // The list itself is already access-filtered.
+      if (doc.type !== 'VIDEO') {
         doc.fileUrl = `/api/v1/resources/stream/${doc._id}`;
       }
     }
@@ -456,10 +462,24 @@ exports.updateResource = async (reqUser, resourceId, payload) => {
   return await resource.save();
 };
 
+const { ROLES } = require('../../config/constants');
+const STREAM_STAFF_ROLES = new Set([ROLES.ADMIN, ROLES.TEACHER]);
+
+const httpError = (message, statusCode) => Object.assign(new Error(message), { statusCode });
+
+// Learners may only stream a resource that GET /resources would list for them.
+async function assertLearnerCanSeeResource(reqUser, resource) {
+  const visible = await exports.getResources(reqUser);
+  if (!visible.some(r => String(r._id) === String(resource._id))) {
+    throw httpError('You do not have access to this resource.', 403);
+  }
+}
+
 exports.streamResourcePdf = async (reqUser, resourceId, customUrl) => {
   const axios = require('axios');
   let targetUrl = customUrl;
-  
+  const isStaff = STREAM_STAFF_ROLES.has(String(reqUser.role || '').toLowerCase());
+
   if (resourceId) {
     const resource = await Resource.findOne({
       _id: resourceId,
@@ -470,7 +490,19 @@ exports.streamResourcePdf = async (reqUser, resourceId, customUrl) => {
       err.statusCode = 404;
       throw err;
     }
+    if (!isStaff) await assertLearnerCanSeeResource(reqUser, resource);
     targetUrl = resource.fileUrl;
+  } else if (customUrl && !isStaff) {
+    // Not an open proxy: a learner's ?url= must be the file of a resource
+    // they can already see.
+    const resource = await Resource.findOne({ instituteId: reqUser.instituteId, fileUrl: String(customUrl) });
+    if (!resource) throw httpError('You do not have access to this file.', 403);
+    await assertLearnerCanSeeResource(reqUser, resource);
+    targetUrl = resource.fileUrl;
+  }
+
+  if (targetUrl && !/^https?:\/\//i.test(String(targetUrl))) {
+    throw httpError('Invalid file URL', 400);
   }
 
   if (!targetUrl) {

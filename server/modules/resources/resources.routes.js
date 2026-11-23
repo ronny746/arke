@@ -21,16 +21,19 @@ const requireDeveloperToken = require('../../middlewares/developer.middleware');
 
 router.get(
   '/stream',
+  checkAccess('studyMaterials'),
   ResourcesController.streamPdf
 );
 
 router.get(
   '/stream/:id',
+  checkAccess('studyMaterials'),
   ResourcesController.streamPdf
 );
 
 router.get(
   '/:id/stream',
+  checkAccess('studyMaterials'),
   ResourcesController.streamPdf
 );
 

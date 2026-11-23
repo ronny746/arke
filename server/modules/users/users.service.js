@@ -130,12 +130,28 @@ exports.getAllUsers = async (reqUser, query = {}) => {
     filter._id = { $in: Array.from(studentIds) };
   }
 
+  // Students and parents may only list the teachers of their own (or their
+  // children's) batches. They never get the institute's student/parent list.
+  const isLearner = reqUser.role === 'student' || reqUser.role === 'parent';
+  if (isLearner) {
+    if (String(query.role || '').toLowerCase() !== 'teacher') return [];
+    for (const key of Object.keys(filter)) {
+      if (key !== 'instituteId') delete filter[key];
+    }
+    filter.role = 'teacher';
+  }
+
   // If a student is requesting the list of teachers, only return teachers from their enrolled batches
-  if (reqUser.role === 'student' && filter.role === 'teacher') {
+  if (isLearner && filter.role === 'teacher') {
     const BatchModel = require('../batches/batches.model');
+    let learnerIds = [reqUser.userId];
+    if (reqUser.role === 'parent') {
+      const parent = await UserModel.findById(reqUser.userId).select('childrenIds').lean();
+      learnerIds = parent?.childrenIds || [];
+    }
     const studentBatches = await BatchModel.find({
       instituteId: reqUser.instituteId,
-      students: reqUser.userId
+      students: { $in: learnerIds }
     });
     
     const teacherIds = new Set();
@@ -153,10 +169,12 @@ exports.getAllUsers = async (reqUser, query = {}) => {
   // Teachers may identify learners in their own batches, but must never receive
   // student or parent contact details (ARKE portal permission matrix).
   const teacherSafeProjection = 'firstName lastName role metadata profilePictureUrl instituteId isActive';
+  // Learners see a teacher's public profile only (no email/phone/login data).
+  const learnerSafeProjection = 'firstName lastName role metadata.subject metadata.designation metadata.bio metadata.experience profilePictureUrl instituteId isActive';
   let queryBuilder = UserModel.find(filter).select(
     reqUser.role === ROLES.TEACHER || reqUser.role === 'teacher'
       ? teacherSafeProjection
-      : '-password'
+      : isLearner ? learnerSafeProjection : '-password'
   );
   
   if (limit && !isNaN(limit) && limit > 0) {
@@ -169,7 +187,7 @@ exports.getAllUsers = async (reqUser, query = {}) => {
 
   const users = await queryBuilder.exec();
 
-  if (query.role === 'teacher' || (!query.role && users.some(u => u.role === 'teacher'))) {
+  if (filter.role === 'teacher' || (!query.role && users.some(u => u.role === 'teacher'))) {
     const CourseModel = require('../courses/courses.model');
     const BatchModel = require('../batches/batches.model');
     const teacherIds = users.filter(u => u.role === 'teacher').map(u => u._id);
@@ -221,12 +239,25 @@ exports.getAllUsers = async (reqUser, query = {}) => {
 exports.getUserById = async (id, reqUser) => {
   const query = { _id: id };
   if (reqUser?.instituteId) query.instituteId = reqUser.instituteId;
+
+  // A student/parent may read their own profile (and a parent their
+  // children's); any other user only as a teacher's public profile.
+  let projection = reqUser && (reqUser.role === ROLES.TEACHER || reqUser.role === 'teacher')
+    ? 'firstName lastName role metadata profilePictureUrl instituteId isActive'
+    : '-password';
+  if (reqUser && (reqUser.role === 'student' || reqUser.role === 'parent') && String(id) !== String(reqUser.userId)) {
+    let isOwnChild = false;
+    if (reqUser.role === 'parent') {
+      const parent = await UserModel.findById(reqUser.userId).select('childrenIds').lean();
+      isOwnChild = (parent?.childrenIds || []).some(childId => String(childId) === String(id));
+    }
+    if (!isOwnChild) {
+      query.role = 'teacher';
+      projection = 'firstName lastName role metadata.subject metadata.designation metadata.bio metadata.experience profilePictureUrl instituteId isActive';
+    }
+  }
   
-  let queryBuilder = UserModel.findOne(query).select(
-    reqUser && (reqUser.role === ROLES.TEACHER || reqUser.role === 'teacher')
-      ? 'firstName lastName role metadata profilePictureUrl instituteId isActive'
-      : '-password'
-  );
+  let queryBuilder = UserModel.findOne(query).select(projection);
   
   // If we are fetching a parent profile, populate their children to show on the dashboard
   if (reqUser && reqUser.role === ROLES.PARENT) {

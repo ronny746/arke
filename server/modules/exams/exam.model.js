@@ -39,6 +39,18 @@ const examSchema = new mongoose.Schema({
     enum: ['INTERNAL', 'PUBLIC'],
     default: 'INTERNAL'
   },
+  // Controls access to an individual course test. Legacy exams remain paid
+  // (enrollment-gated) so existing access rules are not weakened by default.
+  accessMode: {
+    type: String,
+    enum: ['FREE', 'PAID'],
+    default: 'PAID'
+  },
+  accessPrice: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
   settings: {
     startTime: {
       type: Date,

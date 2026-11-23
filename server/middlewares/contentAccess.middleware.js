@@ -43,6 +43,23 @@ const checkAccess = (feature) => {
   };
 };
 
+// Individual tests can be marked FREE or PAID. FREE tests still require a
+// logged-in student, but do not require course enrollment; PAID tests retain
+// the existing enrollment/feature check.
+const checkExamAccess = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'student' && req.user.role !== 'STUDENT') return next();
+    const Exam = require('../modules/exams/exam.model');
+    const exam = await Exam.findById(req.params.id).select('accessMode');
+    if (exam?.accessMode === 'FREE') return next();
+    return checkAccess('testSeries')(req, res, next);
+  } catch (err) {
+    console.error('Exam Access Check Error:', err);
+    return errorResponse(res, 'Internal Server Error during exam access check', null, 500);
+  }
+};
+
 module.exports = {
-  checkAccess
+  checkAccess,
+  checkExamAccess
 };

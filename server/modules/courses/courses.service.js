@@ -1,4 +1,9 @@
 const CourseModel = require('./courses.model');
+const { slugifyCourseName, liveCourseQuery } = CourseModel;
+
+const isLearnerRole = (role) => role === 'student' || role === 'parent';
+
+const httpError = (message, statusCode) => Object.assign(new Error(message), { statusCode });
 const BatchModel = require('../batches/batches.model');
 const { FeeRecord, PaymentTransaction } = require('../fees-payments/fees-payments.model');
 const InstituteModel = require('../institutes/institutes.model');
@@ -72,6 +77,7 @@ exports.createCourse = async (reqUser, payload) => {
   includeSubjectTeachersAsFaculty(payload);
   const course = new CourseModel({
     ...payload,
+    slug: payload.slug || slugifyCourseName(payload.name),
     instituteId
   });
   return await course.save();
@@ -80,8 +86,9 @@ exports.createCourse = async (reqUser, payload) => {
 exports.getCourses = async (reqUser, filters = {}) => {
   const query = {};
   if (reqUser.instituteId) query.instituteId = reqUser.instituteId;
-  if (reqUser.role === 'student') {
-    query.isPublished = { $ne: false };
+  if (isLearnerRole(reqUser.role)) {
+    // Same visibility as the public catalog: active, published, not ended.
+    query.$and = [liveCourseQuery()];
   }
   if (filters.targetExam && filters.targetExam !== 'ALL') {
     query.$or = [
@@ -126,6 +133,7 @@ exports.getCourseById = async (id, reqUser) => {
   if (reqUser?.instituteId && reqUser.role !== 'student') {
     query.instituteId = reqUser.instituteId;
   }
+  if (isLearnerRole(reqUser?.role)) Object.assign(query, liveCourseQuery());
   return await CourseModel.findOne(query)
     .populate('faculties', 'firstName lastName email phone profilePictureUrl metadata role')
     .populate('subjects.teacherId', 'firstName lastName profilePictureUrl')
@@ -143,6 +151,7 @@ exports.updateCourse = async (id, payload, reqUser) => {
     });
     if (courseWithName) throw duplicateCourseNameError();
   }
+  if (payload.name) payload.slug = slugifyCourseName(payload.name);
   await validateSubjectTeachers(payload, reqUser.instituteId);
   await validateLibrarySubjects(payload, reqUser.instituteId);
   includeSubjectTeachersAsFaculty(payload, existingCourse.faculties || []);
@@ -162,10 +171,19 @@ exports.deleteCourse = async (id, reqUser) => {
 
 exports.enrollCourse = async (id, reqUser, payload) => {
   const course = await CourseModel.findById(id);
-  if (!course) throw new Error('Course not found');
+  if (!course) throw httpError('Course not found', 404);
   
   if (course.endDate && new Date(course.endDate) < new Date()) {
-    throw new Error('This course has ended and is no longer accepting enrollments.');
+    throw httpError('This course has ended and is no longer accepting enrollments.', 400);
+  }
+
+  // Free enrollment only. Paid courses are enrolled by the payment gateway
+  // verify path (payments.service fulfillCourseEnrollment).
+  if ((Number(course.fee) || 0) > 0) {
+    throw httpError('This is a paid course. Please complete payment to enroll.', 400);
+  }
+  if (course.isActive === false || course.isPublished === false) {
+    throw httpError('This course is not open for enrollment.', 400);
   }
   
   const studentId = reqUser.userId || reqUser.id || reqUser._id;
@@ -184,6 +202,13 @@ exports.enrollCourse = async (id, reqUser, payload) => {
 
   if (isProfileIncomplete) {
     throw new Error('Please complete your profile details before enrolling in any course.');
+  }
+
+  // Enrolling twice is a no-op: don't create another fee record / transaction.
+  const alreadyEnrolled = await FeeRecord.exists({ studentId, courseId: course._id })
+    || await BatchModel.exists({ courseId: course._id, students: studentId });
+  if (alreadyEnrolled) {
+    return { success: true, message: 'Already enrolled', alreadyEnrolled: true };
   }
   
   if (user && (!user.metadata || !user.metadata.rollNo)) {
@@ -255,8 +280,17 @@ exports.enrollCourse = async (id, reqUser, payload) => {
 
 exports.getCourseExams = async (id, reqUser) => {
   const mongoose = require('mongoose');
-  if (!id || !mongoose.Types.ObjectId.isValid(id)) return [];
-  const course = await CourseModel.findById(id);
+  if (!id) return [];
+  let course;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    course = await CourseModel.findById(id);
+  } else {
+    course = await CourseModel.findOne({ slug: String(id).toLowerCase() });
+    if (!course) {
+      const candidates = await CourseModel.find({ isActive: true });
+      course = candidates.find(item => slugifyCourseName(item.name) === String(id).toLowerCase());
+    }
+  }
   if (!course) return [];
 
   const batches = await BatchModel.find({ courseId: course._id }).select('_id');

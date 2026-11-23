@@ -51,7 +51,7 @@ function dobPasswordCandidates(value) {
 
 function makeWelcomeMessage({ courseName, batchName, amountPaid, amountDue, timetableUrl }) {
   const remaining = Math.max(0, Number(amountDue || 0) - Number(amountPaid || 0));
-  const timetable = timetableUrl ? ` Your first-week timetable: ${timetableUrl}` : ' Your first-week timetable will appear in the app.';
+  const timetable = timetableUrl ? ` Your first-week timetable: ${timetableUrl}` : ' Open Timetable in the app to see your first-week schedule.';
   return `Welcome to ${courseName}. You are enrolled in ${batchName}. Fee paid: ₹${Number(amountPaid || 0)}. Fee remaining: ₹${remaining}.${timetable}`;
 }
 
