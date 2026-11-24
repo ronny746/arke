@@ -151,6 +151,12 @@ exports.verifyOtp = async (req, res, next) => {
             await OtpModel.deleteOne({ _id: otpRecord._id });
         }
 
+        // The master-OTP path skips the lookup/registration above, so an
+        // unknown number reached here with user === null and crashed.
+        if (!user) {
+            return errorResponse(res, `No registered ${String(requestedRole).toLowerCase()} account was found for this mobile number.`, null, 404);
+        }
+
         // Generate Session ID for single-device verification
         const sessionId = Math.random().toString(36).substring(2, 15);
         user.activeSessionId = sessionId;

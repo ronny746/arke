@@ -293,7 +293,14 @@ exports.getBatchPerformance = async ({ batchId, instituteId, subject }) => {
   let students = [];
 
   if (batchId && batchId !== 'all') {
-    batchDoc = await Batch.findById(batchId).populate('students', 'firstName lastName email metadata isActive').lean();
+    // A missing selection arrives as "undefined"/"null"; that used to throw a
+    // Mongoose CastError (500). Reject it as a bad request instead.
+    if (!require('mongoose').Types.ObjectId.isValid(String(batchId))) {
+      throw Object.assign(new Error('Please select a valid batch.'), { statusCode: 400 });
+    }
+    const batchQuery = { _id: batchId };
+    if (instituteId) batchQuery.instituteId = instituteId;
+    batchDoc = await Batch.findOne(batchQuery).populate('students', 'firstName lastName email metadata isActive').lean();
     if (batchDoc) {
       students = batchDoc.students || [];
     }
