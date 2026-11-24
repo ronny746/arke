@@ -320,6 +320,15 @@ export default function PracticePlayer() {
                     </h3>
                     
                     <div className="mt-4 pt-4 border-t border-gray-200/50">
+                      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                        <span className="font-semibold text-gray-600">Time spent:</span>
+                        <span className="font-bold text-gray-900">{formatTime(currentAnswer?.timeSpentSeconds || 0)}</span>
+                        {(currentAnswer?.timeSpentSeconds || 0) < 10 ? (
+                          <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-800 border border-rose-200">Under 10s: possible guess / not read</span>
+                        ) : (currentAnswer?.timeSpentSeconds || 0) > 300 ? (
+                          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 border border-amber-200">Over 5m: time-heavy</span>
+                        ) : null}
+                      </div>
                       <h4 className="font-bold text-gray-800 mb-2">Explanation:</h4>
                       <div className="prose max-w-none text-gray-700 question-content" dangerouslySetInnerHTML={{ __html: currentAnswer?.explanation || currentQuestion?.explanation || '<p>No explanation provided.</p>' }} />
                     </div>
