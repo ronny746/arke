@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout, Sidebar, Topbar } from '@/components/layout/index.jsx';
-import { Home, FileCheck, Video, LineChart, BookOpen, LayoutList, MessageSquare, ShieldAlert, CreditCard, Sparkles, Calendar, Swords } from 'lucide-react';
+import { Home, FileCheck, Video, LineChart, BookOpen, LayoutList, MessageSquare, ShieldAlert, CreditCard, Sparkles, Calendar, Swords, LifeBuoy } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ProfileCompletionModal } from '@/components/ProfileCompletionModal';
@@ -119,6 +119,7 @@ export default function StudentLayout({ children }) {
         { icon: LineChart, label: 'My Performance', to: '/student/performance' },
         { icon: Calendar, label: 'Attendance', to: '/student/attendance' },
         { icon: CreditCard, label: 'Transactions & Fees', to: '/student/transactions' },
+        { icon: LifeBuoy, label: 'Help & Support', to: '/student/help' },
       ]
     },
     {
