@@ -405,6 +405,18 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
   }
 
   const durationStr = calculateDuration(course.startDate, course.endDate, course.duration);
+  const profileIncomplete = Boolean(
+    user && (
+      !user.firstName ||
+      !user.lastName ||
+      !user.phone ||
+      (user.role !== 'parent' && !user.email) ||
+      user.lastName === '.' ||
+      user.metadata?.isProfileIncomplete === true ||
+      (user.email && user.email.startsWith('student_') && user.email.endsWith('@arke.com')) ||
+      (user.email && user.email.startsWith('parent_') && user.email.endsWith('@arke.com'))
+    )
+  );
   const discountPercent = course.actualFee && course.actualFee > course.fee
     ? Math.round(((course.actualFee - course.fee) / course.actualFee) * 100)
     : 0;
@@ -1242,6 +1254,50 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
 
           </div>
 
+          {/* Phone/tablet: the purchase card sits at the very end of a long page,
+              so keep price + the same action pinned to the bottom of the screen. */}
+          <div className="lg:hidden fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-6px_20px_rgba(11,19,43,0.08)]">
+            <div className="mx-auto flex max-w-3xl items-center gap-3">
+              <div className="min-w-0 shrink-0">
+                <div className="flex items-baseline gap-1.5">
+                  {course.actualFee && course.actualFee > course.fee && (
+                    <span className="text-xs font-semibold text-gray-400 line-through">₹{course.actualFee.toLocaleString()}</span>
+                  )}
+                  <span className="text-xl font-extrabold text-[#0B132B]">₹{course.fee?.toLocaleString() || 0}</span>
+                </div>
+                {discountPercent > 0 && !isEnrolled && (
+                  <span className="text-[11px] font-bold text-emerald-700">{discountPercent}% OFF</span>
+                )}
+              </div>
+              {isEnrolled ? (
+                <button
+                  onClick={() => router.push(`/student/batches`)}
+                  className="flex-1 rounded-xl py-3 text-sm font-bold text-white flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                >
+                  <Play size={16} fill="currentColor" /> Go to My Classroom
+                </button>
+              ) : profileIncomplete ? (
+                <button
+                  onClick={() => router.push(`/${user?.role || 'student'}/profile`)}
+                  className="flex-1 rounded-xl py-3 text-sm font-bold text-white flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #EF4444, #B91C1C)' }}
+                >
+                  Complete Profile to Enroll <ArrowRight size={16} />
+                </button>
+              ) : (
+                <button
+                  onClick={handleBuyClick}
+                  className="flex-1 rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #0B132B, #1C2541)' }}
+                >
+                  <span className="text-[#C99A2E]">{user ? 'Enroll Now' : 'Login to Enroll'}</span>
+                  <ArrowRight size={16} className="text-[#C99A2E]" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Right Column: Sticky Purchase & Batch Status Card */}
           <div className="lg:w-1/3 w-full">
             <div className="sticky top-32 bg-white rounded-3xl border border-gray-200/80 shadow-xl overflow-hidden">
@@ -1316,16 +1372,7 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
                     <Play size={18} fill="currentColor" />
                     <span>Go to My Classroom</span>
                   </button>
-                ) : user && (
-                  !user.firstName || 
-                  !user.lastName || 
-                  !user.phone || 
-                  (user.role !== 'parent' && !user.email) || 
-                  user.lastName === '.' || 
-                  user.metadata?.isProfileIncomplete === true ||
-                  (user.email && user.email.startsWith('student_') && user.email.endsWith('@arke.com')) ||
-                  (user.email && user.email.startsWith('parent_') && user.email.endsWith('@arke.com'))
-                ) ? (
+                ) : profileIncomplete ? (
                   <button 
                     onClick={() => router.push(`/${user.role || 'student'}/profile`)}
                     className="w-full py-4 rounded-2xl text-white font-black text-base transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] shadow-xl flex items-center justify-center gap-2 group"
