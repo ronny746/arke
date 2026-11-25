@@ -15,6 +15,7 @@ export const studentAPI = {
   getTopicFlags: (params) => axiosInstance.get('/performance-flags/me', { params }),
   getTransactions: (params) => axiosInstance.get('/fees-payments/transactions', { params }),
   getMyDues: () => axiosInstance.get('/fees-payments/my-dues'),
+  downloadReceipt: (paymentId) => axiosInstance.get(`/payments/${paymentId}/receipt.pdf`, { responseType: 'blob' }),
   getCoursePlan: (courseId) => axiosInstance.get(`/fees-payments/plan/${courseId}`),
   getMyBatches: () => axiosInstance.get('/batches/my-batches'),
   getLiveClasses: (params) => axiosInstance.get('/live-classes', { params }),

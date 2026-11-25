@@ -1,7 +1,33 @@
 const paymentsService = require('./payments.service');
 const easebuzzService = require('./easebuzz.service');
+const receiptService = require('./receipt.service');
 
 class PaymentsController {
+  /**
+   * GET /api/v1/payments/:id/receipt.pdf
+   * PDF receipt for a successful payment (paying student, their parent, or
+   * an admin of that institute). Add ?inline=1 to view instead of download.
+   */
+  async downloadReceipt(req, res) {
+    try {
+      const data = await receiptService.loadReceiptData(req.user, req.params.id);
+      const pdf = await receiptService.renderReceiptPdf(data);
+      const disposition = req.query.inline === '1' ? 'inline' : 'attachment';
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Length': pdf.length,
+        'Content-Disposition': `${disposition}; filename="ARKE-Receipt-${data.receiptNo}.pdf"`,
+        'Cache-Control': 'private, no-store',
+        'X-Receipt-Number': data.receiptNo
+      });
+      return res.status(200).send(pdf);
+    } catch (err) {
+      const status = err.statusCode || 500;
+      if (status === 500) console.error('[PaymentsController] downloadReceipt error:', err);
+      return res.status(status).json({ success: false, message: status === 500 ? 'Could not generate the receipt.' : err.message });
+    }
+  }
+
   /**
    * POST /api/v1/payments/easebuzz/initiate
    */

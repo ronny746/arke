@@ -18,4 +18,8 @@ router.post('/easebuzz/initiate', authMiddleware, (req, res) => paymentsControll
 router.post('/razorpay/initiate', authMiddleware, (req, res) => paymentsController.initiateRazorpay(req, res));
 router.post('/razorpay/verify', authMiddleware, (req, res) => paymentsController.verifyRazorpay(req, res));
 
+// Receipt PDF for a successful payment (access checked in the service)
+router.get('/:id/receipt.pdf', authMiddleware, (req, res) => paymentsController.downloadReceipt(req, res));
+router.get('/:id/receipt', authMiddleware, (req, res) => paymentsController.downloadReceipt(req, res));
+
 module.exports = router;
