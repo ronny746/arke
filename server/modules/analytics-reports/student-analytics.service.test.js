@@ -8,3 +8,12 @@ test('batch performance rejects a bad batch id with 400 (was a CastError 500)', 
     (e) => e.statusCode === 400
   );
 });
+
+test('subject names are merged regardless of case', () => {
+  const { _canonicalSubjectName } = require('./student-analytics.service');
+  assert.equal(_canonicalSubjectName('PHYSICS'), 'Physics');
+  assert.equal(_canonicalSubjectName(' physics '), 'Physics');
+  assert.equal(_canonicalSubjectName('Maths'), 'Mathematics');
+  assert.equal(_canonicalSubjectName('ORGANIC CHEMISTRY'), 'Organic Chemistry');
+  assert.equal(_canonicalSubjectName(''), '');
+});

@@ -5,6 +5,24 @@ const mongoose = require('mongoose');
 const PracticeSession = require('../practice/practice-session.model');
 require('../exams/category.model');
 
+// One spelling per subject: the question bank mixes "PHYSICS" and "Physics",
+// which otherwise show up as two subjects in accuracy and breakdowns.
+const KNOWN_SUBJECTS = {
+  physics: 'Physics', chemistry: 'Chemistry', mathematics: 'Mathematics',
+  maths: 'Mathematics', math: 'Mathematics', biology: 'Biology',
+  botany: 'Botany', zoology: 'Zoology',
+};
+const canonicalSubjectName = (raw) => {
+  const s = String(raw ?? '').trim().replace(/\s+/g, ' ');
+  if (!s) return '';
+  const known = KNOWN_SUBJECTS[s.toLowerCase()];
+  if (known) return known;
+  if (s === s.toUpperCase() || s === s.toLowerCase()) {
+    return s.split(' ').map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w)).join(' ');
+  }
+  return s;
+};
+
 exports.getStudentPerformance = async (studentId) => {
   const User = require('../users/users.model');
   const Batch = require('../batches/batches.model');
@@ -92,7 +110,7 @@ exports.getStudentPerformance = async (studentId) => {
     // Process answers for subject-wise performance
     const examQuestions = questionsByExam[String(sub.exam?._id)] || [];
     examQuestions.forEach(q => {
-      const subjectName = q.subject?.name || 'General';
+      const subjectName = canonicalSubjectName(q.subject?.name) || 'General';
       const topicName = q.topic?.name || 'General Topic';
       const diffName = q.difficulty || 'Medium';
       const possibleMarks = q.marks || 0;
@@ -183,7 +201,7 @@ exports.getStudentPerformance = async (studentId) => {
       subTotalMarks += possibleMarks;
       
       // Calculate subject stats
-      const subjectName = q.subjectName || 'General';
+      const subjectName = canonicalSubjectName(q.subjectName) || 'General';
       const topicName = q.topicName || 'General Topic';
       const diffName = q.difficulty || 'Medium';
       
@@ -238,7 +256,7 @@ exports.getStudentPerformance = async (studentId) => {
   let grandTotalCorrect = 0;
 
   const processSubjectNode = (s) => {
-    const subjectName = String(s.subject || '').trim();
+    const subjectName = canonicalSubjectName(s.subject);
     const attempted = s.attempted || 0;
     const correct = s.correct || 0;
 
@@ -696,3 +714,5 @@ exports.getBatchPerformance = async ({ batchId, instituteId, subject }) => {
   };
 };
 
+
+module.exports._canonicalSubjectName = canonicalSubjectName;
