@@ -78,3 +78,10 @@ test('question image URL is added to the question HTML once', () => {
   const again = inlineQuestionImages({ ...q });
   assert.equal(again.questionText, q.questionText);
 });
+
+test('warning counters never go down when merged', () => {
+  const { _mergeViolations } = require('./exam.controller');
+  assert.deepEqual(_mergeViolations({ tabSwitches: 2, fullScreenExits: 0 }, { tabSwitches: 0 }).tabSwitches, 2);
+  assert.equal(_mergeViolations({ tabSwitches: 1 }, { tabSwitches: 3 }).tabSwitches, 3);
+  assert.equal(_mergeViolations(undefined, { tabSwitches: 1 }).tabSwitches, 1);
+});

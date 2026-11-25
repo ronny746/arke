@@ -790,6 +790,20 @@ exports.getAttemptDeadline = getAttemptDeadline;
 // The test rules (proctoring, warning limit, duration) without starting the
 // clock, so the app can explain them and ask for the camera first: the
 // permission pop-up then never eats exam time.
+// Warning counters only ever go up: a reopened app starting from 0, or a late
+// request, must never lower the count already recorded for this attempt.
+const mergeViolations = (current, incoming) => {
+  const base = current && typeof current.toObject === 'function' ? current.toObject() : { ...(current || {}) };
+  const next = { ...base, ...(incoming || {}) };
+  ['tabSwitches', 'fullScreenExits'].forEach((key) => {
+    const a = Number(base[key]) || 0;
+    const b = Number(incoming?.[key]);
+    next[key] = Number.isFinite(b) ? Math.max(a, b) : a;
+  });
+  return next;
+};
+exports._mergeViolations = mergeViolations;
+
 exports.getExamRules = async (req, res) => {
   try {
     const exam = await Exam.findById(req.params.id).select('status settings security title');
@@ -927,6 +941,15 @@ const saveAnswerOnce = async (req, res, canRetry) => {
       return res.status(403).json({ success: false, message: 'Time is over for this exam' });
     }
 
+    // A warnings-only update (the app reports each time the student leaves
+    // the test, so closing and reopening the app can't reset the count).
+    if (!questionId) {
+      if (!violations) return res.status(400).json({ success: false, message: 'questionId is required' });
+      submission.violations = mergeViolations(submission.violations, violations);
+      await submission.save();
+      return res.status(200).json({ success: true });
+    }
+
     const ansIndex = submission.answers.findIndex(a => a?.questionId && a.questionId?.toString() === questionId?.toString());
     if (ansIndex !== -1) {
       if (selectedOptionId !== undefined) submission.answers[ansIndex].selectedOptionId = selectedOptionId;
@@ -950,7 +973,7 @@ const saveAnswerOnce = async (req, res, canRetry) => {
     }
 
     if (violations) {
-      submission.violations = { ...submission.violations, ...violations };
+      submission.violations = mergeViolations(submission.violations, violations);
     }
 
     await submission.save();
@@ -1089,7 +1112,7 @@ exports.submitExam = async (req, res) => {
     submission.totalUnattempted = unattempted;
 
     if (req.body.violations) {
-      submission.violations = { ...submission.violations, ...req.body.violations };
+      submission.violations = mergeViolations(submission.violations, req.body.violations);
     }
 
     await submission.save();
