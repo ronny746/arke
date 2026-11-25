@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -26,11 +26,12 @@ import {
   Shield,
   Compass,
   Check,
-  Globe
+  Globe,
+  Lock
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LoginModal } from '@/components/LoginModal';
+import { LoginModal, type PortalUser } from '@/components/LoginModal';
 import { ShaktiPlanner } from '@/components/course/ShaktiPlanner';
 
 const calculateDuration = (start: any, end: any, fallback: string) => {
@@ -212,6 +213,20 @@ function RazorpayPaymentModal({ course, onClose, onAuthError }: { course: any; o
   );
 }
 
+// Payment (Razorpay) needs only a real name and phone; email is optional.
+function isProfileIncomplete(u: any) {
+  const bad = (v?: string) => !v || !String(v).trim() || v === '.' || v === 'Student';
+  return bad(u?.firstName) || bad(u?.lastName) || !u?.phone || u?.metadata?.isProfileIncomplete === true;
+}
+
+// Target exam id used in the student profile (see LoginModal EXAM_GOALS).
+function courseGoalId(course: any): string | undefined {
+  const t = `${course?.targetExam || ''} ${course?.name || ''}`;
+  if (/neet/i.test(t)) return 'NEET';
+  if (/jee/i.test(t)) return 'IIT-JEE';
+  return undefined;
+}
+
 export default function PublicCourseOverviewPage({ identifier }: { identifier?: string } = {}) {
   const params = useParams();
   const id = identifier || params?.id;
@@ -224,6 +239,9 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
   const [activeTab, setActiveTab] = useState<'description' | 'classroom' | 'test-series' | 'faculties' | 'faqs'>('description');
   const [showPayment, setShowPayment] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  // Test the student tapped before signing in; opened right after login.
+  const pendingExamRef = useRef<any>(null);
+  const testsSectionRef = useRef<HTMLDivElement>(null);
   
   // Dynamic exams list for test series
   const [exams, setExams] = useState<any[]>([]);
@@ -331,6 +349,7 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
   const handleExamAccess = (exam: any) => {
     const token = localStorage.getItem('token');
     if (!token || !user) {
+      pendingExamRef.current = exam;
       toast('Please login to continue.', { icon: '👋' });
       setIsLoginModalOpen(true);
       return;
@@ -342,6 +361,36 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
     handleBuyClick();
   };
 
+  const showTests = () => {
+    setActiveTab('test-series');
+    requestAnimationFrame(() => {
+      const el = testsSectionRef.current;
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 140, behavior: 'smooth' });
+    });
+  };
+
+  // After login on this page: open the test the student tapped, otherwise
+  // take them straight to the free tests.
+  const handleLoggedIn = (loggedIn: PortalUser | null) => {
+    if (!loggedIn) return;
+    setUser(loggedIn);
+    const exam = pendingExamRef.current;
+    pendingExamRef.current = null;
+    if (loggedIn.role && loggedIn.role !== 'student') return;
+    if (exam) {
+      if (exam.accessMode === 'FREE') {
+        router.push(`/student/exams/${exam._id}/play`);
+      } else {
+        handleBuyClick(loggedIn);
+      }
+      return;
+    }
+    if (exams.some((e) => e.accessMode === 'FREE')) {
+      showTests();
+      toast.success('Your free tests are ready. Start any one below.');
+    }
+  };
+
   const handleAuthError = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -351,25 +400,17 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
     setIsLoginModalOpen(true);
   };
 
-  const handleBuyClick = () => {
+  const handleBuyClick = (who: any = user) => {
     const token = localStorage.getItem('token');
-    if (!token || !user) {
+    if (!token || !who) {
       toast('Please login to continue.', { icon: '👋' });
       setIsLoginModalOpen(true);
       return;
     }
-    const isIncomplete = 
-      !user.firstName || 
-      !user.lastName || 
-      !user.phone || 
-      (user.role !== 'parent' && !user.email) || 
-      (user.email && user.email.startsWith('student_') && user.email.endsWith('@arke.com')) ||
-      (user.email && user.email.startsWith('parent_') && user.email.endsWith('@arke.com'));
-
-    if (isIncomplete) {
+    if (isProfileIncomplete(who)) {
       toast.error('Please complete your profile details before enrolling.');
       setTimeout(() => {
-        router.push(`/${user.role || 'student'}/profile`);
+        router.push(`/${who.role || 'student'}/profile`);
       }, 1500);
       return;
     }
@@ -405,18 +446,7 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
   }
 
   const durationStr = calculateDuration(course.startDate, course.endDate, course.duration);
-  const profileIncomplete = Boolean(
-    user && (
-      !user.firstName ||
-      !user.lastName ||
-      !user.phone ||
-      (user.role !== 'parent' && !user.email) ||
-      user.lastName === '.' ||
-      user.metadata?.isProfileIncomplete === true ||
-      (user.email && user.email.startsWith('student_') && user.email.endsWith('@arke.com')) ||
-      (user.email && user.email.startsWith('parent_') && user.email.endsWith('@arke.com'))
-    )
-  );
+  const profileIncomplete = Boolean(user && isProfileIncomplete(user));
   const discountPercent = course.actualFee && course.actualFee > course.fee
     ? Math.round(((course.actualFee - course.fee) / course.actualFee) * 100)
     : 0;
@@ -596,11 +626,19 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
 
   return (
     <div className="min-h-screen bg-[#F4F6F9] font-sans pb-24 text-gray-900">
-      <LoginModal isOpen={isLoginModalOpen} redirectOnSuccess={false} onClose={() => {
-        setIsLoginModalOpen(false);
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) setUser(JSON.parse(storedUser));
-      }} />
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        redirectOnSuccess={false}
+        variant="course"
+        courseGoal={courseGoalId(course)}
+        onSuccess={handleLoggedIn}
+        onClose={() => {
+          setIsLoginModalOpen(false);
+          if (!localStorage.getItem('token')) pendingExamRef.current = null;
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) setUser(JSON.parse(storedUser));
+        }}
+      />
 
       {/* Top Main Navbar */}
       <header className="sticky top-0 inset-x-0 z-50 bg-[#0B132B] text-white shadow-md border-b border-gray-800">
@@ -843,7 +881,7 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
                 </div>
 
                 {isShaktiSeries && (
-                  <ShaktiPlanner onEnroll={handleBuyClick} isEnrolled={isEnrolled} />
+                  <ShaktiPlanner onEnroll={() => handleBuyClick()} isEnrolled={isEnrolled} />
                 )}
 
                 {/* Batch Highlights Grid - 6 Key Features */}
@@ -1021,7 +1059,7 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
 
             {/* TAB 3: TEST SERIES / EXAMS */}
             {activeTab === 'test-series' && (
-              <div className="space-y-6 animate-fadeIn">
+              <div ref={testsSectionRef} className="space-y-6 animate-fadeIn">
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
@@ -1061,6 +1099,11 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
                               <span className="text-xs font-bold text-gray-500">
                                 Test #{idx + 1}
                               </span>
+                              {exam.accessMode === 'FREE' ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">Free</span>
+                              ) : !isEnrolled ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1"><Lock size={10} /> Locked</span>
+                              ) : null}
                             </div>
                             <h4 className="font-black text-gray-900 text-base">{exam.title || exam.name || `Full Syllabus Mock Exam ${idx + 1}`}</h4>
                             <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 font-medium">
@@ -1082,13 +1125,21 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
                                 <span>Attempt Test</span>
                                 <ArrowRight size={14} />
                               </button>
+                            ) : exam.accessMode === 'FREE' ? (
+                              <button 
+                                onClick={() => handleExamAccess(exam)}
+                                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                              >
+                                <span>Login to Start Free</span>
+                                <ArrowRight size={14} />
+                              </button>
                             ) : (
                               <button 
                                 onClick={() => handleExamAccess(exam)}
-                                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#C99A2E] hover:bg-[#B4881F] text-[#0B132B] font-black text-xs transition-all flex items-center justify-center gap-1.5"
                               >
-                                <span>{exam.accessMode === 'FREE' ? 'Login to Attempt' : 'Buy to Unlock'}</span>
-                                <ArrowRight size={14} />
+                                <Lock size={14} />
+                                <span>Unlock{course.fee ? ` · ₹${Number(course.fee).toLocaleString('en-IN')}` : ''}</span>
                               </button>
                             )}
                             </div>
@@ -1115,7 +1166,7 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
                             </p>
                           </div>
                           <button 
-                            onClick={handleBuyClick}
+                            onClick={() => handleBuyClick()}
                             className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs transition-all"
                           >
                             {isEnrolled ? 'View Syllabus' : 'Unlock with Batch'}
@@ -1287,7 +1338,7 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
                 </button>
               ) : (
                 <button
-                  onClick={handleBuyClick}
+                  onClick={() => handleBuyClick()}
                   className="flex-1 rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2"
                   style={{ background: 'linear-gradient(135deg, #0B132B, #1C2541)' }}
                 >
@@ -1383,7 +1434,7 @@ export default function PublicCourseOverviewPage({ identifier }: { identifier?: 
                   </button>
                 ) : (
                   <button 
-                    onClick={handleBuyClick}
+                    onClick={() => handleBuyClick()}
                     className="w-full py-4 rounded-2xl text-white font-black text-base transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 group"
                     style={{ background: 'linear-gradient(135deg, #0B132B, #1C2541)' }}
                   >

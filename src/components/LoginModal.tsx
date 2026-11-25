@@ -28,10 +28,18 @@ interface LoginModalProps {
   onClose: () => void;
   onSwitchToSignup?: () => void;
   redirectOnSuccess?: boolean | string;
+  // "course": short details form (name, surname, class, state, city, PIN)
+  // used when a student signs in from a course page.
+  variant?: "default" | "course";
+  // Target exam to store for the course form (NEET / IIT-JEE / ...).
+  courseGoal?: string;
+  // Called with the signed-in user after login (and details) finish.
+  onSuccess?: (user: PortalUser | null) => void;
 }
 
-type PortalUser = {
+export type PortalUser = {
   firstName?: string;
+  phone?: string;
   lastName?: string;
   email?: string;
   role?: string;
@@ -84,13 +92,39 @@ const CLASSES = [
   { id: "Dropper", label: "12th Pass / Dropper" }
 ];
 
+// Course-page form: students preparing for a 2027 exam are in Class 12 or
+// have passed it ("Class 13" = 12th pass / dropper).
+const COURSE_CLASSES = [
+  { id: "Class 12", label: "Class 12" },
+  { id: "Dropper", label: "Class 13 (12th Pass / Dropper)" }
+];
+const OTHER_CITY = "__other__";
+
+const FIELD_LABEL = "block text-[11px] font-bold text-[#0B132B] uppercase tracking-wider mb-1";
+const FIELD_INPUT = "w-full px-3.5 py-2.5 rounded-xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-sm font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all";
+
+const isPlaceholderName = (v?: string) => !v || !v.trim() || v.trim() === "Student" || v.trim() === ".";
+
+// The course form asks only for what is still missing.
+const courseDetailsMissing = (user: PortalUser) => {
+  const m = (user.metadata || {}) as Record<string, unknown>;
+  return (
+    isPlaceholderName(user.firstName) ||
+    isPlaceholderName(user.lastName) ||
+    !m.studentClass ||
+    !m.state ||
+    !m.city ||
+    !/^\d{6}$/.test(String(m.pincode || ""))
+  );
+};
+
 const MEDIUMS = [
   { id: "Hinglish", label: "Hinglish (Hindi + English)" },
   { id: "English", label: "English" },
   { id: "Hindi", label: "Hindi" }
 ];
 
-export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginModalProps) {
+export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant = "default", courseGoal, onSuccess }: LoginModalProps) {
   // Step: 1 = registered mobile number, 2 = mobile OTP, 3 = student profile details.
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -110,6 +144,25 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
   const [selectedGoal, setSelectedGoal] = useState("NEET");
   const [selectedClass, setSelectedClass] = useState("Class 11");
   const [selectedMedium, setSelectedMedium] = useState("Hinglish");
+
+  // Course-form fields
+  const [firstNameInput, setFirstNameInput] = useState("");
+  const [lastNameInput, setLastNameInput] = useState("");
+  const [courseClass, setCourseClass] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [cityName, setCityName] = useState("");
+  const [otherCity, setOtherCity] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [citiesByState, setCitiesByState] = useState<Record<string, string[]> | null>(null);
+
+  // Load the state -> city list only when the course form is shown.
+  useEffect(() => {
+    if (variant !== "course" || step !== 3 || citiesByState) return;
+    fetch("/data/india-states-cities.json")
+      .then((r) => r.json())
+      .then((d) => setCitiesByState(d))
+      .catch(() => setCitiesByState({}));
+  }, [variant, step, citiesByState]);
 
   // Reset state on modal open
   useEffect(() => {
@@ -195,12 +248,24 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
     if (typeof user.metadata?.targetExam === "string") setSelectedGoal(user.metadata.targetExam);
     if (typeof user.metadata?.studentClass === "string") setSelectedClass(user.metadata.studentClass);
     if (typeof user.metadata?.medium === "string") setSelectedMedium(user.metadata.medium);
+    if (variant === "course") {
+      const m = (user.metadata || {}) as Record<string, unknown>;
+      setFirstNameInput(isPlaceholderName(user.firstName) ? "" : String(user.firstName));
+      setLastNameInput(isPlaceholderName(user.lastName) ? "" : String(user.lastName));
+      setCourseClass(COURSE_CLASSES.some((c) => c.id === m.studentClass) ? String(m.studentClass) : "");
+      setStateName(typeof m.state === "string" ? m.state : "");
+      setCityName(typeof m.city === "string" ? m.city : "");
+      setOtherCity("");
+      setPincode(/^\d{6}$/.test(String(m.pincode || "")) ? String(m.pincode) : "");
+    }
 
     // Parents are linked and managed by the institute. They should enter the
     // parent portal immediately after a successful OTP sign-in, not be sent
     // through a student-course preference form.
     const needsDetails = user.role === "student" && (
-      isNewUser || !user.firstName || user.firstName === "Student" || isDummyEmail || !user.metadata?.targetExam || user.metadata?.isProfileIncomplete === true
+      variant === "course"
+        ? isNewUser || courseDetailsMissing(user)
+        : isNewUser || !user.firstName || user.firstName === "Student" || isDummyEmail || !user.metadata?.targetExam || user.metadata?.isProfileIncomplete === true
     );
     if (needsDetails) {
       setStep(3);
@@ -273,8 +338,54 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
     }
   };
 
+  // Course-page details: name, surname, class, state, city, PIN.
+  const handleSaveCourseDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const city = cityName === OTHER_CITY ? otherCity.trim() : cityName;
+    if (!firstNameInput.trim()) return void toast.error("Please enter your name.");
+    if (!lastNameInput.trim()) return void toast.error("Please enter your surname.");
+    if (!courseClass) return void toast.error("Please select your class.");
+    if (!stateName) return void toast.error("Please select your state.");
+    if (!city) return void toast.error("Please select your city.");
+    if (!/^\d{6}$/.test(pincode)) return void toast.error("Please enter a valid 6-digit PIN code.");
+
+    setIsLoading(true);
+    const firstName = firstNameInput.trim();
+    const lastName = lastNameInput.trim();
+    const metadata = {
+      ...(loggedInUser?.metadata || {}),
+      ...(courseGoal ? { targetExam: courseGoal } : {}),
+      studentClass: courseClass,
+      state: stateName,
+      city,
+      pincode,
+      isProfileIncomplete: false
+    };
+    try {
+      const res = await fetch("/api/v1/users/me", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken || localStorage.getItem("token")}`
+        },
+        body: JSON.stringify({ firstName, lastName, metadata })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.message || "Could not save your details.");
+      const finalUser = { ...(loggedInUser || {}), firstName, lastName, metadata };
+      localStorage.setItem("user", JSON.stringify(finalUser));
+      toast.success(`Welcome, ${firstName}!`);
+      finalizeLogin(finalUser);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save your details.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const finalizeLogin = (user: PortalUser | null) => {
     onClose();
+    onSuccess?.(user);
     if (redirectOnSuccess) {
       if (typeof redirectOnSuccess === "string") {
         window.location.href = redirectOnSuccess;
@@ -530,7 +641,87 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true }: LoginM
                 {/* ═══════════════════════════════════════════════════════════════
                     STEP 3: PROVIDE DETAILS (Full Name + Gmail + Exam Preferences)
                    ═══════════════════════════════════════════════════════════════ */}
-                {step === 3 && (
+                {step === 3 && variant === "course" && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                  >
+                    <div className="mb-5">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C99A2E]/15 border border-[#C99A2E]/30 text-[#9A6E1C] text-[11px] font-bold uppercase tracking-wider mb-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#C99A2E]" />
+                        One last step
+                      </div>
+                      <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Your details</h4>
+                      <p className="text-gray-500 text-xs mt-0.5">Fill these once to start your tests.</p>
+                    </div>
+
+                    <form noValidate onSubmit={handleSaveCourseDetails} className="space-y-3.5">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="cd-first" className={FIELD_LABEL}>Name <span className="text-red-500">*</span></label>
+                          <input id="cd-first" type="text" autoComplete="given-name" autoFocus value={firstNameInput} onChange={(e) => setFirstNameInput(e.target.value)} placeholder="e.g. Aryan" className={FIELD_INPUT} />
+                        </div>
+                        <div>
+                          <label htmlFor="cd-last" className={FIELD_LABEL}>Surname <span className="text-red-500">*</span></label>
+                          <input id="cd-last" type="text" autoComplete="family-name" value={lastNameInput} onChange={(e) => setLastNameInput(e.target.value)} placeholder="e.g. Sharma" className={FIELD_INPUT} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="cd-class" className={FIELD_LABEL}>Class <span className="text-red-500">*</span></label>
+                        <select id="cd-class" value={courseClass} onChange={(e) => setCourseClass(e.target.value)} className={FIELD_INPUT}>
+                          <option value="">Select class</option>
+                          {COURSE_CLASSES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="cd-state" className={FIELD_LABEL}>State <span className="text-red-500">*</span></label>
+                          <select id="cd-state" value={stateName} onChange={(e) => { setStateName(e.target.value); setCityName(""); setOtherCity(""); }} className={FIELD_INPUT}>
+                            <option value="">{citiesByState ? "Select state" : "Loading..."}</option>
+                            {Object.keys(citiesByState || {}).map((s) => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="cd-city" className={FIELD_LABEL}>City <span className="text-red-500">*</span></label>
+                          <select id="cd-city" value={cityName} disabled={!stateName} onChange={(e) => setCityName(e.target.value)} className={`${FIELD_INPUT} disabled:opacity-60`}>
+                            <option value="">{stateName ? "Select city" : "Select state first"}</option>
+                            {cityName && cityName !== OTHER_CITY && !(citiesByState?.[stateName] || []).includes(cityName) && (
+                              <option value={cityName}>{cityName}</option>
+                            )}
+                            {(citiesByState?.[stateName] || []).map((c) => <option key={c} value={c}>{c}</option>)}
+                            {stateName && <option value={OTHER_CITY}>Other (type your city)</option>}
+                          </select>
+                        </div>
+                      </div>
+                      {cityName === OTHER_CITY && (
+                        <input aria-label="Your city" type="text" autoComplete="address-level2" value={otherCity} onChange={(e) => setOtherCity(e.target.value)} placeholder="Type your city" className={FIELD_INPUT} />
+                      )}
+
+                      <div>
+                        <label htmlFor="cd-pin" className={FIELD_LABEL}>PIN code <span className="text-red-500">*</span></label>
+                        <input id="cd-pin" type="text" inputMode="numeric" autoComplete="postal-code" maxLength={6} value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6-digit PIN code" className={`${FIELD_INPUT} tracking-wider`} />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-3.5 rounded-xl font-black text-white text-sm transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2 mt-2"
+                        style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 50%, #C99A2E 100%)" }}
+                      >
+                        {isLoading ? (
+                          <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></>
+                        ) : (
+                          <><span>Save &amp; Continue</span><ArrowRight className="w-4 h-4" /></>
+                        )}
+                      </button>
+                    </form>
+                  </motion.div>
+                )}
+
+                {step === 3 && variant !== "course" && (
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}

@@ -205,7 +205,10 @@ export default function CheckoutClient() {
             toast.dismiss();
             if (verifyData.success) {
               toast.success('Payment successful! Course enrolled.');
-              router.push(`/payment/status?status=success&txnid=${response.razorpay_order_id}&courseId=${course._id}`);
+              // Test-series-only courses open on their Tests tab, now unlocked.
+              const a = course.access || {};
+              const testsOnly = a.testSeries && !a.liveClasses && !a.studyMaterials && !a.dpps;
+              router.push(`/payment/status?status=success&txnid=${response.razorpay_order_id}&courseId=${course._id}${testsOnly ? '&tab=test-series' : ''}`);
             } else {
               toast.error(verifyData.message || 'Payment verification failed.');
               setPaying(false);

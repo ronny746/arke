@@ -15,6 +15,7 @@ function PaymentStatusContent() {
   const txnid = searchParams.get('txnid') || '';
   const easepayid = searchParams.get('easepayid') || '';
   const courseId = searchParams.get('courseId') || '';
+  const tabQuery = searchParams.get('tab') === 'test-series' ? '?tab=test-series' : '';
   const initialAmount = searchParams.get('amount') || '';
   const errorMessage = searchParams.get('message') || '';
 
@@ -88,7 +89,7 @@ function PaymentStatusContent() {
           // Redirect to enrolled course
           const userStr = localStorage.getItem('user');
           const user = userStr ? JSON.parse(userStr) : null;
-          const destination = user?.role === 'student' ? `/student/course/${targetCourseId}` : `/course/${targetCourseId}`;
+          const destination = user?.role === 'student' ? `/student/course/${targetCourseId}${tabQuery}` : `/course/${targetCourseId}`;
           router.push(destination);
           return 0;
         }
@@ -97,7 +98,7 @@ function PaymentStatusContent() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isSuccess, targetCourseId, router]);
+  }, [isSuccess, targetCourseId, router, tabQuery]);
 
   const displayAmount = txnData?.amountPaid || initialAmount;
   const courseName = txnData?.courseId?.name || 'Enrolled Course';
@@ -210,7 +211,7 @@ function PaymentStatusContent() {
                 <>
                   {courseId ? (
                     <Link
-                      href={`/student/course/${courseId}`}
+                      href={`/student/course/${courseId}${tabQuery}`}
                       className="w-full py-3.5 px-4 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
                     >
                       <BookOpen size={18} />
