@@ -106,6 +106,13 @@ router.get(
   ExamController.getExamAnalysis
 );
 
+router.get(
+  '/:id/rules',
+  requireRole([ROLES.STUDENT]),
+  checkExamAccess,
+  ExamController.getExamRules
+);
+
 router.post(
   '/:id/start',
   requireRole([ROLES.STUDENT]),

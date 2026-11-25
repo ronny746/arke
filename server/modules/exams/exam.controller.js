@@ -4,6 +4,22 @@ const ExamService = require('./exam.service');
 const { getTopicFlag } = require('../arke-portal/portal.rules');
 const FlagService = require('../performance-flags/performance-flags.service');
 const { createRemedialSessions } = require('../arke-portal/remedial.service');
+const { gradeAnswer, findStudentAnswer } = require('./answer-grading');
+
+// questionImageUrl (set by the ARKE paper import) was never shown by the app
+// or the web player, so graph/diagram questions had no picture. Put it into
+// the question HTML as well; clients that already show the field skip an
+// image whose URL is in the text.
+const inlineQuestionImages = (qObj) => {
+  if (!qObj) return qObj;
+  const url = typeof qObj.questionImageUrl === 'string' ? qObj.questionImageUrl.trim() : '';
+  const text = typeof qObj.questionText === 'string' ? qObj.questionText : '';
+  if (url && !text.includes(url)) {
+    qObj.questionText = `${text}<p><img src="${url.replace(/"/g, '&quot;')}" alt="Question figure" /></p>`;
+  }
+  return qObj;
+};
+exports.inlineQuestionImages = inlineQuestionImages;
 
 const calculateAnalysisData = (submission, questions, averageTimeByQuestion = new Map()) => {
   let totalMarks = 0;
@@ -20,10 +36,11 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
 
   const detailedQuestions = questions.map(q => {
     const qObj = q.toObject();
-    const userAns = submission.answers && submission.answers.find(a => a?.questionId && q?._id && a.questionId?.toString() === q._id?.toString());
-    
+    const userAns = findStudentAnswer(submission.answers, q?._id);
+    inlineQuestionImages(qObj);
+
     // Initialize Subject stats
-    const subject = q.subject?.name || 'General';
+    const subject = q.subject?.name || q.subjectName || 'General';
     if (!subjectStats[subject]) {
       subjectStats[subject] = {
         totalQuestions: 0,
@@ -38,7 +55,7 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
     subjectStats[subject].totalMarks += q.marks || 0;
 
     // Initialize Topic stats
-    const topic = q.topic?.name || 'General';
+    const topic = q.topic?.name || q.topicName || 'General';
     if (!topicStats[topic]) {
       topicStats[topic] = {
         totalQuestions: 0,
@@ -86,44 +103,10 @@ const calculateAnalysisData = (submission, questions, averageTimeByQuestion = ne
     qObj.studentTimeSeconds = Number(userAns?.timeSpentSeconds || 0);
     qObj.averageTimeSeconds = Number(averageTimeByQuestion.get(String(q._id)) || 0);
     qObj.timingCategory = 'UNRECORDED';
-    let isCorrect = false;
+    // Shared with submitExam (answer-grading.js). A question only marked for
+    // review, with no value, is not attempted.
+    const { attempted, isCorrect } = gradeAnswer(q, userAns);
     let marksObtained = 0;
-    let attempted = false;
-
-    const hasOptions = Array.isArray(q.options) && q.options.length > 0;
-    const isIntegerOrNumerical = ['INTEGER', 'NUMERICAL'].includes(q.type) || (!hasOptions && q.correctAnswerText);
-    const isMultipleCorrect = q.type === 'MULTIPLE_CORRECT';
-
-    if (userAns) {
-      if (isIntegerOrNumerical || q.type === 'FILL_BLANKS') {
-        const studentVal = (userAns.numericAnswer ?? userAns.subjectiveAnswerText ?? '').toString().trim();
-        if (studentVal) {
-          attempted = true;
-          const expectedVal = (q.correctAnswerText || '').toString().trim();
-          const isNumEqual = !isNaN(Number(studentVal)) && !isNaN(Number(expectedVal)) && Math.abs(Number(studentVal) - Number(expectedVal)) < 0.0001;
-          const isStrEqual = studentVal.toLowerCase() === expectedVal.toLowerCase();
-          isCorrect = isNumEqual || isStrEqual;
-        }
-      } else if (isMultipleCorrect) {
-        const studentSelected = (userAns.selectedOptionIds && userAns.selectedOptionIds.length > 0)
-          ? userAns.selectedOptionIds.map(id => id.toString())
-          : (userAns.selectedOptionId ? [userAns.selectedOptionId.toString()] : []);
-        if (studentSelected.length > 0) {
-          attempted = true;
-          const correctOptIds = (q.options || []).filter(o => o.isCorrect).map(o => o._id.toString());
-          isCorrect = correctOptIds.length === studentSelected.length &&
-            correctOptIds.every(id => studentSelected.includes(id));
-        }
-      } else {
-        if (userAns.selectedOptionId) {
-          attempted = true;
-          const correctOpt = (q.options || []).find(o => o.isCorrect);
-          if (correctOpt && correctOpt._id?.toString() === userAns.selectedOptionId?.toString()) {
-            isCorrect = true;
-          }
-        }
-      }
-    }
 
     if (attempted) {
       subjectStats[subject].attempted++;
@@ -804,6 +787,31 @@ const getAttemptDeadline = (settings = {}, submission = {}) => {
 };
 exports.getAttemptDeadline = getAttemptDeadline;
 
+// The test rules (proctoring, warning limit, duration) without starting the
+// clock, so the app can explain them and ask for the camera first: the
+// permission pop-up then never eats exam time.
+exports.getExamRules = async (req, res) => {
+  try {
+    const exam = await Exam.findById(req.params.id).select('status settings security title');
+    if (!exam || exam.status !== 'PUBLISHED') {
+      return res.status(400).json({ success: false, message: 'Exam is not available' });
+    }
+    const ExamSubmission = require('./exam-submission.model');
+    const submission = await ExamSubmission.findOne({ exam: exam._id, student: req.user.userId }).select('status startTime');
+    return res.status(200).json({
+      success: true,
+      data: {
+        settings: exam.settings,
+        security: exam.security,
+        started: Boolean(submission),
+        submissionStatus: submission ? submission.status : 'NOT_STARTED',
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 exports.startExam = async (req, res) => {
   try {
     const examId = req.params.id;
@@ -816,6 +824,7 @@ exports.startExam = async (req, res) => {
     }
 
     let submission = await ExamSubmission.findOne({ exam: examId, student: studentId });
+
     if (!submission) {
       const now = Date.now();
       const opensAt = exam.settings?.startTime ? new Date(exam.settings.startTime).getTime() : NaN;
@@ -838,7 +847,8 @@ exports.startExam = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Exam already submitted' });
     }
 
-    const questions = await ExamQuestion.find({ exam: examId }).select('-options.isCorrect -correctAnswerText').populate('subject', 'name').sort({ order: 1 });
+    const questions = (await ExamQuestion.find({ exam: examId }).select('-options.isCorrect -correctAnswerText').populate('subject', 'name').sort({ order: 1 }))
+      .map((q) => inlineQuestionImages(q.toObject()));
 
     res.status(200).json({
       success: true,
@@ -854,34 +864,53 @@ exports.startExam = async (req, res) => {
   }
 };
 
-// App 1.0.7 (on the Play Store) sends a typed integer answer as
-// `selectedOptionId`, which is not an option id, so Mongoose refused the whole
-// save and the answer was graded as skipped. Move such values to
-// `numericAnswer`, and drop any other non-ObjectId option ids.
+// App 1.0.7/1.0.8 (on the Play Store) send a typed integer answer under other
+// keys: as `selectedOptionId` (not an option id, so Mongoose refused the
+// whole save and the answer was graded as skipped), `answerText`,
+// `integerAnswer` or `answer`. Move such values to `numericAnswer` (or
+// `subjectiveAnswerText` for text), and drop any other non-ObjectId option ids.
+const OBJECT_ID_RE = /^[0-9a-f]{24}$/i;
+const TYPED_ALIASES = ['integerAnswer', 'numericalAnswer', 'answerText', 'answer', 'typedAnswer', 'value', 'textAnswer'];
+const isBlank = (v) => v === undefined || v === null || String(v).trim() === '';
 const normalizeAnswerPayload = (body = {}) => {
-  const mongoose = require('mongoose');
-  const isId = (v) => v === null || mongoose.Types.ObjectId.isValid(String(v));
-  const out = { ...body };
-  if (out.selectedOptionId !== undefined && out.selectedOptionId !== '' && !isId(out.selectedOptionId)) {
-    if (out.numericAnswer === undefined || out.numericAnswer === null || out.numericAnswer === '') {
-      out.numericAnswer = String(out.selectedOptionId).trim();
-    }
+  const isId = (v) => v === null || OBJECT_ID_RE.test(String(v));
+  const out = { ...(body || {}) };
+  if (!isBlank(out.selectedOptionId) && !isId(out.selectedOptionId)) {
+    if (isBlank(out.numericAnswer)) out.numericAnswer = String(out.selectedOptionId).trim();
     delete out.selectedOptionId;
   }
-  // Older builds also sent typed answers as `answerText`.
-  const legacyText = out.answerText !== undefined && out.answerText !== null ? String(out.answerText).trim() : '';
-  if (legacyText && out.numericAnswer === undefined && out.subjectiveAnswerText === undefined) {
-    if (legacyText !== '' && !isNaN(Number(legacyText))) out.numericAnswer = legacyText;
-    else out.subjectiveAnswerText = legacyText;
+  if (isBlank(out.numericAnswer) && isBlank(out.subjectiveAnswerText)) {
+    const alias = TYPED_ALIASES.map((k) => out[k]).find((v) => !isBlank(v) && typeof v !== 'object');
+    if (alias !== undefined) {
+      const text = String(alias).trim();
+      if (!isNaN(Number(text))) out.numericAnswer = text;
+      else out.subjectiveAnswerText = text;
+    }
   }
+  TYPED_ALIASES.forEach((k) => delete out[k]);
   if (out.selectedOptionId === '') out.selectedOptionId = null;
   if (Array.isArray(out.selectedOptionIds)) out.selectedOptionIds = out.selectedOptionIds.filter((v) => v && isId(v));
-  if (typeof out.numericAnswer === 'number') out.numericAnswer = String(out.numericAnswer);
+  if (typeof out.numericAnswer === 'number') {
+    out.numericAnswer = Number.isFinite(out.numericAnswer) ? String(out.numericAnswer) : undefined;
+  } else if (typeof out.numericAnswer === 'string') {
+    out.numericAnswer = out.numericAnswer.trim();
+  }
   return out;
 };
 exports.normalizeAnswerPayload = normalizeAnswerPayload;
 
+// Two saves for one question can overlap (the app's debounced autosave and
+// Save & Next). The loser used to fail with a VersionError, which the app
+// ignores, so the answer was lost. Retry it on the fresh document instead.
 exports.saveAnswer = async (req, res) => {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const outcome = await saveAnswerOnce(req, res, attempt < 2);
+    if (outcome !== RETRY) return outcome;
+  }
+};
+const RETRY = Symbol('retry');
+
+const saveAnswerOnce = async (req, res, canRetry) => {
   try {
     const { questionId, selectedOptionId, selectedOptionIds, numericAnswer, subjectiveAnswerText, status, violations, timeSpentSeconds } = normalizeAnswerPayload(req.body);
     const examId = req.params.id;
@@ -925,9 +954,10 @@ exports.saveAnswer = async (req, res) => {
     }
 
     await submission.save();
-    res.status(200).json({ success: true });
+    return res.status(200).json({ success: true });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    if (canRetry && error?.name === 'VersionError') return RETRY;
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -1025,86 +1055,31 @@ exports.submitExam = async (req, res) => {
     const topicScoresByKey = new Map();
 
     questions.forEach(q => {
-      const studentAns = submission.answers.find(a => a?.questionId && q?._id && a.questionId?.toString() === q._id?.toString());
+      const studentAns = findStudentAnswer(submission.answers, q?._id);
+      // Same rules as the analysis (answer-grading.js), so the saved score
+      // and the review agree. Marked-for-review with no value is unattempted.
+      const graded = gradeAnswer(q, studentAns);
       const qMarks = q.marks !== undefined && q.marks !== null ? q.marks : 4;
-      const qNegativeMarks = q.negativeMarks !== undefined && q.negativeMarks !== null ? q.negativeMarks : 1;
-
-      const hasOptions = Array.isArray(q.options) && q.options.length > 0;
-      const isIntegerOrNumerical = ['INTEGER', 'NUMERICAL'].includes(q.type) || (!hasOptions && q.correctAnswerText);
-      const isMultipleCorrect = q.type === 'MULTIPLE_CORRECT';
-
-      if (!studentAns) {
+      if (!graded.attempted) {
         unattempted++;
-      } else if (isIntegerOrNumerical || q.type === 'FILL_BLANKS') {
-        const studentVal = (studentAns.numericAnswer ?? studentAns.subjectiveAnswerText ?? '').toString().trim();
-        if (!studentVal) {
-          unattempted++;
-        } else {
-          const expectedVal = (q.correctAnswerText || '').toString().trim();
-          const isNumEqual = !isNaN(Number(studentVal)) && !isNaN(Number(expectedVal)) && Math.abs(Number(studentVal) - Number(expectedVal)) < 0.0001;
-          const isStrEqual = studentVal.toLowerCase() === expectedVal.toLowerCase();
-          
-          if (isNumEqual || isStrEqual) {
-            correct++;
-            score += qMarks;
-            studentAns.isCorrect = true;
-            studentAns.marksObtained = qMarks;
-          } else {
-            wrong++;
-            score -= qNegativeMarks;
-            studentAns.isCorrect = false;
-            studentAns.marksObtained = -qNegativeMarks;
-          }
-        }
-      } else if (isMultipleCorrect) {
-        const studentSelected = (studentAns.selectedOptionIds && studentAns.selectedOptionIds.length > 0)
-          ? studentAns.selectedOptionIds.map(id => id.toString())
-          : (studentAns.selectedOptionId ? [studentAns.selectedOptionId.toString()] : []);
-        
-        if (studentSelected.length === 0) {
-          unattempted++;
-        } else {
-          const correctOptIds = q.options.filter(o => o.isCorrect).map(o => o._id.toString());
-          const isAllCorrect = correctOptIds.length === studentSelected.length &&
-            correctOptIds.every(id => studentSelected.includes(id));
-          
-          if (isAllCorrect) {
-            correct++;
-            score += qMarks;
-            studentAns.isCorrect = true;
-            studentAns.marksObtained = qMarks;
-          } else {
-            wrong++;
-            score -= qNegativeMarks;
-            studentAns.isCorrect = false;
-            studentAns.marksObtained = -qNegativeMarks;
-          }
+        if (studentAns) {
+          studentAns.isCorrect = false;
+          studentAns.marksObtained = 0;
         }
       } else {
-        if (!studentAns.selectedOptionId) {
-          unattempted++;
-        } else {
-          const correctOpt = q.options.find(o => o.isCorrect);
-          if (correctOpt && studentAns.selectedOptionId?.toString() === correctOpt._id?.toString()) {
-            correct++;
-            score += qMarks;
-            studentAns.isCorrect = true;
-            studentAns.marksObtained = qMarks;
-          } else {
-            wrong++;
-            score -= qNegativeMarks;
-            studentAns.isCorrect = false;
-            studentAns.marksObtained = -qNegativeMarks;
-          }
-        }
+        if (graded.isCorrect) correct++;
+        else wrong++;
+        score += graded.marksObtained;
+        studentAns.isCorrect = graded.isCorrect;
+        studentAns.marksObtained = graded.marksObtained;
       }
 
-      const subjectName = q.subject?.name || 'General';
-      const topicName = q.topic?.name || 'General';
+      const subjectName = q.subject?.name || q.subjectName || 'General';
+      const topicName = q.topic?.name || q.topicName || 'General';
       const key = `${subjectName}::${topicName}`;
       const topicScore = topicScoresByKey.get(key) || { subjectName, topicName, score: 0, totalMarks: 0 };
       topicScore.totalMarks += qMarks;
-      topicScore.score += studentAns?.marksObtained || 0;
+      topicScore.score += graded.marksObtained;
       topicScoresByKey.set(key, topicScore);
     });
 

@@ -6,6 +6,8 @@ module.exports = {
   PORT: process.env.PORT || 3000,
   MONGO_URI: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/lms-platform',
   JWT_SECRET: process.env.JWT_SECRET || 'supersecretkey',
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '1d',
+  // 30 days, matching the OTP logins. Was 1d, which signed every password
+  // login out daily. Active clients extend it through POST /auth/refresh.
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '30d',
   NODE_ENV: process.env.NODE_ENV || 'development'
 };

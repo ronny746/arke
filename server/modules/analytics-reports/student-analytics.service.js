@@ -151,10 +151,15 @@ exports.getStudentPerformance = async (studentId) => {
 
   const subjectWisePerformance = processStatsObject(examSubjectStats);
 
+  // Accuracy = correct / attempted across all exams (what the per-exam rows and
+  // the dashboard show). overallPercentage is marks after negative marking.
+  const examCorrect = recentExams.reduce((n, e) => n + (e.totalCorrect || 0), 0);
+  const examAttempted = recentExams.reduce((n, e) => n + (e.totalCorrect || 0) + (e.totalWrong || 0), 0);
   const overall = {
     totalExamsTaken,
     averageScore: totalExamsTaken > 0 ? (totalScoreObtained / totalExamsTaken).toFixed(2) : 0,
-    overallPercentage: totalPossibleScore > 0 ? ((totalScoreObtained / totalPossibleScore) * 100).toFixed(2) : 0
+    overallPercentage: totalPossibleScore > 0 ? ((totalScoreObtained / totalPossibleScore) * 100).toFixed(2) : 0,
+    accuracy: examAttempted > 0 ? Number(((examCorrect / examAttempted) * 100).toFixed(1)) : 0
   };
 
   // Fetch DPP / Practice Session stats

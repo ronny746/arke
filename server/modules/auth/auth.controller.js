@@ -210,6 +210,30 @@ exports.verifyOtp = async (req, res, next) => {
     }
 };
 
+// Sliding session: a client with a still-valid token gets a fresh one, so a
+// student who opens the app at least once a month is never signed out. The
+// auth middleware has already checked the token, the account and the
+// single-device sessionId before this runs.
+exports.refreshToken = async (req, res, next) => {
+    try {
+        const { iat, exp, nbf, ...claims } = req.user;
+        if (claims.isDeveloper) {
+            return errorResponse(res, 'This token cannot be refreshed.', null, 403);
+        }
+        const payload = {
+            ...claims,
+            role: req.user.role,
+            instituteId: req.user.instituteId,
+            branchId: req.user.branchId,
+        };
+        const env = require('../../config/env');
+        const token = jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
+        return successResponse(res, 'Session refreshed', { token });
+    } catch (err) {
+        next(err);
+    }
+};
+
 exports.verifyDevice = async (req, res, next) => {
     try {
         const { sessionId } = req.body;

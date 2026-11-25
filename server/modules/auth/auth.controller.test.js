@@ -18,3 +18,30 @@ test('master OTP for an unknown phone returns 404 instead of crashing', async (t
   assert.equal(nextErr, undefined, 'no exception reaches the error handler');
   assert.equal(res.statusCode, 404);
 });
+
+test('refresh issues a new 30-day token that keeps the same session', async () => {
+  const jwt = require('jsonwebtoken');
+  const env = require('../../config/env');
+  const now = Math.floor(Date.now() / 1000);
+  const req = {
+    user: {
+      userId: 'u1', role: 'student', instituteId: 'i1', branchId: null,
+      sessionId: 's1', permissions: [], iat: now - 3600, exp: now + 60,
+    },
+  };
+  const res = mockRes();
+  let nextErr;
+  await AuthController.refreshToken(req, res, (e) => { nextErr = e; });
+  assert.equal(nextErr, undefined);
+  assert.equal(res.statusCode, 200);
+  const decoded = jwt.verify(res.body.data.token, env.JWT_SECRET);
+  assert.equal(decoded.userId, 'u1');
+  assert.equal(decoded.sessionId, 's1', 'single-device session is kept');
+  assert.ok(decoded.exp - decoded.iat >= 29 * 24 * 3600, 'lasts about 30 days');
+});
+
+test('developer-mode tokens cannot be refreshed', async () => {
+  const res = mockRes();
+  await AuthController.refreshToken({ user: { userId: 'u1', isDeveloper: true } }, res, () => {});
+  assert.equal(res.statusCode, 403);
+});

@@ -11,6 +11,7 @@ router.post('/verify-otp', AuthController.verifyOtp);
 router.post('/email/request-otp', AuthController.requestEmailOtp);
 router.post('/email/verify-otp', AuthController.verifyEmailOtp);
 router.get('/me', authMiddleware, AuthController.getMe);
+router.post('/refresh', authMiddleware, AuthController.refreshToken);
 router.post('/change-password', authMiddleware, AuthController.changePassword);
 router.post('/developer-mode', authMiddleware, AuthController.developerMode);
 
