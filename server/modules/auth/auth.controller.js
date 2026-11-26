@@ -11,6 +11,7 @@ exports.login = async (req, res, next) => {
     const data = await AuthService.login(email, password, role);
     return successResponse(res, `Login successful for portal: ${data.user.role}`, data);
   } catch (error) {
+    if (error.status) return errorResponse(res, error.message, null, error.status);
     if (error.message.includes('Invalid email') || error.message.includes('password') || error.message.includes('portal')) {
       return errorResponse(res, error.message, null, 401);
     }
@@ -95,23 +96,15 @@ exports.verifyOtp = async (req, res, next) => {
         const cleanPhone = String(rawPhone).replace(/\D/g, '').slice(-10);
 
         let user = await User.findOne({ phone: cleanPhone, role: requestedRole });
-        let isRollNoBypass = false;
 
-        // Check if user is in-house and provided their roll number instead of OTP
-        if (user && user.metadata && user.metadata.rollNo && requestedRole === 'student') {
-            const SystemConfig = require('../system-config/system-config.model');
-            const config = await SystemConfig.findOne();
-            const enableRollNumberLogin = config?.authSettings?.enableRollNumberLogin ?? true;
+        // Typing the roll number in place of the OTP used to sign a student in.
+        // Anyone knowing a mobile number and roll number could use it, so it is
+        // gone; Roll No + password login (an admin setting) replaces it.
+        const isRollNoBypass = false;
 
-            if (enableRollNumberLogin) {
-                const rollNoStr = String(user.metadata.rollNo).trim();
-                if (String(otp).trim().toLowerCase() === rollNoStr.toLowerCase()) {
-                    isRollNoBypass = true;
-                }
-            }
-        }
-
-        const isMasterOtp = String(otp).trim() === '123456';
+        // 123456 stays as a master code for parent/teacher testing only.
+        // Students must always enter the OTP that was actually sent.
+        const isMasterOtp = String(requestedRole).toLowerCase() !== 'student' && String(otp).trim() === '123456';
         if (!isRollNoBypass && !isMasterOtp) {
             // Find the OTP in DB
             const otpRecord = await OtpModel.findOne({ phone: cleanPhone, otp: otp });
@@ -301,7 +294,8 @@ exports.verifyEmailOtp = async (req, res, next) => {
             return errorResponse(res, "Invalid user credentials", null, 401);
         }
 
-        const isMasterOtp = String(otp).trim() === '123456';
+        // No master code for student accounts (see verifyOtp).
+        const isMasterOtp = String(user.role).toLowerCase() !== 'student' && String(otp).trim() === '123456';
         let validOtp = null;
         if (!isMasterOtp) {
             validOtp = await OtpModel.findOne({ email: email.toLowerCase(), otp });
@@ -373,4 +367,26 @@ exports.developerMode = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+};
+
+// Forgot / set password (students, when admin allows password login).
+exports.forgotPasswordRequest = async (req, res, next) => {
+  try {
+    const data = await AuthService.requestPasswordReset(req.body.identifier || req.body.rollNo || req.body.phone);
+    return successResponse(res, `OTP sent to your registered mobile ${data.maskedPhone}`, data);
+  } catch (error) {
+    if (error.status) return errorResponse(res, error.message, null, error.status);
+    next(error);
+  }
+};
+
+exports.forgotPasswordReset = async (req, res, next) => {
+  try {
+    const { otp, newPassword } = req.body;
+    const data = await AuthService.resetPassword(req.body.identifier || req.body.rollNo || req.body.phone, otp, newPassword);
+    return successResponse(res, 'Password updated. Please sign in with your new password.', data);
+  } catch (error) {
+    if (error.status) return errorResponse(res, error.message, null, error.status);
+    next(error);
+  }
 };

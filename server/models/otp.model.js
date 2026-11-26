@@ -13,6 +13,9 @@ const otpSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
+  // 'password-reset' for forgot-password OTPs; empty for sign-in OTPs.
+  purpose: { type: String, required: false },
+  attempts: { type: Number, default: 0 },
   createdAt: { 
     type: Date, 
     default: Date.now,

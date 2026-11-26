@@ -21,6 +21,7 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
     enableRollNumberLogin: true,
+    enableStudentPasswordLogin: false,
     latestVersion: '1.0.0',
     minRequiredVersion: '1.0.0',
     isMandatory: false,
@@ -59,6 +60,7 @@ export default function AdminSettingsPage() {
         const appUp = result.data.appUpdate || {};
         setSettings({
           enableRollNumberLogin: result.data.authSettings?.enableRollNumberLogin ?? true,
+          enableStudentPasswordLogin: result.data.authSettings?.enableStudentPasswordLogin === true,
           latestVersion: appUp.latestVersion || '1.0.0',
           minRequiredVersion: appUp.minRequiredVersion || '1.0.0',
           isMandatory: appUp.isMandatory ?? false,
@@ -103,7 +105,8 @@ export default function AdminSettingsPage() {
         },
         body: JSON.stringify({
           authSettings: {
-            enableRollNumberLogin: settings.enableRollNumberLogin
+            enableRollNumberLogin: settings.enableRollNumberLogin,
+            enableStudentPasswordLogin: settings.enableStudentPasswordLogin
           },
           appUpdate: {
             latestVersion: settings.latestVersion,
@@ -543,19 +546,31 @@ export default function AdminSettingsPage() {
         </div>
 
         <div className="space-y-6 mb-8">
-          <div className="flex items-start justify-between p-4 bg-gray-50 rounded-xl">
+          <div className="flex items-start justify-between gap-4 p-4 bg-gray-50 rounded-xl">
             <div>
-              <h3 className="font-semibold text-gray-900">Student Roll Number Login</h3>
+              <h3 className="font-semibold text-gray-900">Mobile OTP Login</h3>
               <p className="text-sm text-gray-500 mt-1 max-w-lg">
-                Allow students to use their roll number instead of an OTP to log in. Note: Parents can never bypass OTP.
+                Students, parents and teachers can always sign in with an OTP on their mobile number (website and app).
               </p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer mt-1">
+            <span className="mt-1 shrink-0 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Always on</span>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 p-4 bg-gray-50 rounded-xl">
+            <div>
+              <h3 className="font-semibold text-gray-900">Student Login with Roll No &amp; Password</h3>
+              <p className="text-sm text-gray-500 mt-1 max-w-lg">
+                Also let students sign in with their Roll No (or mobile number) and a password, on the website and the app.
+                Students set or reset their password with &quot;Forgot password&quot;, which sends an OTP to their registered mobile.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer mt-1 shrink-0">
               <input 
                 type="checkbox" 
+                aria-label="Student login with Roll No and password"
                 className="sr-only peer"
-                checked={settings.enableRollNumberLogin}
-                onChange={(e) => setSettings({ ...settings, enableRollNumberLogin: e.target.checked })}
+                checked={settings.enableStudentPasswordLogin}
+                onChange={(e) => setSettings({ ...settings, enableStudentPasswordLogin: e.target.checked })}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>

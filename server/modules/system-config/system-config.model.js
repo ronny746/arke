@@ -6,7 +6,9 @@ const systemConfigSchema = new mongoose.Schema({
   activeTerm: { type: String }, // e.g. "Term 1"
   preferences: { type: mongoose.Schema.Types.Mixed, default: {} }, // JSON blob for UI/Timezone preferences
   authSettings: {
-    enableRollNumberLogin: { type: Boolean, default: true }
+    enableRollNumberLogin: { type: Boolean, default: true }, // legacy, unused
+    // Students may also sign in with Roll No / mobile + password.
+    enableStudentPasswordLogin: { type: Boolean, default: false }
   },
   performanceSettings: {
     redBelow: { type: Number, default: 40, min: 0, max: 99 },

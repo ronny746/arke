@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
   ArrowRight,
+  ArrowLeft,
   Pencil,
   Sparkles,
   Stethoscope,
@@ -126,7 +127,8 @@ const MEDIUMS = [
 
 export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant = "default", courseGoal, onSuccess }: LoginModalProps) {
   // Step: 1 = registered mobile number, 2 = mobile OTP, 3 = student profile details.
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // 4 = forgot / set password (Roll No + password login only).
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Auth States
   const [phone, setPhone] = useState("");
@@ -164,6 +166,19 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant 
       .catch(() => setCitiesByState({}));
   }, [variant, step, citiesByState]);
 
+  // Roll No + password login (admin setting) and forgot password
+  const [passwordLoginOn, setPasswordLoginOn] = useState(false);
+  const [loginMode, setLoginMode] = useState<"otp" | "password">("otp");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [fpStage, setFpStage] = useState<"request" | "reset">("request");
+  const [fpOtp, setFpOtp] = useState("");
+  const [fpPassword, setFpPassword] = useState("");
+  const [fpConfirm, setFpConfirm] = useState("");
+  const [maskedPhone, setMaskedPhone] = useState("");
+  const [resendIn, setResendIn] = useState(0);
+
   // Reset state on modal open
   useEffect(() => {
     if (isOpen) {
@@ -172,9 +187,105 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant 
         setPhone("");
         setOtp("");
         setEmail("");
+        setLoginMode("otp");
+        setPassword("");
+        setShowPassword(false);
       });
+      fetch("/api/v1/public-settings")
+        .then((r) => r.json())
+        .then((d) => setPasswordLoginOn(d?.data?.enableStudentPasswordLogin === true))
+        .catch(() => setPasswordLoginOn(false));
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  const showPasswordLogin = passwordLoginOn && role === "student";
+
+  const passwordSignIn = async (id: string, pass: string, message?: string) => {
+    const res = await fetch("/api/v1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: id.trim(), password: pass, role: "student" })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error(res.status === 401 ? "Wrong Roll No or password." : data.message || "Sign in failed.");
+    }
+    completeAuthenticatedLogin({ data: { token: data.data.token, user: data.data.user }, message }, "Welcome! Please complete your profile details.");
+  };
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!identifier.trim()) return void toast.error("Enter your Roll No or mobile number.");
+    if (!password) return void toast.error("Enter your password.");
+    setIsLoading(true);
+    try {
+      await passwordSignIn(identifier, password, "Welcome back!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Sign in failed.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openForgotPassword = () => {
+    setFpStage("request");
+    setFpOtp("");
+    setFpPassword("");
+    setFpConfirm("");
+    setStep(4);
+  };
+
+  const requestResetOtp = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!identifier.trim()) return void toast.error("Enter your Roll No or mobile number.");
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/v1/auth/forgot-password/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: identifier.trim() })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.message || "OTP could not be sent.");
+      setMaskedPhone(data.data?.maskedPhone || "");
+      setFpStage("reset");
+      setResendIn(30);
+      toast.success(data.message || "OTP sent.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "OTP could not be sent.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(fpOtp)) return void toast.error("Enter the 6-digit OTP.");
+    if (fpPassword.length < 6) return void toast.error("Password must be at least 6 characters.");
+    if (fpPassword !== fpConfirm) return void toast.error("Passwords do not match.");
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/v1/auth/forgot-password/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: identifier.trim(), otp: fpOtp, newPassword: fpPassword })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.message || "Password could not be updated.");
+      toast.success("Password set. Signing you in...");
+      await passwordSignIn(identifier, fpPassword, "Password updated. Welcome!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Password could not be updated.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleContinue = (targetIdentifier = phone) => {
     const identifier = targetIdentifier.trim();
@@ -506,7 +617,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant 
                       </div>
                       <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">Sign in to ARKE</h4>
                       <p className="text-gray-500 text-xs mt-1">
-                        Use your registered mobile number and a one-time password.
+                        {showPasswordLogin && loginMode === "password" ? "Use your Roll No (or mobile number) and password." : "Use your registered mobile number and a one-time password."}
                       </p>
                     </div>
 
@@ -536,7 +647,50 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant 
                       </button>
                     </div>
 
-                    {/* Account identifier form */}
+                    {showPasswordLogin && (
+                      <div className="flex items-center justify-center gap-1 mb-5 text-xs font-bold" role="tablist" aria-label="Sign-in method">
+                        {([["otp", "Mobile OTP"], ["password", "Roll No & Password"]] as const).map(([mode, label]) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            role="tab"
+                            aria-selected={loginMode === mode}
+                            onClick={() => setLoginMode(mode)}
+                            className={`px-3 py-1.5 rounded-full border transition-all ${loginMode === mode ? "border-[#0B132B] bg-[#0B132B] text-[#C99A2E]" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {showPasswordLogin && loginMode === "password" ? (
+                      <form noValidate onSubmit={handlePasswordLogin} className="space-y-4">
+                        <div>
+                          <label htmlFor="pw-identifier" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">Roll No or mobile number</label>
+                          <input id="pw-identifier" type="text" autoComplete="username" autoFocus value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="e.g. RK657" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all" />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label htmlFor="pw-password" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider">Password</label>
+                            <button type="button" onClick={openForgotPassword} className="text-xs font-bold text-[#9A6E1C] hover:text-[#0B132B]">Forgot password?</button>
+                          </div>
+                          <div className="relative">
+                            <input id="pw-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full pl-4 pr-16 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all" />
+                            <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500 hover:text-[#0B132B]">{showPassword ? "Hide" : "Show"}</button>
+                          </div>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isLoading}
+                          className="w-full py-4 rounded-2xl font-black text-white text-sm transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-950/20 flex items-center justify-center gap-2"
+                          style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}
+                        >
+                          {isLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Signing in...</span></> : <><span>Login</span><ArrowRight className="w-4 h-4" /></>}
+                        </button>
+                        <p className="text-center text-xs text-gray-500">First time? Tap &quot;Forgot password?&quot; to set one using an OTP on your registered mobile.</p>
+                      </form>
+                    ) : (
                     <form
                       noValidate
                       onSubmit={(e) => {
@@ -577,6 +731,61 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant 
                       </button>
                       <p className="text-center text-xs text-gray-500">Use the mobile number registered with ARKE. New student accounts complete registration after OTP verification.</p>
                     </form>
+                    )}
+                  </motion.div>
+                )}
+
+                {step === 4 && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                  >
+                    <button type="button" onClick={() => setStep(1)} className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-[#0B132B] mb-3">
+                      <ArrowLeft className="w-3.5 h-3.5" /> Back to login
+                    </button>
+                    <h4 className="text-2xl font-black text-[#0B132B] tracking-tight">{fpStage === "request" ? "Forgot password" : "Set a new password"}</h4>
+                    <p className="text-gray-500 text-xs mt-1 mb-5">
+                      {fpStage === "request"
+                        ? "Enter your Roll No or mobile number. We will send an OTP to your registered mobile."
+                        : `OTP sent to ${maskedPhone || "your registered mobile"}.`}
+                    </p>
+
+                    {fpStage === "request" ? (
+                      <form noValidate onSubmit={requestResetOtp} className="space-y-4">
+                        <div>
+                          <label htmlFor="fp-identifier" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">Roll No or mobile number</label>
+                          <input id="fp-identifier" type="text" autoFocus value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="e.g. RK657" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all" />
+                        </div>
+                        <button type="submit" disabled={isLoading} className="w-full py-4 rounded-2xl font-black text-white text-sm disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}>
+                          {isLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Sending OTP...</span></> : <><span>Send OTP</span><ArrowRight className="w-4 h-4" /></>}
+                        </button>
+                      </form>
+                    ) : (
+                      <form noValidate onSubmit={handleResetPassword} className="space-y-4">
+                        <div>
+                          <label htmlFor="fp-otp" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">6-digit OTP</label>
+                          <input id="fp-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={fpOtp} onChange={(e) => setFpOtp(e.target.value.replace(/\D/g, ""))} placeholder="Enter OTP" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 tracking-[0.35em]" />
+                          <button type="button" disabled={isLoading || resendIn > 0} onClick={() => void requestResetOtp()} className="mt-2 text-xs font-bold text-[#0B132B] hover:text-[#9A6E1C] disabled:text-gray-400">
+                            {resendIn > 0 ? `Resend OTP in ${resendIn}s` : "Resend OTP"}
+                          </button>
+                        </div>
+                        <div>
+                          <label htmlFor="fp-new" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">New password</label>
+                          <input id="fp-new" type={showPassword ? "text" : "password"} autoComplete="new-password" value={fpPassword} onChange={(e) => setFpPassword(e.target.value)} placeholder="At least 6 characters" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50" />
+                        </div>
+                        <div>
+                          <label htmlFor="fp-confirm" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">Confirm password</label>
+                          <input id="fp-confirm" type={showPassword ? "text" : "password"} autoComplete="new-password" value={fpConfirm} onChange={(e) => setFpConfirm(e.target.value)} placeholder="Type it again" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50" />
+                          <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-gray-600">
+                            <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} /> Show passwords
+                          </label>
+                        </div>
+                        <button type="submit" disabled={isLoading} className="w-full py-4 rounded-2xl font-black text-white text-sm disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}>
+                          {isLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></> : <><span>Set password &amp; login</span><ArrowRight className="w-4 h-4" /></>}
+                        </button>
+                      </form>
+                    )}
                   </motion.div>
                 )}
 

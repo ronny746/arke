@@ -21,6 +21,7 @@ router.get('/', async (req, res, next) => {
     // Return only non-sensitive settings
     const publicSettings = {
       enableRollNumberLogin: config?.authSettings?.enableRollNumberLogin ?? true,
+      enableStudentPasswordLogin: config?.authSettings?.enableStudentPasswordLogin === true,
       appUpdate: {
         latestVersion: config?.appUpdate?.latestVersion || "1.0.0",
         minRequiredVersion: config?.appUpdate?.minRequiredVersion || "1.0.0",
@@ -44,6 +45,7 @@ router.get('/', async (req, res, next) => {
     // Fail silently with default if DB not ready
     return successResponse(res, 'Public system configuration retrieved successfully', { 
       enableRollNumberLogin: true,
+      enableStudentPasswordLogin: false,
       appUpdate: {
         latestVersion: "1.0.0",
         minRequiredVersion: "1.0.0",

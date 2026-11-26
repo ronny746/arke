@@ -5,7 +5,8 @@ exports.updateConfigSchema = Joi.object({
   activeTerm: Joi.string().optional(),
   preferences: Joi.object().optional(),
   authSettings: Joi.object({
-    enableRollNumberLogin: Joi.boolean().optional()
+    enableRollNumberLogin: Joi.boolean().optional(),
+    enableStudentPasswordLogin: Joi.boolean().optional()
   }).unknown(true).optional(),
   performanceSettings: Joi.object({
     redBelow: Joi.number().min(0).max(99).optional(),

@@ -245,7 +245,7 @@ async function main() {
     console.log(`Teacher login (web): ${DEMO.email} / ${DEMO.password}`);
     console.log(`Teacher login (app): ${DEMO.phone} / OTP 123456`);
     console.log(`Student login (web): ${DEMO.studentEmail} / ${DEMO.studentPassword}`);
-    console.log(`Student login (app): ${DEMO.studentPhone} / OTP 123456`);
+    console.log(`Student login (app): ${DEMO.studentPhone} / OTP sent by SMS`);
     console.log(`Demo course: ${course.name}`);
     console.log(`Demo class: ${batch.name} ${batch.section} — ${subject.name}`);
     console.log(`Class schedule id: ${schedule._id}`);

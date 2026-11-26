@@ -20,7 +20,9 @@ exports.updateConfig = async (reqUser, payload) => {
     if (payload.academicYear) config.academicYear = payload.academicYear;
     if (payload.activeTerm) config.activeTerm = payload.activeTerm;
     if (payload.preferences) config.preferences = payload.preferences;
-    if (payload.authSettings) config.authSettings = payload.authSettings;
+    if (payload.authSettings) {
+      config.authSettings = { ...(config.authSettings?.toObject?.() || config.authSettings || {}), ...payload.authSettings };
+    }
     if (payload.performanceSettings) {
       config.performanceSettings = normalizeThresholds({
         ...config.performanceSettings?.toObject?.(),
