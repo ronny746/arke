@@ -127,6 +127,13 @@ export default function StudentDashboard() {
   const [prefMedium, setPrefMedium] = useState('Hinglish');
   const [savingPreferences, setSavingPreferences] = useState(false);
 
+  // The layout refreshes the saved user from the server; show the fresh copy.
+  useEffect(() => {
+    const onUpdate = (e: Event) => setUser((e as CustomEvent).detail);
+    window.addEventListener('arke:user-updated', onUpdate);
+    return () => window.removeEventListener('arke:user-updated', onUpdate);
+  }, []);
+
   useEffect(() => {
     let parsedUser: any = null;
 

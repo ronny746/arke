@@ -23,6 +23,24 @@ export default function StudentLayout({ children }) {
     const token = localStorage.getItem('token');
     if (stored) setUser(JSON.parse(stored));
 
+    // The user saved at sign-in goes stale when the institute changes it
+    // (e.g. a new roll number). Refresh it once per visit and tell pages.
+    if (token) {
+      fetch('/api/v1/users/me', { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          const fresh = data?.success ? data.data : null;
+          if (!fresh?._id) return;
+          let current: any = {};
+          try { current = JSON.parse(localStorage.getItem('user') || '{}'); } catch {}
+          const merged = { ...current, ...fresh, metadata: { ...(current.metadata || {}), ...(fresh.metadata || {}) } };
+          localStorage.setItem('user', JSON.stringify(merged));
+          setUser(merged);
+          window.dispatchEvent(new CustomEvent('arke:user-updated', { detail: merged }));
+        })
+        .catch(() => {});
+    }
+
     if (token) {
       fetch('/api/v1/batches/my-batches', {
         headers: { Authorization: `Bearer ${token}` }
