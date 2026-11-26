@@ -42,7 +42,7 @@ exports.createUser = async (reqUser, payload) => {
     const existingRollNo = payload.rollNo || payload.metadata?.rollNo;
     if (!existingRollNo || existingRollNo.trim() === '' || existingRollNo.toLowerCase() === 'auto') {
       const { generateUniqueRandomRollNo } = require('../../utils/rollNoGenerator');
-      const nextRollNo = await generateUniqueRandomRollNo(instituteId, 'RK');
+      const nextRollNo = await generateUniqueRandomRollNo();
       payload.metadata = payload.metadata || {};
       payload.metadata.rollNo = nextRollNo;
     } else {

@@ -13,7 +13,7 @@ const student = (extra = {}) => ({
   _id: 'u1',
   role: 'student',
   phone: '9876501234',
-  metadata: { rollNo: 'RK657' },
+  metadata: { rollNo: '482913' },
   ...extra,
 });
 
@@ -22,7 +22,7 @@ test('student password login is refused while the admin setting is off', async (
   t.mock.method(User, 'findOne', () => ({
     select: () => ({ populate: async () => ({ ...student(), comparePassword: async () => true }) }),
   }));
-  await assert.rejects(AuthService.login('RK657', 'secret1', 'student'), (e) => e.status === 403);
+  await assert.rejects(AuthService.login('482913', 'secret1', 'student'), (e) => e.status === 403);
 });
 
 test('a password the student set works as typed; old DOB passwords still work', () => {
@@ -31,12 +31,12 @@ test('a password the student set works as typed; old DOB passwords still work', 
   assert.deepEqual(AuthService._passwordCandidatesFor('teacher', '01/05/2008'), ['01/05/2008']);
 });
 
-test('roll number lookup ignores case and does not treat a roll number as a phone', async (t) => {
+test('roll number lookup matches exactly and does not treat a roll number as a phone', async (t) => {
   let query;
   t.mock.method(User, 'findOne', async (q) => { query = q; return student(); });
-  await AuthService._findStudentByIdentifier('rk657');
+  await AuthService._findStudentByIdentifier('482913');
   assert.equal(query.role, 'student');
-  assert.ok(query.$or[0]['metadata.rollNo'].test('RK657'));
+  assert.ok(query.$or[0]['metadata.rollNo'].test('482913'));
   assert.equal(query.$or.length, 1, 'no phone clause for a roll number');
   await AuthService._findStudentByIdentifier('98765 01234');
   assert.deepEqual(query.$or[1].phone.$in, ['9876501234', '+919876501234']);
@@ -56,23 +56,33 @@ test('forgot password: wrong OTP counts attempts, the right one sets the passwor
     select: async () => ({ save: async function () { Object.assign(saved, this); } }),
   }));
 
-  await assert.rejects(AuthService.resetPassword('RK657', '111111', 'newpass1'), /Wrong OTP/);
+  await assert.rejects(AuthService.resetPassword('482913', '111111', 'newpass1'), /Wrong OTP/);
   assert.equal(record.attempts, 1);
 
-  await assert.rejects(AuthService.resetPassword('RK657', '424242', '123'), /at least 6/);
+  await assert.rejects(AuthService.resetPassword('482913', '424242', '123'), /at least 6/);
 
-  const out = await AuthService.resetPassword('RK657', '424242', 'newpass1');
-  assert.equal(out.rollNo, 'RK657');
+  const out = await AuthService.resetPassword('482913', '424242', 'newpass1');
+  assert.equal(out.rollNo, '482913');
   assert.equal(saved.password, 'newpass1');
   assert.equal(saved.activeSessionId, null);
 });
 
 test('forgot password request is refused while the setting is off and rate-limited when on', async (t) => {
   t.mock.method(SystemConfig, 'findOne', configWith(false));
-  await assert.rejects(AuthService.requestPasswordReset('RK657'), (e) => e.status === 403);
+  await assert.rejects(AuthService.requestPasswordReset('482913'), (e) => e.status === 403);
 
   t.mock.method(SystemConfig, 'findOne', configWith(true));
   t.mock.method(User, 'findOne', async () => student());
   t.mock.method(OtpModel, 'findOne', () => ({ sort: () => ({ lean: async () => ({ createdAt: new Date() }) }) }));
-  await assert.rejects(AuthService.requestPasswordReset('RK657'), (e) => e.status === 429);
+  await assert.rejects(AuthService.requestPasswordReset('482913'), (e) => e.status === 429);
+});
+
+test('new roll numbers are 6 random digits with no prefix and are unique', async (t) => {
+  const { generateUniqueRandomRollNo, _randomSixDigit } = require('../../utils/rollNoGenerator');
+  for (let i = 0; i < 200; i++) assert.match(_randomSixDigit(), /^[1-9]\d{5}$/);
+  let calls = 0;
+  t.mock.method(User, 'exists', async () => (++calls === 1 ? { _id: 'taken' } : null));
+  const roll = await generateUniqueRandomRollNo();
+  assert.match(roll, /^\d{6}$/);
+  assert.equal(calls, 2, 'a taken number is skipped');
 });

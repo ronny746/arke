@@ -1,39 +1,25 @@
+const crypto = require('crypto');
 const UserModel = require('../modules/users/users.model');
 
 /**
- * Generates a unique 3-digit random Roll Number with 'RK' prefix (e.g., RK719, RK305, RK842)
+ * A unique random 6-digit Roll Number (e.g. 482913), no prefix.
+ * Unique across all students, because Roll No + password login looks the
+ * roll number up without an institute.
  */
-async function generateUniqueRandomRollNo(instituteId, prefix = 'RK') {
-  let rollNo = '';
-  let isUnique = false;
-  let attempts = 0;
+function randomSixDigit() {
+  return String(crypto.randomInt(100000, 1000000));
+}
 
-  while (!isUnique && attempts < 500) {
-    attempts++;
-    // Random 3-digit number between 100 and 999
-    const random3Digit = Math.floor(100 + Math.random() * 900);
-    rollNo = `${prefix}${random3Digit}`;
-
-    const query = { 'metadata.rollNo': rollNo };
-    if (instituteId) {
-      query.instituteId = instituteId;
-    }
-
-    const existing = await UserModel.findOne(query);
-    if (!existing) {
-      isUnique = true;
-    }
+async function generateUniqueRandomRollNo() {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const rollNo = randomSixDigit();
+    const taken = await UserModel.exists({ 'metadata.rollNo': rollNo });
+    if (!taken) return rollNo;
   }
-
-  // Fallback to 4-digit if all 3-digit slots are used up
-  if (!isUnique) {
-    const random4Digit = Math.floor(1000 + Math.random() * 9000);
-    rollNo = `${prefix}${random4Digit}`;
-  }
-
-  return rollNo;
+  throw new Error('Could not find a free roll number. Please try again.');
 }
 
 module.exports = {
-  generateUniqueRandomRollNo
+  generateUniqueRandomRollNo,
+  _randomSixDigit: randomSixDigit
 };

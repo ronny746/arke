@@ -1,49 +1,37 @@
+// Gives every student a random 6-digit Roll No (e.g. 482913), replacing old
+// ones such as RK657. Run: node server/scripts/updateExistingRollNumbers.js [--apply]
+// Without --apply it only prints what would change.
 require('dotenv').config();
 const connectDB = require('../config/db');
 const UserModel = require('../modules/users/users.model');
 const { generateUniqueRandomRollNo } = require('../utils/rollNoGenerator');
 
+const SIX_DIGITS = /^\d{6}$/;
+
 async function migrateRollNumbers() {
-  try {
-    await connectDB();
-    console.log('🔄 Fetching all student records...');
-
-    const students = await UserModel.find({
-      role: { $in: ['STUDENT', 'student'] }
-    });
-
-    console.log(`📊 Found ${students.length} student records.`);
-
-    let updatedCount = 0;
-
-    for (const student of students) {
-      const currentRoll = student.metadata?.rollNo;
-      
-      // Update if rollNo is missing, starts with ARKE, or isn't formatted as RK + 3-digits
-      const needsUpdate = !currentRoll || /^ARKE/i.test(currentRoll) || !/^RK\d{3,4}$/i.test(currentRoll);
-
-      if (needsUpdate) {
-        const newRollNo = await generateUniqueRandomRollNo(student.instituteId, 'RK');
-        student.metadata = student.metadata || {};
-        student.metadata.rollNo = newRollNo;
-
-        // Force mark metadata as modified in Mongoose for Mixed type
-        student.markModified('metadata');
-        await student.save();
-        
-        console.log(`✅ Updated Student: ${student.firstName} ${student.lastName || ''} (${student.email || student.phone}) ➔ Roll No: ${newRollNo}`);
-        updatedCount++;
-      } else {
-        console.log(`ℹ️ Student already has RK Roll No: ${student.firstName} ${student.lastName || ''} ➔ Roll No: ${currentRoll}`);
-      }
+  const apply = process.argv.includes('--apply');
+  await connectDB();
+  const students = await UserModel.find({ role: { $in: ['STUDENT', 'student'] } }).select('firstName lastName metadata').lean();
+  let changed = 0;
+  for (const student of students) {
+    const current = student.metadata?.rollNo;
+    if (current && SIX_DIGITS.test(String(current))) continue;
+    const next = await generateUniqueRandomRollNo();
+    console.log(`${student._id} ${student.firstName || ''} ${student.lastName || ''}: ${current || '(none)'} -> ${next}`);
+    if (apply) {
+      await UserModel.updateOne(
+        { _id: student._id },
+        // Some old accounts have metadata: null, which a dotted $set cannot write into.
+        { $set: { metadata: { ...(student.metadata || {}), rollNo: next, previousRollNo: current || null } } }
+      );
     }
-
-    console.log(`\n🎉 Migration Complete! Updated ${updatedCount} / ${students.length} students to RK Roll Numbers.`);
-    process.exit(0);
-  } catch (error) {
-    console.error('❌ Migration Error:', error);
-    process.exit(1);
+    changed++;
   }
+  console.log(`${apply ? 'Updated' : 'Would update'} ${changed} of ${students.length} students.`);
+  process.exit(0);
 }
 
-migrateRollNumbers();
+migrateRollNumbers().catch((error) => {
+  console.error('Migration error:', error);
+  process.exit(1);
+});

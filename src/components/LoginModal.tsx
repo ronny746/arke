@@ -668,7 +668,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant 
                       <form noValidate onSubmit={handlePasswordLogin} className="space-y-4">
                         <div>
                           <label htmlFor="pw-identifier" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">Roll No or mobile number</label>
-                          <input id="pw-identifier" type="text" autoComplete="username" autoFocus value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="e.g. RK657" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all" />
+                          <input id="pw-identifier" type="text" autoComplete="username" autoFocus value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="e.g. 482913" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all" />
                         </div>
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
@@ -730,6 +730,13 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant 
                         {isLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Sending OTP...</span></> : <><span>Send OTP</span><ArrowRight className="w-4 h-4" /></>}
                       </button>
                       <p className="text-center text-xs text-gray-500">Use the mobile number registered with ARKE. New student accounts complete registration after OTP verification.</p>
+                      {showPasswordLogin && (
+                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-1 text-xs font-bold">
+                          <button type="button" onClick={() => setLoginMode("password")} className="text-[#0B132B] hover:text-[#9A6E1C]">Login with Roll No &amp; Password</button>
+                          <span className="text-gray-300" aria-hidden="true">|</span>
+                          <button type="button" onClick={openForgotPassword} className="text-[#9A6E1C] hover:text-[#0B132B]">Forgot password?</button>
+                        </div>
+                      )}
                     </form>
                     )}
                   </motion.div>
@@ -755,7 +762,7 @@ export function LoginModal({ isOpen, onClose, redirectOnSuccess = true, variant 
                       <form noValidate onSubmit={requestResetOtp} className="space-y-4">
                         <div>
                           <label htmlFor="fp-identifier" className="block text-xs font-bold text-[#0B132B] uppercase tracking-wider mb-1.5">Roll No or mobile number</label>
-                          <input id="fp-identifier" type="text" autoFocus value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="e.g. RK657" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all" />
+                          <input id="fp-identifier" type="text" autoFocus value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="e.g. 482913" className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200 focus:border-[#0B132B] focus:outline-none text-base font-bold text-[#0B132B] placeholder-gray-400 bg-gray-50/50 transition-all" />
                         </div>
                         <button type="submit" disabled={isLoading} className="w-full py-4 rounded-2xl font-black text-white text-sm disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #0B132B 0%, #1A2752 60%, #C99A2E 100%)" }}>
                           {isLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Sending OTP...</span></> : <><span>Send OTP</span><ArrowRight className="w-4 h-4" /></>}

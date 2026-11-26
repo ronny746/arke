@@ -213,7 +213,7 @@ exports.enrollCourse = async (id, reqUser, payload) => {
   
   if (user && (!user.metadata || !user.metadata.rollNo)) {
     const { generateUniqueRandomRollNo } = require('../../utils/rollNoGenerator');
-    const nextRoll = await generateUniqueRandomRollNo(user.instituteId, 'RK');
+    const nextRoll = await generateUniqueRandomRollNo();
     user.metadata = { ...user.metadata, rollNo: nextRoll };
     await user.save();
   }
