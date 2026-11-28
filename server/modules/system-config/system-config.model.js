@@ -21,6 +21,20 @@ const systemConfigSchema = new mongoose.Schema({
     updateUrl: { type: String, default: "https://play.google.com/store/apps/details?id=com.arkescholarsneet.online" },
     updateNotes: { type: String, default: "New version available with enhanced performance and features!" }
   },
+  // Expected JEE Main percentile: JEE Main marks (out of 300) vs percentile
+  // rows and the g value for each paper level. Empty = built-in defaults
+  // (server/modules/exams/jee-percentile.js). Update the table every year
+  // after JEE Main Session 1 results.
+  jeePercentileConfig: {
+    table: [{ _id: false, marks: Number, percentile: Number }],
+    gValues: {
+      1: { type: Number },
+      2: { type: Number },
+      3: { type: Number },
+      4: { type: Number },
+      5: { type: Number }
+    }
+  },
   neetExamConfig: {
     examTitle: { type: String, default: "NEET UG 2026" },
     examDate: { type: Date, default: () => new Date("2026-05-03T10:00:00.000Z") },

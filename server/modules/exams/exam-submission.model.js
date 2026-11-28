@@ -88,6 +88,14 @@ const examSubmissionSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  // Expected JEE Main percentile, worked out on submit (jee-percentile.js)
+  // with the paper level used. Recalculated by the admin re-run button.
+  expectedJeePercentile: {
+    type: Number,
+  },
+  expectedJeeLevel: {
+    type: Number,
+  },
   violations: {
     tabSwitches: {
       type: Number,

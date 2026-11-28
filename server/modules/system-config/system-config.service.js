@@ -29,6 +29,13 @@ exports.updateConfig = async (reqUser, payload) => {
         ...payload.performanceSettings
       });
     }
+    if (payload.jeePercentileConfig) {
+      const current = config.jeePercentileConfig?.toObject?.() || config.jeePercentileConfig || {};
+      config.jeePercentileConfig = {
+        table: payload.jeePercentileConfig.table ?? current.table ?? [],
+        gValues: { ...(current.gValues || {}), ...(payload.jeePercentileConfig.gValues || {}) }
+      };
+    }
     if (payload.appUpdate) {
       config.appUpdate = {
         ...config.appUpdate?.toObject?.() || config.appUpdate,

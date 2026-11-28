@@ -51,6 +51,13 @@ const examSchema = new mongoose.Schema({
     min: 0,
     default: 0
   },
+  // Level vs JEE Main (1 = much easier .. 5 = much tougher), used for the
+  // student's Expected JEE Main percentile. Unset = chapter tests 2, others 3.
+  jeeLevel: {
+    type: Number,
+    min: 1,
+    max: 5,
+  },
   settings: {
     startTime: {
       type: Date,

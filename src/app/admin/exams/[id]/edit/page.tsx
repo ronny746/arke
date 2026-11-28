@@ -35,6 +35,7 @@ export default function ExamBuilder() {
   const { id } = useParams();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [activeTab, setActiveTab] = useState('settings'); // settings | questions
 
   // Settings State
@@ -44,6 +45,7 @@ export default function ExamBuilder() {
     examType: 'INTERNAL',
     accessMode: 'PAID',
     accessPrice: 0,
+    jeeLevel: '',
     assignedClasses: [],
     settings: {
       startTime: '',
@@ -330,6 +332,7 @@ export default function ExamBuilder() {
         examType: data.exam.examType || 'INTERNAL',
         accessMode: data.exam.accessMode || 'PAID',
         accessPrice: data.exam.accessPrice || 0,
+        jeeLevel: data.exam.jeeLevel || '',
         assignedClasses: data.exam.assignedBatches?.map(c => typeof c === 'object' ? c._id : c) || [],
         settings: {
           startTime: formatDateForInput(data.exam.settings.startTime),
@@ -345,6 +348,18 @@ export default function ExamBuilder() {
       toast.error('Failed to load exam details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRecalculateJee = async () => {
+    try {
+      setRecalculating(true);
+      const res = await adminAPI.recalculateJeePercentile(id);
+      toast.success(`Recalculated ${res.data?.data?.updated ?? 0} result(s) at level ${res.data?.data?.jeeLevel ?? ''}`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Could not recalculate percentiles');
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -770,6 +785,31 @@ export default function ExamBuilder() {
               </label>
             </div>
             {examData.accessMode === 'PAID' && <Input label="Standalone test price (optional)" type="number" min="0" value={examData.accessPrice} onChange={(e) => setExamData({ ...examData, accessPrice: Number(e.target.value) || 0 })} />}
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold border-b pb-2">Level vs JEE Main</h3>
+            <p className="text-sm text-gray-500">Used for the student&apos;s Expected JEE Main percentile. Check: would a student who scores 50% here also score about 50% in a real JEE Main shift? If yes, choose 3.</p>
+            <select
+              className="w-full md:w-1/2 border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white"
+              value={examData.jeeLevel || ''}
+              onChange={(e) => setExamData({ ...examData, jeeLevel: e.target.value ? Number(e.target.value) : '' })}
+            >
+              <option value="">Auto (chapter tests 2, others 3)</option>
+              <option value="1">1 - Much easier than JEE Main</option>
+              <option value="2">2 - Easier (chapter tests)</option>
+              <option value="3">3 - Same as JEE Main (part tests, full mocks)</option>
+              <option value="4">4 - Tougher (lengthy or tricky questions)</option>
+              <option value="5">5 - Much tougher (near JEE Advanced)</option>
+            </select>
+            {id && (
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Button type="button" variant="outline" disabled={recalculating} onClick={handleRecalculateJee}>
+                  {recalculating ? 'Recalculating...' : 'Re-run expected percentiles'}
+                </Button>
+                <span className="text-xs text-gray-500">Save the new level first, then re-run to update students&apos; saved percentiles.</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">

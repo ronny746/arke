@@ -24,6 +24,7 @@ export default function ExamBuilder() {
     examType: 'INTERNAL',
     accessMode: 'PAID',
     accessPrice: 0,
+    jeeLevel: '',
     assignedClasses: [],
     settings: {
       startTime: '',
@@ -259,6 +260,7 @@ export default function ExamBuilder() {
         title: data.exam.title,
         description: data.exam.description || '',
         examType: data.exam.examType || 'INTERNAL',
+        jeeLevel: data.exam.jeeLevel || '',
         assignedClasses: data.exam.assignedBatches?.map(c => typeof c === 'object' ? c._id : c) || [],
         settings: {
           startTime: formatDateForInput(data.exam.settings.startTime),
@@ -688,6 +690,23 @@ export default function ExamBuilder() {
               </label>
             </div>
             {examData.accessMode === 'PAID' && <Input label="Standalone test price (optional)" type="number" min="0" value={examData.accessPrice} onChange={(e) => setExamData({ ...examData, accessPrice: Number(e.target.value) || 0 })} />}
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold border-b pb-2">Level vs JEE Main</h3>
+            <p className="text-sm text-gray-500">Used for the student&apos;s Expected JEE Main percentile. Check: would a student who scores 50% here also score about 50% in a real JEE Main shift? If yes, choose 3.</p>
+            <select
+              className="w-full md:w-1/2 border-gray-300 rounded-lg shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2.5 border text-sm bg-white"
+              value={examData.jeeLevel || ''}
+              onChange={(e) => setExamData({ ...examData, jeeLevel: e.target.value ? Number(e.target.value) : '' })}
+            >
+              <option value="">Auto (chapter tests 2, others 3)</option>
+              <option value="1">1 - Much easier than JEE Main</option>
+              <option value="2">2 - Easier (chapter tests)</option>
+              <option value="3">3 - Same as JEE Main (part tests, full mocks)</option>
+              <option value="4">4 - Tougher (lengthy or tricky questions)</option>
+              <option value="5">5 - Much tougher (near JEE Advanced)</option>
+            </select>
           </div>
 
           <div className="space-y-4">

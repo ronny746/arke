@@ -33,6 +33,13 @@ router.put(
   ExamController.updateExam
 );
 
+// Re-run Expected JEE Main percentiles after the paper level / table changed
+router.post(
+  '/:id/recalculate-jee-percentile',
+  requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.TEACHER]),
+  ExamController.recalculateJeePercentiles
+);
+
 // Parse Word Document for Questions
 // using 'memory' storage for the multer upload so we can pass the buffer to mammoth
 const multer = require('multer');

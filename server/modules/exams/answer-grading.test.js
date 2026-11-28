@@ -85,3 +85,18 @@ test('warning counters never go down when merged', () => {
   assert.equal(_mergeViolations({ tabSwitches: 1 }, { tabSwitches: 3 }).tabSwitches, 3);
   assert.equal(_mergeViolations(undefined, { tabSwitches: 1 }).tabSwitches, 1);
 });
+
+test('submit fills answers the server never got, but never overrides saved ones', () => {
+  const { _applyMissingAnswers } = require('./exam.controller');
+  const sub = { answers: [{ questionId: 'q1', selectedOptionId: 'o1', status: 'ANSWERED' }, { questionId: 'q3', status: 'MARKED_FOR_REVIEW' }] };
+  _applyMissingAnswers(sub, [
+    { questionId: 'q1', selectedOptionId: 'o9' },
+    { questionId: 'q2', numericAnswer: '3', status: 'ANSWERED' },
+    { questionId: 'q3', numericAnswer: '7' },
+    { questionId: 'q4' },
+  ]);
+  assert.equal(sub.answers.find((a) => a.questionId === 'q1').selectedOptionId, 'o1');
+  assert.equal(sub.answers.find((a) => a.questionId === 'q2').numericAnswer, '3');
+  assert.equal(sub.answers.find((a) => a.questionId === 'q3').numericAnswer, '7');
+  assert.equal(sub.answers.some((a) => a.questionId === 'q4'), false);
+});

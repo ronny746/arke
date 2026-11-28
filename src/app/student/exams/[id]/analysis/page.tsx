@@ -247,6 +247,9 @@ export default function ExamAnalysis() {
 
   const { submission, subjectStats, detailedQuestions, totalMarks, score, nestedStats, timingStats } = data;
   const subjects = Object.keys(subjectStats);
+  // Worked out on the server (same number as the app). Full marks = 100.
+  const expectedPct = typeof (data as any).expectedJeePercentile === 'number' ? (data as any).expectedJeePercentile as number : null;
+  const expectedPctText = expectedPct === null ? '' : (expectedPct >= 100 ? '100' : expectedPct.toFixed(2));
   const formatSeconds = (seconds: number) => {
     const value = Math.max(0, Math.round(Number(seconds) || 0));
     return value >= 60 ? `${Math.floor(value / 60)}m ${value % 60}s` : `${value}s`;
@@ -293,11 +296,24 @@ export default function ExamAnalysis() {
               </p>
             </div>
           </div>
-          <div className="mt-6 md:mt-0 flex items-baseline gap-2 bg-black/20 px-8 py-4 rounded-2xl shadow-inner backdrop-blur-sm">
-            <span className="text-6xl font-bold">{score}</span>
-            <span className="text-2xl font-medium opacity-75">/ {totalMarks}</span>
+          <div className="mt-6 md:mt-0 flex flex-col sm:flex-row items-stretch gap-3">
+            <div className="flex items-baseline justify-center gap-2 bg-black/20 px-8 py-4 rounded-2xl shadow-inner backdrop-blur-sm">
+              <span className="text-6xl font-bold">{score}</span>
+              <span className="text-2xl font-medium opacity-75">/ {totalMarks}</span>
+            </div>
+            {expectedPct !== null && (
+              <div className="flex flex-col justify-center bg-white/15 px-6 py-3 rounded-2xl text-center sm:text-left">
+                <span className="text-xs font-semibold uppercase tracking-wide opacity-90">Expected JEE Main percentile</span>
+                <span className="text-4xl font-bold leading-tight">{expectedPctText}</span>
+              </div>
+            )}
           </div>
         </Card>
+        {expectedPct !== null && (
+          <p className="-mt-3 text-xs text-gray-500 px-1">
+            Expected JEE Main percentile: estimated from your score and this paper&apos;s level. Not a rank among ARKE students.
+          </p>
+        )}
 
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-4">

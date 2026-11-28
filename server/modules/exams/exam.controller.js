@@ -4,7 +4,8 @@ const ExamService = require('./exam.service');
 const { getTopicFlag } = require('../arke-portal/portal.rules');
 const FlagService = require('../performance-flags/performance-flags.service');
 const { createRemedialSessions } = require('../arke-portal/remedial.service');
-const { gradeAnswer, findStudentAnswer } = require('./answer-grading');
+const { gradeAnswer, findStudentAnswer, answerHasValue } = require('./answer-grading');
+const { computeExpectedPercentile, resolveLevel, resolveConfig } = require('./jee-percentile');
 
 // questionImageUrl (set by the ARKE paper import) was never shown by the app
 // or the web player, so graph/diagram questions had no picture. Put it into
@@ -230,6 +231,37 @@ const resultsLockedUntil = (exam) => {
 };
 exports.resultsLockedUntil = resultsLockedUntil;
 
+// --- Expected JEE Main percentile (jee-percentile.js) ---
+const parseJeeLevel = (value) => {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : undefined;
+};
+
+const getJeePercentileConfig = async (instituteId) => {
+  const SystemConfig = require('../system-config/system-config.model');
+  const cfg = instituteId
+    ? await SystemConfig.findOne({ instituteId }).select('jeePercentileConfig').lean()
+    : null;
+  return resolveConfig(cfg?.jeePercentileConfig);
+};
+
+const workOutExpectedPercentile = (exam, score, totalMarks, config) => {
+  const level = resolveLevel(exam);
+  return { level, percentile: computeExpectedPercentile({ score, totalMarks, level, ...config }) };
+};
+
+// The saved value (worked out on submit) wins; attempts from before this
+// feature get it worked out the same way, so web and app always agree.
+const expectedPercentileForResult = async (submission, exam, score, totalMarks) => {
+  if (typeof submission?.expectedJeePercentile === 'number') {
+    return { expectedJeePercentile: submission.expectedJeePercentile, jeeLevel: submission.expectedJeeLevel ?? resolveLevel(exam) };
+  }
+  const config = await getJeePercentileConfig(exam?.institute);
+  const { level, percentile } = workOutExpectedPercentile(exam, score, totalMarks, config);
+  return { expectedJeePercentile: percentile, jeeLevel: level };
+};
+exports._expectedPercentileForResult = expectedPercentileForResult;
+
 const getQuestionAverageTimes = async (examId) => {
   const ExamSubmission = require('./exam-submission.model');
   const rows = await ExamSubmission.aggregate([
@@ -243,10 +275,11 @@ const getQuestionAverageTimes = async (examId) => {
 
 exports.createExam = async (req, res) => {
   try {
-    const { title, description, examType, assignedBatches, settings, security, accessMode, accessPrice } = req.body;
+    const { title, description, examType, assignedBatches, settings, security, accessMode, accessPrice, jeeLevel } = req.body;
     
     const exam = new Exam({
       title,
+      jeeLevel: parseJeeLevel(jeeLevel) ?? resolveLevel({ title }),
       description,
       examType,
       assignedBatches,
@@ -273,10 +306,13 @@ exports.createExam = async (req, res) => {
 
 exports.updateExam = async (req, res) => {
   try {
-    const { title, description, examType, assignedBatches, settings, security, status, accessMode, accessPrice } = req.body;
+    const { title, description, examType, assignedBatches, settings, security, status, accessMode, accessPrice, jeeLevel } = req.body;
+    const update = { title, description, examType, assignedBatches, settings, security, status, accessMode: accessMode === 'FREE' ? 'FREE' : 'PAID', accessPrice: Number(accessPrice) || 0 };
+    // Saved percentiles keep the old level until the admin presses Re-run.
+    if (parseJeeLevel(jeeLevel)) update.jeeLevel = parseJeeLevel(jeeLevel);
     const exam = await Exam.findOneAndUpdate(
       { _id: req.params.id, institute: req.user.instituteId },
-      { title, description, examType, assignedBatches, settings, security, status, accessMode: accessMode === 'FREE' ? 'FREE' : 'PAID', accessPrice: Number(accessPrice) || 0 },
+      update,
       { new: true }
     );
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
@@ -637,7 +673,8 @@ exports.getParentExamAnalysis = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No completed submission found for this exam' });
     }
 
-    const lockedUntil = resultsLockedUntil(await Exam.findById(examId).select('settings'));
+    const examDoc = await Exam.findById(examId).select('settings title jeeLevel institute');
+    const lockedUntil = resultsLockedUntil(examDoc);
     if (lockedUntil) {
       return res.status(403).json({ success: false, message: `Results will be available after ${lockedUntil.toISOString()}`, resultsAvailableAt: lockedUntil });
     }
@@ -649,6 +686,7 @@ exports.getParentExamAnalysis = async (req, res) => {
       .sort('order');
 
     const analysis = calculateAnalysisData(submission, questions, await getQuestionAverageTimes(examId));
+    const jee = await expectedPercentileForResult(submission, examDoc, analysis.score, analysis.totalMarks);
 
     res.status(200).json({
       success: true,
@@ -664,6 +702,8 @@ exports.getParentExamAnalysis = async (req, res) => {
         totalMarks: analysis.totalMarks,
         score: analysis.score,
         timingStats: analysis.timingStats,
+        expectedJeePercentile: jee.expectedJeePercentile,
+        jeeLevel: jee.jeeLevel,
       }
     });
 
@@ -688,7 +728,8 @@ exports.getExamAnalysis = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No completed submission found for this exam' });
     }
 
-    const lockedUntil = resultsLockedUntil(await Exam.findById(examId).select('settings'));
+    const examDoc = await Exam.findById(examId).select('settings title jeeLevel institute');
+    const lockedUntil = resultsLockedUntil(examDoc);
     if (lockedUntil) {
       return res.status(403).json({ success: false, message: `Results will be available after ${lockedUntil.toISOString()}`, resultsAvailableAt: lockedUntil });
     }
@@ -700,6 +741,7 @@ exports.getExamAnalysis = async (req, res) => {
       .sort('order');
 
     const analysis = calculateAnalysisData(submission, questions, await getQuestionAverageTimes(examId));
+    const jee = await expectedPercentileForResult(submission, examDoc, analysis.score, analysis.totalMarks);
 
     res.status(200).json({
       success: true,
@@ -716,6 +758,8 @@ exports.getExamAnalysis = async (req, res) => {
         totalMarks: analysis.totalMarks,
         score: analysis.score,
         timingStats: analysis.timingStats,
+        expectedJeePercentile: jee.expectedJeePercentile,
+        jeeLevel: jee.jeeLevel,
       }
     });
 
@@ -738,6 +782,7 @@ exports.getAdminExamAnalysis = async (req, res) => {
     }
 
     const examId = submission.exam;
+    const examDoc = await Exam.findById(examId).select('title jeeLevel institute');
 
     // Fetch all questions with correct answers
     const questions = await ExamQuestion.find({ exam: examId })
@@ -746,6 +791,7 @@ exports.getAdminExamAnalysis = async (req, res) => {
       .sort('order');
 
     const analysis = calculateAnalysisData(submission, questions, await getQuestionAverageTimes(examId));
+    const jee = await expectedPercentileForResult(submission, examDoc, analysis.score, analysis.totalMarks);
 
     res.status(200).json({
       success: true,
@@ -763,6 +809,8 @@ exports.getAdminExamAnalysis = async (req, res) => {
         totalMarks: analysis.totalMarks,
         score: analysis.score,
         timingStats: analysis.timingStats,
+        expectedJeePercentile: jee.expectedJeePercentile,
+        jeeLevel: jee.jeeLevel,
       }
     });
 
@@ -913,6 +961,37 @@ const normalizeAnswerPayload = (body = {}) => {
 };
 exports.normalizeAnswerPayload = normalizeAnswerPayload;
 
+const applyMissingAnswers = (submission, answers) => {
+  if (!Array.isArray(submission.answers)) submission.answers = [];
+  answers.slice(0, 500).forEach((raw) => {
+    if (!raw || typeof raw !== 'object') return;
+    const a = normalizeAnswerPayload(raw);
+    if (!a.questionId) return;
+    const incoming = {
+      selectedOptionId: a.selectedOptionId,
+      selectedOptionIds: a.selectedOptionIds,
+      numericAnswer: a.numericAnswer,
+      subjectiveAnswerText: a.subjectiveAnswerText,
+    };
+    if (!answerHasValue(incoming)) return;
+    const existing = findStudentAnswer(submission.answers, a.questionId);
+    if (existing && answerHasValue(existing)) return;
+    if (existing) {
+      Object.entries(incoming).forEach(([k, v]) => { if (v !== undefined) existing[k] = v; });
+      existing.status = a.status || 'ANSWERED';
+    } else {
+      submission.answers.push({
+        questionId: a.questionId,
+        ...incoming,
+        selectedOptionIds: incoming.selectedOptionIds || [],
+        status: a.status || 'ANSWERED',
+        timeSpentSeconds: 0,
+      });
+    }
+  });
+};
+exports._applyMissingAnswers = applyMissingAnswers;
+
 // Two saves for one question can overlap (the app's debounced autosave and
 // Save & Next). The loser used to fail with a VersionError, which the app
 // ignores, so the answer was lost. Retry it on the fresh document instead.
@@ -1049,7 +1128,17 @@ exports.submitExam = async (req, res) => {
     // A late submit is still accepted (so the attempt gets graded), but it is
     // recorded as auto-submitted; answers saved after the deadline were refused.
     const examTiming = await Exam.findById(examId).select('settings');
-    const isLate = Date.now() > getAttemptDeadline(examTiming?.settings, submission);
+    const deadline = getAttemptDeadline(examTiming?.settings, submission);
+    const isLate = Date.now() > deadline;
+
+    // The app also sends every answer it holds. Fill in any the server never
+    // got (a save that failed offline, or one still in flight when Submit was
+    // tapped). Answers the server already has always win, and nothing is taken
+    // well after the deadline.
+    if (Array.isArray(req.body.answers) && Date.now() <= deadline + 60 * 1000) {
+      applyMissingAnswers(submission, req.body.answers);
+    }
+
     submission.status = (req.body.isAutoSubmit || isLate) ? 'AUTO_SUBMITTED' : 'SUBMITTED';
     submission.endTime = new Date();
 
@@ -1075,6 +1164,7 @@ exports.submitExam = async (req, res) => {
     let correct = 0;
     let wrong = 0;
     let unattempted = 0;
+    let paperTotalMarks = 0;
     const topicScoresByKey = new Map();
 
     questions.forEach(q => {
@@ -1083,6 +1173,7 @@ exports.submitExam = async (req, res) => {
       // and the review agree. Marked-for-review with no value is unattempted.
       const graded = gradeAnswer(q, studentAns);
       const qMarks = q.marks !== undefined && q.marks !== null ? q.marks : 4;
+      paperTotalMarks += Number(qMarks) || 0;
       if (!graded.attempted) {
         unattempted++;
         if (studentAns) {
@@ -1110,6 +1201,15 @@ exports.submitExam = async (req, res) => {
     submission.totalCorrect = correct;
     submission.totalWrong = wrong;
     submission.totalUnattempted = unattempted;
+
+    // Expected JEE Main percentile: worked out here, on the server, and saved
+    // with the attempt so the app and website always show the same number.
+    const examForJee = await Exam.findById(examId).select('title jeeLevel').lean();
+    const jee = workOutExpectedPercentile(
+      examForJee, score, paperTotalMarks, await getJeePercentileConfig(req.user.instituteId),
+    );
+    submission.expectedJeePercentile = jee.percentile ?? undefined;
+    submission.expectedJeeLevel = jee.level;
 
     if (req.body.violations) {
       submission.violations = mergeViolations(submission.violations, req.body.violations);
@@ -1139,6 +1239,46 @@ exports.submitExam = async (req, res) => {
       success: true,
       message: 'Exam submitted successfully',
       data: submission
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Admin "Re-run": after a paper's level or the JEE table changes, work out
+// every saved Expected JEE Main percentile of this paper again.
+exports.recalculateJeePercentiles = async (req, res) => {
+  try {
+    const ExamSubmission = require('./exam-submission.model');
+    const exam = await Exam.findOne({ _id: req.params.id, institute: req.user.instituteId }).select('title jeeLevel').lean();
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+
+    const questions = await ExamQuestion.find({ exam: exam._id }).select('marks').lean();
+    const totalMarks = questions.reduce((sum, q) => sum + (Number(q.marks ?? 4) || 0), 0);
+    const config = await getJeePercentileConfig(req.user.instituteId);
+
+    const submissions = await ExamSubmission.find({
+      exam: exam._id,
+      status: { $in: ['SUBMITTED', 'AUTO_SUBMITTED'] },
+    }).select('score').lean();
+
+    const ops = submissions.map((sub) => {
+      const { level, percentile } = workOutExpectedPercentile(exam, sub.score, totalMarks, config);
+      return {
+        updateOne: {
+          filter: { _id: sub._id },
+          update: percentile === null
+            ? { $unset: { expectedJeePercentile: 1 }, $set: { expectedJeeLevel: level } }
+            : { $set: { expectedJeePercentile: percentile, expectedJeeLevel: level } },
+        },
+      };
+    });
+    if (ops.length) await ExamSubmission.bulkWrite(ops);
+
+    res.status(200).json({
+      success: true,
+      message: 'Expected JEE Main percentiles recalculated',
+      data: { updated: ops.length, jeeLevel: resolveLevel(exam) },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
