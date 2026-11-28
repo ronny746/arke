@@ -7,6 +7,12 @@ import { Save, Lock, Smartphone, AlertTriangle, Image as ImageIcon, Plus, Trash2
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface ReleaseNote {
+  version: string;
+  date: string; // yyyy-mm-dd
+  notesText: string; // one line per point
+}
+
 interface Banner {
   _id: string;
   title?: string;
@@ -28,6 +34,11 @@ export default function AdminSettingsPage() {
     updateUrl: 'https://play.google.com/store/apps/details?id=com.arkescholarsneet.online',
     updateNotes: 'New version available with enhanced performance and features!'
   });
+
+  // One entry per app version, so the team can retest exactly what changed.
+  const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([]);
+  const updateReleaseNote = (index: number, patch: Partial<ReleaseNote>) =>
+    setReleaseNotes((list) => list.map((n, i) => (i === index ? { ...n, ...patch } : n)));
 
   // Banner states
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -67,6 +78,11 @@ export default function AdminSettingsPage() {
           updateUrl: appUp.updateUrl || 'https://arke.pro/download',
           updateNotes: appUp.updateNotes || 'New version available with enhanced performance and features!'
         });
+        setReleaseNotes((result.data.releaseNotes || []).map((n: any) => ({
+          version: n.version || '',
+          date: n.date ? String(n.date).slice(0, 10) : '',
+          notesText: (n.notes || []).join('\n'),
+        })));
       }
     } catch {
       toast.error('Failed to load system settings');
@@ -114,7 +130,14 @@ export default function AdminSettingsPage() {
             isMandatory: settings.isMandatory,
             updateUrl: settings.updateUrl,
             updateNotes: settings.updateNotes
-          }
+          },
+          releaseNotes: releaseNotes
+            .map((n) => ({
+              version: n.version.trim(),
+              date: n.date || null,
+              notes: n.notesText.split('\n').map((line) => line.trim()).filter(Boolean),
+            }))
+            .filter((n) => n.version && n.notes.length)
         })
       });
       const result = await res.json();
@@ -655,6 +678,69 @@ export default function AdminSettingsPage() {
               className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
+        </div>
+
+        {/* Release notes per app version */}
+        <div className="mt-8 space-y-4">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Release notes (per app version)</h3>
+              <p className="text-sm text-gray-500">One line per change, so you can retest exactly those points. Students see these under &quot;What&apos;s new&quot; in the app.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReleaseNotes((list) => [{ version: settings.latestVersion, date: new Date().toISOString().slice(0, 10), notesText: '' }, ...list])}
+              className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 flex items-center gap-1.5"
+            >
+              <Plus size={16} /> Add version
+            </button>
+          </div>
+          {releaseNotes.length === 0 && (
+            <p className="text-sm text-gray-500">No release notes yet.</p>
+          )}
+          {releaseNotes.map((note, index) => (
+            <div key={index} className="p-4 border border-gray-200 rounded-xl space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Version</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1.0.12"
+                    value={note.version}
+                    onChange={(e) => updateReleaseNote(index, { version: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={note.date}
+                    onChange={(e) => updateReleaseNote(index, { date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  aria-label="Remove this version"
+                  onClick={() => setReleaseNotes((list) => list.filter((_, i) => i !== index))}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg justify-self-start sm:justify-self-end"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">What changed (one line per point)</label>
+                <textarea
+                  rows={4}
+                  placeholder={'Next test card on Home\nResume a test after the app closes'}
+                  value={note.notesText}
+                  onChange={(e) => updateReleaseNote(index, { notesText: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="mt-8 flex justify-end">

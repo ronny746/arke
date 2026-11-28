@@ -1,3 +1,4 @@
+const { checkQuestions } = require('./question-check');
 const QuestionBank = require('./question-bank.model');
 const ExamService = require('./exam.service');
 const { QuestionClass, QuestionCategory, QuestionChapter, QuestionTopic } = require('./category.model');
@@ -131,7 +132,8 @@ exports.uploadDocx = async (req, res) => {
       success: true,
       message: 'DOCX parsed and categorized successfully',
       data: processedQuestions,
-      docxUrl: docxUrl
+      docxUrl: docxUrl,
+      questionCheck: checkQuestions(processedQuestions),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error parsing DOCX: ' + error.message });
@@ -430,7 +432,7 @@ exports.createQuestionBank = async (req, res) => {
     });
     
     await qb.save();
-    res.status(201).json({ success: true, data: qb, message: 'Question Bank created successfully' });
+    res.status(201).json({ success: true, data: qb, message: 'Question Bank created successfully', questionCheck: checkQuestions(qb.questions) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -477,7 +479,7 @@ exports.updateQuestionBank = async (req, res) => {
     }
     
     await qb.save();
-    res.status(200).json({ success: true, data: qb, message: 'Question Bank updated successfully' });
+    res.status(200).json({ success: true, data: qb, message: 'Question Bank updated successfully', questionCheck: checkQuestions(qb.questions) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -77,6 +77,10 @@ nextApp.prepare().then(() => {
     console.log(`========================================\n`);
   });
 
+  // Evening-before / morning-of push reminders for part tests and full mocks
+  // (set EXAM_REMINDERS=off to disable on a server).
+  require('./server/modules/exams/exam-reminders').start({ io });
+
   // Initialize Mediasoup workers in background
   mediaService.createWorkers().catch(err => {
     console.warn('⚠️ Mediasoup worker initialization notice:', err.message || err);

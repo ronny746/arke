@@ -1,5 +1,6 @@
 const SystemConfig = require('./system-config.model');
 const { normalizeThresholds } = require('../arke-portal/portal.rules');
+const { normalizeReleaseNotes } = require('./release-notes');
 
 exports.updateConfig = async (reqUser, payload) => {
   let query = reqUser?.instituteId ? { instituteId: reqUser.instituteId } : {};
@@ -35,6 +36,9 @@ exports.updateConfig = async (reqUser, payload) => {
         table: payload.jeePercentileConfig.table ?? current.table ?? [],
         gValues: { ...(current.gValues || {}), ...(payload.jeePercentileConfig.gValues || {}) }
       };
+    }
+    if (Array.isArray(payload.releaseNotes)) {
+      config.releaseNotes = normalizeReleaseNotes(payload.releaseNotes);
     }
     if (payload.appUpdate) {
       config.appUpdate = {

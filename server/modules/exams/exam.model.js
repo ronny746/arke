@@ -58,6 +58,12 @@ const examSchema = new mongoose.Schema({
     min: 1,
     max: 5,
   },
+  // Push reminders already sent (exam-reminders.js), for this start time.
+  reminders: {
+    startTime: Date,
+    eveningSentAt: Date,
+    morningSentAt: Date,
+  },
   settings: {
     startTime: {
       type: Date,

@@ -107,6 +107,7 @@ export const adminAPI = {
   getExamById: (id) => axiosInstance.get(`/exams/${id}`),
   createExam: (data) => axiosInstance.post('/exams', data),
   updateExam: (id, data) => axiosInstance.put(`/exams/${id}`, data),
+  getQuestionCheck: (id) => axiosInstance.get(`/exams/${id}/question-check`),
   recalculateJeePercentile: (id) => axiosInstance.post(`/exams/${id}/recalculate-jee-percentile`),
   addExamQuestions: (id, data) => axiosInstance.post(`/exams/${id}/questions`, data),
   getLiveMonitoringData: (id) => axiosInstance.get(`/exams/${id}/live-monitor`),

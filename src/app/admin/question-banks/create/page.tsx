@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/index.jsx';
 import { Button } from '@/components/ui/Button.jsx';
 import { Input } from '@/components/forms/index.jsx';
 import { adminAPI } from '@/api/index.js';
+import { QuestionCheckSummary, type QuestionCheck } from '@/components/exams/QuestionCheckSummary';
 import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
 const PDFCropDrawer = dynamic(() => import('@/components/ui/PDFCropDrawer').then(m => m.PDFCropDrawer), { ssr: false });
@@ -24,6 +25,7 @@ function QuestionBankBuilderContent() {
   
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [questionCheck, setQuestionCheck] = useState<{ title: string; check: QuestionCheck } | null>(null);
   
   const [bankData, setBankData] = useState({
     title: '',
@@ -132,6 +134,7 @@ function QuestionBankBuilderContent() {
       try {
         const res = await adminAPI.uploadDocxToBank(formData);
         setStagedQuestions(res.data.data);
+        if (res.data.questionCheck) setQuestionCheck({ title: 'Upload check', check: res.data.questionCheck });
         if (res.data.docxUrl) {
           setUploadedWordUrl(res.data.docxUrl);
         }
@@ -221,10 +224,21 @@ function QuestionBankBuilderContent() {
       };
 
       if (id) {
-        await adminAPI.updateQuestionBank(id, payload);
-        toast.success("Question Bank updated successfully");
+        const res = await adminAPI.updateQuestionBank(id, payload);
+        const check: QuestionCheck | undefined = res.data?.questionCheck;
+        if (check) setQuestionCheck({ title: 'Saved. Upload check', check });
+        if (check && !check.ok) toast.error(`Saved, but ${check.issueCount} question(s) need fixing`);
+        else toast.success("Question Bank updated successfully");
       } else {
-        await adminAPI.createQuestionBank(payload);
+        const res = await adminAPI.createQuestionBank(payload);
+        const check: QuestionCheck | undefined = res.data?.questionCheck;
+        if (check && !check.ok) {
+          // Saved, but stay here so the admin sees what to fix.
+          setQuestionCheck({ title: 'Saved. Upload check', check });
+          toast.error(`Saved, but ${check.issueCount} question(s) need fixing`);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
         toast.success("Questions added successfully");
         router.push('/admin/question-banks');
       }
@@ -319,6 +333,9 @@ function QuestionBankBuilderContent() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
+      {questionCheck && (
+        <QuestionCheckSummary title={questionCheck.title} check={questionCheck.check} onClose={() => setQuestionCheck(null)} />
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => router.push('/admin/question-banks')} className="p-2">

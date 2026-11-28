@@ -60,6 +60,7 @@
     "react-pdf": "^10.4.1",
     "react-quill-new": "^3.8.3",
     "recharts": "^3.9.2",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "streamifier": "^0.1.1",

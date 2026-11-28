@@ -35,7 +35,7 @@ export const studentAPI = {
   // Exams
   getExams: () => axiosInstance.get('/exams/student/my-exams'),
   getExamAnalysis: (id) => axiosInstance.get(`/exams/${id}/analysis`),
-  startExam: (id) => axiosInstance.post(`/exams/${id}/start`),
+  startExam: (id, { lowData = false } = {}) => axiosInstance.post(`/exams/${id}/start`, null, lowData ? { params: { lowData: 1 } } : undefined),
   saveAnswer: (id, data) => axiosInstance.post(`/exams/${id}/save-answer`, data),
   submitExam: (id, data) => axiosInstance.post(`/exams/${id}/submit`, data),
   uploadSnapshot: (id, formData) => axiosInstance.post(`/exams/${id}/snapshot`, formData, {

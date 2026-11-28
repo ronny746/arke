@@ -9,12 +9,15 @@ import { Card } from '@/components/ui/index.jsx';
 import { Button } from '@/components/ui/Button.jsx';
 import { Input } from '@/components/forms/index.jsx';
 import { adminAPI } from '@/api/index.js';
+import { QuestionCheckSummary, type QuestionCheck } from '@/components/exams/QuestionCheckSummary';
 import toast from 'react-hot-toast';
 
 export default function ExamBuilder() {
   const { id } = useParams();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [questionCheck, setQuestionCheck] = useState<{ title: string; check: QuestionCheck } | null>(null);
+  const [checkingQuestions, setCheckingQuestions] = useState(false);
   const [activeTab, setActiveTab] = useState('settings'); // settings | questions
 
   // Settings State
@@ -431,8 +434,16 @@ export default function ExamBuilder() {
 
     try {
       setLoading(true);
-      await adminAPI.addExamQuestions(id, { questions });
-      toast.success("Questions updated and saved successfully!");
+      const res = await adminAPI.addExamQuestions(id, { questions });
+      const check: QuestionCheck | undefined = res.data?.questionCheck;
+      if (check && !check.ok) {
+        // Saved, but stay here so the admin sees what to fix.
+        setQuestionCheck({ title: 'Saved. Upload check', check });
+        toast.error(`Saved, but ${check.issueCount} question(s) need fixing`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      toast.success(check ? `Saved ${check.total} questions (${check.totalMarks} marks). No problems found.` : "Questions updated and saved successfully!");
       router.push('/admin/exams');
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to save questions");
@@ -480,6 +491,7 @@ export default function ExamBuilder() {
       try {
         const res = await adminAPI.uploadDocxToBank(formData);
         const parsedQs = res.data?.data || [];
+        if (res.data?.questionCheck) setQuestionCheck({ title: `Upload check (${file.name})`, check: res.data.questionCheck });
         
         if (parsedQs.length === 0) {
           toast.error("No questions were detected in the document.", { id: 'examWordUpload' });
@@ -584,6 +596,27 @@ export default function ExamBuilder() {
           </div>
         )}
       </div>
+
+      {id && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" disabled={checkingQuestions} onClick={async () => {
+            try {
+              setCheckingQuestions(true);
+              const res = await adminAPI.getQuestionCheck(id);
+              setQuestionCheck({ title: 'Saved paper check', check: res.data?.data });
+            } catch (error: any) {
+              toast.error(error?.response?.data?.message || 'Could not check questions');
+            } finally {
+              setCheckingQuestions(false);
+            }
+          }}>
+            {checkingQuestions ? 'Checking...' : 'Check saved questions'}
+          </Button>
+        </div>
+      )}
+      {questionCheck && (
+        <QuestionCheckSummary title={questionCheck.title} check={questionCheck.check} onClose={() => setQuestionCheck(null)} />
+      )}
 
       {activeTab === 'settings' ? (
         <Card className="p-6 space-y-8">

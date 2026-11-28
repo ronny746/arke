@@ -254,6 +254,9 @@ export default function ExamAnalysis() {
     const value = Math.max(0, Math.round(Number(seconds) || 0));
     return value >= 60 ? `${Math.floor(value / 60)}m ${value % 60}s` : `${value}s`;
   };
+  // "Result in one screen": headline numbers and weakest chapters first.
+  const summary = (data as any).summary || null;
+  const weakChapters: any[] = Array.isArray((data as any).weakChapters) ? (data as any).weakChapters : [];
 
   const activeSubjectQuestions = detailedQuestions.filter(q => {
     const subjectName = (q.subject && typeof q.subject === 'object') ? q.subject.name : (q.subject || 'General');
@@ -313,6 +316,51 @@ export default function ExamAnalysis() {
           <p className="-mt-3 text-xs text-gray-500 px-1">
             Expected JEE Main percentile: estimated from your score and this paper&apos;s level. Not a rank among ARKE students.
           </p>
+        )}
+
+        {summary && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Card className="p-4">
+              <div className="text-xs font-semibold text-gray-500">Time used</div>
+              <div className="text-2xl font-black text-gray-800">{formatSeconds(summary.timeUsedSeconds)}</div>
+              {summary.durationMinutes ? <div className="text-xs text-gray-500">of {summary.durationMinutes} min</div> : null}
+            </Card>
+            <Card className="p-4">
+              <div className="text-xs font-semibold text-gray-500">Accuracy</div>
+              <div className="text-2xl font-black text-gray-800">{summary.accuracy}%</div>
+              <div className="text-xs text-gray-500">of attempted questions</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-xs font-semibold text-emerald-700">Correct / Wrong</div>
+              <div className="text-2xl font-black text-gray-800">
+                <span className="text-emerald-700">{summary.correct}</span>
+                <span className="text-gray-400"> / </span>
+                <span className="text-rose-600">{summary.wrong}</span>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-xs font-semibold text-gray-500">Not attempted</div>
+              <div className="text-2xl font-black text-gray-800">{summary.unattempted}</div>
+            </Card>
+          </div>
+        )}
+
+        {weakChapters.length > 0 && (
+          <Card className="p-5">
+            <h3 className="text-lg font-bold text-gray-800">Your 3 weakest chapters</h3>
+            <p className="text-xs text-gray-500 mb-3">Revise these first. The full question review is below.</p>
+            <ol className="space-y-2">
+              {weakChapters.map((c, i) => (
+                <li key={`${c.subject}-${c.chapter}`} className="flex items-center justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50/60 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-gray-900 truncate">{i + 1}. {c.chapter}</div>
+                    <div className="text-xs text-gray-500">{c.subject} · {c.correct} of {c.totalQuestions} correct{c.wrong ? ` · ${c.wrong} wrong` : ''}{c.unattempted ? ` · ${c.unattempted} skipped` : ''}</div>
+                  </div>
+                  <div className={`shrink-0 font-bold ${c.score < 0 ? 'text-rose-600' : 'text-gray-800'}`}>{c.score} / {c.totalMarks}</div>
+                </li>
+              ))}
+            </ol>
+          </Card>
         )}
 
         <Card className="p-5">

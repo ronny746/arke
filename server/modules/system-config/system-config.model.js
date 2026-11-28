@@ -35,6 +35,14 @@ const systemConfigSchema = new mongoose.Schema({
       5: { type: Number }
     }
   },
+  // One entry per app version: what changed, so the team can retest exactly
+  // those points. Shown in the app under "What's new".
+  releaseNotes: [{
+    _id: false,
+    version: { type: String, trim: true },
+    date: { type: Date },
+    notes: [{ type: String, trim: true }]
+  }],
   neetExamConfig: {
     examTitle: { type: String, default: "NEET UG 2026" },
     examDate: { type: Date, default: () => new Date("2026-05-03T10:00:00.000Z") },

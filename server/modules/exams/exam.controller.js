@@ -6,6 +6,10 @@ const FlagService = require('../performance-flags/performance-flags.service');
 const { createRemedialSessions } = require('../arke-portal/remedial.service');
 const { gradeAnswer, findStudentAnswer, answerHasValue } = require('./answer-grading');
 const { computeExpectedPercentile, resolveLevel, resolveConfig } = require('./jee-percentile');
+const { weakestChapters, resultSummary, missingChapterIds } = require('./result-summary');
+const { secondsLeftFor } = require('./attempt-time');
+const { checkQuestions } = require('./question-check');
+const { lowDataQuestion, wantsLowData, requestOrigin } = require('../media-img/low-data');
 
 // questionImageUrl (set by the ARKE paper import) was never shown by the app
 // or the web player, so graph/diagram questions had no picture. Put it into
@@ -262,6 +266,33 @@ const expectedPercentileForResult = async (submission, exam, score, totalMarks) 
 };
 exports._expectedPercentileForResult = expectedPercentileForResult;
 
+// "Result in one screen": headline numbers + 3 weakest chapters, and the
+// low-data image rewrite, added to every analysis response.
+const resultExtras = async (req, submission, examDoc, analysis, jee) => {
+  const ids = missingChapterIds(analysis.detailedQuestions);
+  const chapterNames = new Map();
+  if (ids.length) {
+    const { QuestionChapter } = require('./category.model');
+    const rows = await QuestionChapter.find({ _id: { $in: ids } }).select('name').lean();
+    rows.forEach((r) => chapterNames.set(String(r._id), r.name));
+  }
+  if (wantsLowData(req)) {
+    const origin = requestOrigin(req);
+    analysis.detailedQuestions.forEach((q) => lowDataQuestion(q, origin));
+  }
+  return {
+    summary: resultSummary({
+      detailedQuestions: analysis.detailedQuestions,
+      score: analysis.score,
+      totalMarks: analysis.totalMarks,
+      timeUsedSeconds: getAttemptSeconds(submission),
+      durationMinutes: examDoc?.settings?.durationMinutes,
+      expectedJeePercentile: jee.expectedJeePercentile,
+    }),
+    weakChapters: weakestChapters(analysis.detailedQuestions, chapterNames),
+  };
+};
+
 const getQuestionAverageTimes = async (examId) => {
   const ExamSubmission = require('./exam-submission.model');
   const rows = await ExamSubmission.aggregate([
@@ -377,7 +408,8 @@ exports.parseWordFile = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'File parsed successfully',
-      data: questions
+      data: questions,
+      questionCheck: checkQuestions(questions),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error parsing word file: ' + error.message });
@@ -488,7 +520,9 @@ exports.addQuestions = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Questions updated successfully'
+      message: 'Questions updated successfully',
+      // Upload summary for the admin: counts and any broken questions.
+      questionCheck: checkQuestions(docs),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -687,6 +721,7 @@ exports.getParentExamAnalysis = async (req, res) => {
 
     const analysis = calculateAnalysisData(submission, questions, await getQuestionAverageTimes(examId));
     const jee = await expectedPercentileForResult(submission, examDoc, analysis.score, analysis.totalMarks);
+    const extras = await resultExtras(req, submission, examDoc, analysis, jee);
 
     res.status(200).json({
       success: true,
@@ -704,6 +739,8 @@ exports.getParentExamAnalysis = async (req, res) => {
         timingStats: analysis.timingStats,
         expectedJeePercentile: jee.expectedJeePercentile,
         jeeLevel: jee.jeeLevel,
+        summary: extras.summary,
+        weakChapters: extras.weakChapters,
       }
     });
 
@@ -742,6 +779,7 @@ exports.getExamAnalysis = async (req, res) => {
 
     const analysis = calculateAnalysisData(submission, questions, await getQuestionAverageTimes(examId));
     const jee = await expectedPercentileForResult(submission, examDoc, analysis.score, analysis.totalMarks);
+    const extras = await resultExtras(req, submission, examDoc, analysis, jee);
 
     res.status(200).json({
       success: true,
@@ -760,6 +798,8 @@ exports.getExamAnalysis = async (req, res) => {
         timingStats: analysis.timingStats,
         expectedJeePercentile: jee.expectedJeePercentile,
         jeeLevel: jee.jeeLevel,
+        summary: extras.summary,
+        weakChapters: extras.weakChapters,
       }
     });
 
@@ -782,7 +822,7 @@ exports.getAdminExamAnalysis = async (req, res) => {
     }
 
     const examId = submission.exam;
-    const examDoc = await Exam.findById(examId).select('title jeeLevel institute');
+    const examDoc = await Exam.findById(examId).select('title jeeLevel institute settings');
 
     // Fetch all questions with correct answers
     const questions = await ExamQuestion.find({ exam: examId })
@@ -792,6 +832,7 @@ exports.getAdminExamAnalysis = async (req, res) => {
 
     const analysis = calculateAnalysisData(submission, questions, await getQuestionAverageTimes(examId));
     const jee = await expectedPercentileForResult(submission, examDoc, analysis.score, analysis.totalMarks);
+    const extras = await resultExtras(req, submission, examDoc, analysis, jee);
 
     res.status(200).json({
       success: true,
@@ -811,6 +852,8 @@ exports.getAdminExamAnalysis = async (req, res) => {
         timingStats: analysis.timingStats,
         expectedJeePercentile: jee.expectedJeePercentile,
         jeeLevel: jee.jeeLevel,
+        summary: extras.summary,
+        weakChapters: extras.weakChapters,
       }
     });
 
@@ -886,6 +929,8 @@ exports.startExam = async (req, res) => {
     }
 
     let submission = await ExamSubmission.findOne({ exam: examId, student: studentId });
+    // An open attempt is continued (e.g. after the app crashed), never restarted.
+    const resumed = Boolean(submission);
 
     if (!submission) {
       const now = Date.now();
@@ -909,8 +954,13 @@ exports.startExam = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Exam already submitted' });
     }
 
+    const lowData = wantsLowData(req);
+    const origin = lowData ? requestOrigin(req) : null;
     const questions = (await ExamQuestion.find({ exam: examId }).select('-options.isCorrect -correctAnswerText').populate('subject', 'name').sort({ order: 1 }))
-      .map((q) => inlineQuestionImages(q.toObject()));
+      .map((q) => {
+        const qObj = inlineQuestionImages(q.toObject());
+        return lowData ? lowDataQuestion(qObj, origin) : qObj;
+      });
 
     res.status(200).json({
       success: true,
@@ -918,7 +968,10 @@ exports.startExam = async (req, res) => {
         submission,
         questions,
         settings: exam.settings,
-        security: exam.security
+        security: exam.security,
+        resumed,
+        // Server clock, so a restarted app continues with the real time left.
+        secondsLeft: secondsLeftFor(exam.settings, submission),
       }
     });
   } catch (error) {
@@ -1240,6 +1293,20 @@ exports.submitExam = async (req, res) => {
       message: 'Exam submitted successfully',
       data: submission
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /exams/:id/question-check — the upload summary for any paper.
+exports.getQuestionCheck = async (req, res) => {
+  try {
+    const exam = await Exam.findOne({ _id: req.params.id, institute: req.user.instituteId }).select('_id title');
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+    const questions = await ExamQuestion.find({ exam: exam._id })
+      .select('type questionText questionImageUrl options correctAnswerText marks order')
+      .sort({ order: 1 }).lean();
+    res.status(200).json({ success: true, data: { examId: exam._id, title: exam.title, ...checkQuestions(questions) } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

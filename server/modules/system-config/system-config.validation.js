@@ -32,6 +32,11 @@ exports.updateConfigSchema = Joi.object({
       5: Joi.number().greater(0).max(5).optional()
     }).optional()
   }).optional(),
+  releaseNotes: Joi.array().items(Joi.object({
+    version: Joi.string().trim().max(30).required(),
+    date: Joi.date().iso().optional().allow(null, ''),
+    notes: Joi.array().items(Joi.string().trim().max(300)).max(30).required()
+  })).max(200).optional(),
   neetExamConfig: Joi.object({
     examTitle: Joi.string().optional().allow('', null),
     examDate: Joi.date().iso().optional().allow(null, ''),

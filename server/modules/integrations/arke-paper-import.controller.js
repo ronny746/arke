@@ -105,14 +105,18 @@ exports.importPaper = async (req, res) => {
       totalMarks: paper.questions.reduce((sum, question) => sum + (Number(question.marks) || 4), 0),
     });
 
+    const docs = paper.questions.map((question, index) => normalizeQuestion(question, exam._id, index + 1));
     try {
-      await ExamQuestion.insertMany(paper.questions.map((question, index) => normalizeQuestion(question, exam._id, index + 1)));
+      await ExamQuestion.insertMany(docs);
     } catch (error) {
       await Exam.deleteOne({ _id: exam._id });
       throw error;
     }
 
-    return res.status(201).json({ success: true, alreadyImported: false, exam, message: 'Paper imported into ARKE Exam Papers.' });
+    // Upload summary (question counts, MCQs without 4 options / 1 answer,
+    // non-whole integer answers), so the uploader needs no separate check.
+    const { checkQuestions } = require('../exams/question-check');
+    return res.status(201).json({ success: true, alreadyImported: false, exam, questionCheck: checkQuestions(docs), message: 'Paper imported into ARKE Exam Papers.' });
   } catch (error) {
     console.error('[ARKE IMPORT] Paper import failed:', error);
     return res.status(500).json({ success: false, message: error.message || 'Paper import failed.' });

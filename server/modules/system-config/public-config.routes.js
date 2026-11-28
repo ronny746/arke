@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const SystemConfig = require('./system-config.model');
 const { successResponse } = require('../../common/responses');
+const { normalizeReleaseNotes } = require('./release-notes');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -29,6 +30,7 @@ router.get('/', async (req, res, next) => {
         updateUrl: config?.appUpdate?.updateUrl || "https://play.google.com/store/apps/details?id=com.arkescholarsneet.online",
         updateNotes: config?.appUpdate?.updateNotes || "New version available with enhanced performance and features!"
       },
+      releaseNotes: normalizeReleaseNotes(config?.releaseNotes || []),
       neetExamConfig: {
         examTitle: config?.neetExamConfig?.examTitle || defaultNeetConfig.examTitle,
         examDate: config?.neetExamConfig?.examDate || defaultNeetConfig.examDate,
@@ -53,6 +55,7 @@ router.get('/', async (req, res, next) => {
         updateUrl: "https://play.google.com/store/apps/details?id=com.arkescholarsneet.online",
         updateNotes: "New version available with enhanced performance and features!"
       },
+      releaseNotes: [],
       neetExamConfig: {
         examTitle: "NEET UG 2026",
         examDate: "2026-05-03T10:00:00.000Z",

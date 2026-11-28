@@ -106,7 +106,7 @@ export default function ExamPlayer() {
     try {
       await studentAPI.submitExam(id, { isAutoSubmit: true, violations });
       setSubmitted(true);
-      toast.success('Time is up! Exam auto-submitted.');
+      toast.success('Time is up! Exam auto-submitted. (Time khatam, test apne aap submit ho gaya.)');
       cleanupSecurity();
       router.push('/student/exams');
     } catch (e) {
@@ -118,7 +118,10 @@ export default function ExamPlayer() {
   useEffect(() => {
     const initializeExam = async () => {
       try {
-        const res = await studentAPI.startExam(id);
+        // Slow (2G/3G) or data-saver connection: ask for smaller figures.
+        const conn = typeof navigator !== 'undefined' ? (navigator as any).connection : null;
+        const lowData = Boolean(conn && (conn.saveData || ['slow-2g', '2g', '3g'].includes(conn.effectiveType)));
+        const res = await studentAPI.startExam(id, { lowData });
         const { submission: sub, questions, settings, security } = res.data.data;
         
         const sortedQuestions = (questions || []).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -134,11 +137,16 @@ export default function ExamPlayer() {
           setActiveSubject('General');
         }
         
-        const start = new Date(sub.startTime).getTime();
-        const durationMs = settings.durationMinutes * 60 * 1000;
-        const now = Date.now();
-        const elapsed = now - start;
-        let remaining = Math.max(0, Math.floor((durationMs - elapsed) / 1000));
+        // Prefer the server's time left (its clock, and it knows the window end).
+        const serverLeft = res.data.data.secondsLeft;
+        let remaining;
+        if (typeof serverLeft === 'number') {
+          remaining = Math.max(0, Math.floor(serverLeft));
+        } else {
+          const start = new Date(sub.startTime).getTime();
+          const durationMs = settings.durationMinutes * 60 * 1000;
+          remaining = Math.max(0, Math.floor((durationMs - (Date.now() - start)) / 1000));
+        }
         setTimeLeft(remaining);
         
         if (sub.violations) {
@@ -193,12 +201,12 @@ export default function ExamPlayer() {
       if (document.hidden) {
         const newViolations = { ...violations, tabSwitches: violations.tabSwitches + 1 };
         setViolations(newViolations);
-        toast.error('Warning: Tab switch detected! This incident has been recorded.', { duration: 5000, icon: '🚨' });
+        toast.error('Warning: Tab switch detected! This incident has been recorded. (Dusra tab mat kholo, har baar warning count hogi.)', { duration: 6000, icon: '🚨' });
         
         studentAPI.saveAnswer(id, { violations: newViolations }).catch(()=>console.error('Failed to log violation'));
 
         if (examState.security.maxTabSwitchesAllowed && newViolations.tabSwitches >= examState.security.maxTabSwitchesAllowed) {
-          toast.error('Maximum violations reached. Auto-submitting exam.');
+          toast.error('Maximum violations reached. Auto-submitting exam. (Warnings poori ho gayi, test submit ho raha hai.)');
           handleAutoSubmit();
         }
       }
@@ -216,7 +224,7 @@ export default function ExamPlayer() {
         setIsFullscreen(false);
         const newViolations = { ...violations, fullScreenExits: violations.fullScreenExits + 1 };
         setViolations(newViolations);
-        toast.error('Warning: You exited full screen! Return immediately.', { duration: 5000, icon: '🚨' });
+        toast.error('Warning: You exited full screen! Return immediately. (Turant full screen par wapas aao.)', { duration: 6000, icon: '🚨' });
         studentAPI.saveAnswer(id, { violations: newViolations }).catch(console.error);
       } else {
         setIsFullscreen(true);
@@ -531,6 +539,7 @@ export default function ExamPlayer() {
         <ShieldAlert className="w-20 h-20 text-warning-500" />
         <h1 className="text-3xl font-bold">Full Screen Required</h1>
         <p className="text-gray-300 max-w-md">This exam requires you to be in full-screen mode to prevent cheating. Exiting full screen will be recorded as a violation.</p>
+        <p className="text-gray-400 max-w-md text-sm">Test full screen mein hi chalega. Full screen se bahar jaane ya dusra tab kholne par warning count hogi. Time khatam hone par test apne aap submit ho jayega.</p>
         <Button variant="primary" size="lg" onClick={requestFullscreen}>Enter Full Screen to Start</Button>
       </div>
     );
@@ -938,7 +947,8 @@ export default function ExamPlayer() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
            <div className="bg-white p-6 rounded-lg shadow-2xl max-w-sm w-full mx-4 border-t-4 border-[#1c75b8]">
               <h3 className="text-xl font-bold text-gray-900 mb-2">Submit Exam?</h3>
-              <p className="text-gray-600 mb-6 text-sm">Are you sure you want to submit? You cannot change your answers after submission.</p>
+              <p className="text-gray-600 mb-2 text-sm">Are you sure you want to submit? You cannot change your answers after submission.</p>
+              <p className="text-gray-500 mb-6 text-sm">Submit karne ke baad answers badal nahi paoge.</p>
               <div className="flex gap-3 justify-end">
                 <Button variant="outline" onClick={() => setShowSubmitModal(false)}>Cancel</Button>
                 <Button variant="primary" className="bg-[#1c75b8] hover:bg-[#155a8f]" onClick={confirmSubmit}>Yes, Submit</Button>

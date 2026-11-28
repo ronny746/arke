@@ -33,6 +33,13 @@ router.put(
   ExamController.updateExam
 );
 
+// Upload summary: question counts and broken questions (4 options / 1 answer, whole-number integers)
+router.get(
+  '/:id/question-check',
+  requireRole([ROLES.SUPER_ADMIN, ROLES.ADMIN_ACADOPS, ROLES.TEACHER]),
+  ExamController.getQuestionCheck
+);
+
 // Re-run Expected JEE Main percentiles after the paper level / table changed
 router.post(
   '/:id/recalculate-jee-percentile',
@@ -105,6 +112,12 @@ router.get(
   checkAccess('testSeries'),
   ExamController.getStudentExams
 );
+
+// Student Home: free tests (no course/batch needed), Next test card, crash resume
+const StudentTests = require('./student-tests.controller');
+router.get('/student/free-tests', requireRole([ROLES.STUDENT]), StudentTests.getFreeTests);
+router.get('/student/next-test', requireRole([ROLES.STUDENT]), StudentTests.getNextTest);
+router.get('/student/in-progress', requireRole([ROLES.STUDENT]), StudentTests.getInProgressAttempt);
 
 router.get(
   '/:id/analysis',

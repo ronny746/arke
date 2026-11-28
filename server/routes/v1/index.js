@@ -56,6 +56,8 @@ router.use('/recycle-bin', recycleBinRouter);
 router.use('/banners', bannersRouter);
 router.use('/public/banners', publicBannersRouter);
 router.use('/public-settings', publicConfigRouter);
+// Low-data mode: smaller WebP copies of question figures (public, our S3 only)
+router.use('/media', require('../../modules/media-img/media-img.routes'));
 router.use('/auth', authRouter);
 router.use('/users', usersRouter);
 router.use('/institutes', institutesRouter);
