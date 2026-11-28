@@ -13,14 +13,15 @@ const isMajor = (exam) => ['PART', 'FULL'].includes(testKind(exam?.title));
 
 /**
  * @param {Array} exams  candidate exams (published, accessible to the student)
- * @param {Map<string,string>} statusByExam  exam id -> submission status
+ * @param {Map<string,string>} statusByExam  exam id -> submission status ('EXPIRED' for an attempt out of time)
  * @param {number} now  ms
  * @returns {{ exam, reason: 'IN_PROGRESS'|'LIVE'|'UPCOMING' } | null}
  */
 const pickNextTest = (exams, statusByExam, now = Date.now()) => {
   const list = (Array.isArray(exams) ? exams : []).filter((e) => {
     const status = statusByExam?.get?.(String(e._id));
-    return status !== 'SUBMITTED' && status !== 'AUTO_SUBMITTED' && status !== 'REJECTED';
+    // EXPIRED = an open attempt whose time has run out; it can't be continued.
+    return !['SUBMITTED', 'AUTO_SUBMITTED', 'REJECTED', 'EXPIRED'].includes(status);
   });
   const open = list.filter((e) => !(time(e.settings?.endTime) <= now));
 

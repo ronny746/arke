@@ -41,3 +41,11 @@ test('submitted and ended tests are skipped; nothing left gives null', () => {
     exam('practice', 'Chapter Test', -500, 2000),
   ], new Map([['done', 'SUBMITTED']]), NOW), null);
 });
+
+test('an open attempt whose time ran out is not offered', () => {
+  const r = pickNextTest(
+    [exam('old', 'Chapter Test: Atoms', -100, 1000), exam('mock', 'Full Mock 2', 5, 8)],
+    new Map([['old', 'EXPIRED']]), NOW,
+  );
+  assert.deepEqual([r.exam._id, r.reason], ['mock', 'UPCOMING']);
+});

@@ -26,11 +26,19 @@ const courseNamesFor = async (exams) => {
   ]));
 };
 
-const statusMap = async (studentId, examIds) => {
+// Submission status per exam. With `exams`, an open attempt whose time has
+// run out is reported as 'EXPIRED' (it can no longer be continued).
+const statusMap = async (studentId, examIds, exams = null) => {
   if (!examIds.length) return { status: new Map(), score: new Map() };
-  const subs = await ExamSubmission.find({ student: studentId, exam: { $in: examIds } }).select('exam status score').lean();
+  const subs = await ExamSubmission.find({ student: studentId, exam: { $in: examIds } }).select('exam status score startTime').lean();
+  const examById = new Map((exams || []).map((e) => [String(e._id), e]));
+  const now = Date.now();
   return {
-    status: new Map(subs.map((s) => [String(s.exam), s.status])),
+    status: new Map(subs.map((s) => {
+      const exam = examById.get(String(s.exam));
+      if (exam && s.status === 'IN_PROGRESS' && secondsLeftFor(exam.settings, s, now) === 0) return [String(s.exam), 'EXPIRED'];
+      return [String(s.exam), s.status];
+    })),
     score: new Map(subs.map((s) => [String(s.exam), s.score])),
   };
 };
@@ -73,7 +81,7 @@ exports.getNextTest = async (req, res) => {
       $or: [{ assignedBatches: { $in: batchIds } }, { accessMode: 'FREE' }],
     }).select(LIST_FIELDS).lean();
 
-    const maps = await statusMap(req.user.userId, exams.map((e) => e._id));
+    const maps = await statusMap(req.user.userId, exams.map((e) => e._id), exams);
     const picked = pickNextTest(exams, maps.status, now);
     if (!picked) return res.status(200).json({ success: true, data: null });
 
