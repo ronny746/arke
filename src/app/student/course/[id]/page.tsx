@@ -1042,6 +1042,11 @@ export default function StudentCourseDetailPage() {
                                 <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[#0B132B] text-[#C99A2E]">
                                   {exam.status || 'PUBLISHED'}
                                 </span>
+                                {exam.accessMode === 'FREE' && (
+                                  <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white">
+                                    Free
+                                  </span>
+                                )}
                                 <span className="text-xs font-bold text-gray-500">Test #{idx + 1}</span>
                               </div>
                               <h4 className="font-black text-gray-900 text-base">{exam.title}</h4>
